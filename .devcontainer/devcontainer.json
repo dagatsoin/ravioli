@@ -1,0 +1,11 @@
+{
+  "name": "Ravioli dev",
+  "dockerFile": "Dockerfile",
+  "appPort": 3000,
+  "extensions": ["ms-vscode.vscode-typescript-tslint-plugin"],
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash"
+  },
+  "postCreateCommand": "yarn install",
+  "runArgs": ["-u", "node"]
+}
