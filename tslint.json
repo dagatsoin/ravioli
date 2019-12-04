@@ -1,0 +1,64 @@
+{
+  "extends": ["tslint:latest", "tslint-config-prettier"],
+  "linterOptions": {
+    "exclude": ["**/node_modules/**"]
+  },
+  "rules": {
+    "arrow-parens": false,
+    "ban": false,
+    "class-name": true,
+    "comment-format": [true, "check-space"],
+    "curly": false,
+    "eofline": false,
+    "forin": false,
+    "interface-name": false,
+    "interface-over-type-literal": false,
+    "jsdoc-format": true,
+    "jsx-boolean-value": false,
+    "jsx-no-lambda": false,
+    "jsx-no-multiline-js": false,
+    "label-position": true,
+    "member-ordering": [
+      true,
+      "public-before-private",
+      "static-before-instance",
+      "variables-before-functions"
+    ],
+    "no-any": false,
+    "no-arg": true,
+    "no-bitwise": false,
+    "no-construct": true,
+    "no-debugger": true,
+    "no-duplicate-variable": true,
+    "no-empty": false,
+    "no-eval": true,
+    "no-implicit-dependencies": false,
+    "no-inferrable-types": false,
+    "no-object-literal-type-assertion": false,
+    "no-reference": false,
+    "no-shadowed-variable": true,
+    "no-string-literal": false,
+    "no-submodule-imports": false,
+    "no-switch-case-fall-through": true,
+    "no-trailing-whitespace": false,
+    "no-unused-expression": [true, "allow-fast-null-checks"],
+    "object-literal-key-quotes": false,
+    "object-literal-sort-keys": false,
+    "only-arrow-functions": false,
+    "quotemark": [false, "simple", "jsx-simple"],
+    "radix": true,
+    "strict-type-predicates": true,
+    "switch-default": true,
+    "trailing-comma": [false],
+
+    "triple-equals": [true, "allow-null-check"],
+    "typedef": [true, "parameter", "property-declaration"],
+    "variable-name": [
+      true,
+      "ban-keywords",
+      "check-format",
+      "allow-leading-underscore",
+      "allow-pascal-case"
+    ]
+  }
+}

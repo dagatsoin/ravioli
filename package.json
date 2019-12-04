@@ -1,0 +1,46 @@
+{
+  "name": "ravioli",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "yarn run clean && yarn run tslint-check && yarn run lint && yarn run tsc",
+    "clean": "rimraf dist",
+    "test": "node_modules/.bin/jest --config=/workspaces/ravioli/package.json",
+    "lint": "tslint --config tslint.prod.json --project .",
+    "pretty-quick": "pretty-quick --staged --pattern \"src/**/*.*(js|jsx|ts|tsx|json|md|css)\"",
+    "tslint-check": "tslint-config-prettier-check ./tslint.prod.json"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run pretty-quick"
+    }
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "moduleFileExtensions": [
+      "js",
+      "ts"
+    ],
+    "testMatch": [
+      "<rootDir>/src/vendor/**/tests/*.(test|spec).ts"
+    ]
+  },
+  "dependencies": {
+    "fast-json-patch": "2.1.0",
+    "prettier": "^1.19.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^24.0.23",
+    "husky": "^3.1.0",
+    "jest": "^24.9.0",
+    "parcel-bundler": "^1.12.4",
+    "pretty-quick": "^2.0.1",
+    "rimraf": "^3.0.0",
+    "ts-jest": "^24.2.0",
+    "ts-lint": "^4.5.1",
+    "tslint": "^5.20.1",
+    "tslint-config-prettier": "^1.18.0",
+    "typescript": "^3.7.2"
+  },
+  "keywords": []
+}

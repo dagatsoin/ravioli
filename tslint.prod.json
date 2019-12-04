@@ -1,0 +1,17 @@
+{
+  "extends": "./tslint.json",
+  "rules": {
+    "no-console": [
+      true,
+      "log",
+      "error",
+      "debug",
+      "info",
+      "time",
+      "timeEnd",
+      "trace"
+    ],
+    "no-unused-imports": false,
+    "no-unused-variable": false
+  }
+}
