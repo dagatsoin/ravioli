@@ -1,0 +1,37 @@
+{
+  "name": "ravioli",
+  "version": "0.0.1",
+  "description": "Reactive framework based on the SAM pattern.",
+  "scripts": {
+    "build": "yarn run clean && yarn run lint && yarn run tsc -p ./tsconfig.build.json",
+    "clean": "rimraf dist",
+    "lint": "../../node_modules/.bin/eslint -c ../../.eslintrc.js --ext .ts .",
+    "test": "node_modules/.bin/jest --config=./package.json"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "moduleFileExtensions": [
+      "js",
+      "ts"
+    ],
+    "testMatch": [
+      "<rootDir>/tests/*.(test|spec).ts"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.ts"
+    ]
+  },
+  "devDependencies": {
+    "@types/jest": "^24.0.23",
+    "@typescript-eslint/eslint-plugin": "^2.21.0",
+    "@typescript-eslint/parser": "^2.21.0",
+    "eslint": "^6.8.0",
+    "jest": "^25.1.0",
+    "parcel-bundler": "^1.12.4",
+    "rimraf": "^3.0.0",
+    "ts-jest": "^25.2.1",
+    "ts-node": "^8.6.2",
+    "typescript": "^3.8.2"
+  },
+  "keywords": []
+}

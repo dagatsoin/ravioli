@@ -1,0 +1,36 @@
+{
+  "name": "crafter",
+  "version": "0.0.1",
+  "license": "MIT",
+  "description": "Reactive library providing the best of the immutable and mutable world.",
+  "scripts": {
+    "perf": "ts-node ./tests/performance.ts",
+    "build": "yarn run clean && yarn run lint && yarn run tsc -p ./tsconfig.build.json",
+    "clean": "rimraf dist",
+    "lint": "../../node_modules/.bin/eslint -c ../../.eslintrc.js --ext .ts .",
+    "test": "node_modules/.bin/jest --config=./package.json"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "moduleFileExtensions": [
+      "js",
+      "ts"
+    ],
+    "testMatch": [
+      "<rootDir>/tests/*.(test|spec).ts"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.ts"
+    ]
+  },
+  "devDependencies": {
+    "@types/jest": "^24.0.23",
+    "jest": "^25.1.0",
+    "parcel-bundler": "^1.12.4",
+    "rimraf": "^3.0.0",
+    "ts-jest": "^25.2.1",
+    "ts-node": "^8.6.2",
+    "typescript": "^3.8.2"
+  },
+  "keywords": []
+}
