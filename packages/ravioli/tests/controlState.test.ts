@@ -1,3 +1,4 @@
+/* eslint-disable no-shadow */
 import { component } from '../src/api'
 import { object, array, string, boolean, enumeration } from 'crafter'
 

@@ -1,4 +1,4 @@
-import { CrafterContainer, getGlobal, object, string, autorun, toInstance, createTransformer, number, array, identifier, boolean, computed } from "crafter/src"
+import { CrafterContainer, getGlobal, object, string, autorun, toInstance, createTransformer, number, array, identifier, boolean } from "crafter/src"
 import { reference } from "crafter/src/lib/reference"
 import { component } from "../src"
 

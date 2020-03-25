@@ -1,6 +1,6 @@
 import { observable } from '../src/lib/observable'
 import { autorun, Autorun } from '../src/observer/Autorun'
-import { computed, Computed } from '../src/observer/Computed'
+import { computed } from '../src/observer/Computed'
 import { createTracker } from '../src/lib/Tracker'
 import { getGlobal } from '../src/utils/utils'
 import { IObserver } from '../src/observer/Observer'

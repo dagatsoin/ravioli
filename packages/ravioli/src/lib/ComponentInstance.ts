@@ -21,7 +21,7 @@ import {
   RepresentationPredicate,
   IActionCacheReset
 } from '../api'
-import { getContext, IInstance, toNode, clone, toInstance, CrafterContainer, getGlobal, IComputed, createTransformer, computed, ITransformer } from 'crafter'
+import { getContext, IInstance, toNode, clone, toInstance, CrafterContainer, getGlobal, createTransformer, ITransformer } from 'crafter'
 import { createNAPProposalBuffer, IProposalBuffer } from './NAPProposalBuffer'
 import { Migration } from 'crafter/src/lib/JSONPatch'
 import { IContainer } from 'crafter/src/IContainer'
@@ -156,6 +156,7 @@ export class ComponentInstance<
         stepId
       }
     } else {
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
       const self = this
       this.state = {
         controlStates,
@@ -269,7 +270,7 @@ export class ComponentInstance<
       instanceTransformations: this.transformations,
       factoryTransformations: this.factory.transformations,
       model: this.data,
-      acceptedMutations: acceptedMutations
+      acceptedMutations
     })
 
     // This step led to a new representation transformation.
@@ -296,6 +297,7 @@ export class ComponentInstance<
             }
           )
         }
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
         const self = this
         Object.defineProperty(self.state, 'representation', {
           get(): REPRESENTATION {
@@ -347,15 +349,6 @@ export class ComponentInstance<
     // No more NAP to handle. Render.
     if (this.options?.debounceReaction) {
       this.render()
-    }
-  }
-
-  private render() {
-    if (this.currentTransformation !== undefined) {
-      this.publicContext.presentPatch(this.stepMigration.forward.map(operation => ({
-        ...operation,
-        path: toInstance(this.state.representation).$id + operation.path
-      })))
     }
   }
 
@@ -497,6 +490,15 @@ export class ComponentInstance<
   public removeTransformation(id: string): any {
     this.transformations.splice(this.transformations.findIndex(([_id]) => _id === id), 1)
     return this
+  }
+
+  private render() {
+    if (this.currentTransformation !== undefined) {
+      this.publicContext.presentPatch(this.stepMigration.forward.map(operation => ({
+        ...operation,
+        path: toInstance(this.state.representation).$id + operation.path
+      })))
+    }
   }
 }
 

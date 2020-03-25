@@ -4,12 +4,11 @@
   "description": "Crafter provider for React",
   "main": "index.js",
   "author": "Daniel Neveux",
-  "license": "MIT",
   "private": false,
   "scripts": {
     "test": "node_modules/.bin/jest --config=./package.json",
     "watch": "node_modules/.bin/jest --config=./package.json --watch",
-    "lint": "eslint .",
+    "lint": "../../node_modules/.bin/eslint -c ../../.eslintrc.js --ext .tsx .",
     "test:types": "yarn tsc --noEmit",
     "test:check": "yarn test:types && yarn lint",
     "test:ts": "tsc -p test",

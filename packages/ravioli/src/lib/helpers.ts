@@ -10,7 +10,6 @@ import {
   Reaction,
   IActionCacheReset,
   Transformation,
-  RepresentationPredicate as TransformPredicate,
   RepresentationPredicate,
 } from '../api'
 

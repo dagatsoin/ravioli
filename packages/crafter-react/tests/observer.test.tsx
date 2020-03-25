@@ -455,9 +455,9 @@ test("Observer should not re-render on shallow equal new props", () => {
     const data = { x: 1 }
     const odata = observable({ y: 1 })
 
-    const Child = observer(({ data }) => {
+    const Child = observer(({ data: _data }) => {
         childRendering++
-        return <span>{data.x}</span>
+        return <span>{_data.x}</span>
     })
     const Parent = observer(() => {
         parentRendering++
@@ -579,7 +579,7 @@ test("static on function components are hoisted", () => {
 test("computed properties react to props", () => {
     jest.useFakeTimers()
 
-    const seen: Array<any> = []
+    const seen: any[] = []
     @observer
     class Child extends React.Component<any, any> {
         public propX = computed(() => this.props.x)

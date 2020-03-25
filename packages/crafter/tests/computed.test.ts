@@ -283,8 +283,6 @@ test("Reshape an existing type", function() {
   let reshaped
 
   const dispose = autorun(() => reshaped = representation.get())
-
-  const context = getGlobal().$$crafterContext
   
   expect(reshaped.stats.health).toBe(10)
 

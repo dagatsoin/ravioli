@@ -40,27 +40,26 @@ export class ObjectType<
       })
     )
 
-  public isValidValue = (value: any): value is INPUT => {
-    return value && (
-      isInstance(value)
-        ? value.$type === this && Object.keys(this.properties)
-          .every(key => {
-            if (this.properties[key]  instanceof Computed) {
-              return true
-            }
-            return (this.properties[key] as IType<OUTPUT, INPUT>).isValidValue(
-              value[key]
-            )
-          })
-        : Object.keys(this.properties)
-          .every(key => {
-            if (this.properties[key]  instanceof Computed) {
-              return true
-            }
-            return (this.properties[key] as IType<OUTPUT, INPUT>).isValidValue(
-              value[key]
-            )
-          })
-    )
-  }
+  public isValidValue = (value: any): value is INPUT => value && (
+    isInstance(value)
+      ? value.$type === this && Object.keys(this.properties)
+        .every(key => {
+          if (this.properties[key]  instanceof Computed) {
+            return true
+          }
+          return (this.properties[key] as IType<OUTPUT, INPUT>).isValidValue(
+            value[key]
+          )
+        })
+      : Object.keys(this.properties)
+        .every(key => {
+          if (this.properties[key]  instanceof Computed) {
+            return true
+          }
+          return (this.properties[key] as IType<OUTPUT, INPUT>).isValidValue(
+            value[key]
+          )
+        })
+  )
+ 
 }

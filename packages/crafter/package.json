@@ -1,7 +1,6 @@
 {
   "name": "crafter",
   "version": "0.0.1",
-  "license": "MIT",
   "description": "Reactive library providing the best of the immutable and mutable world.",
   "scripts": {
     "perf": "ts-node ./tests/performance.ts",

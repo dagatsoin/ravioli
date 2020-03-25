@@ -1,7 +1,6 @@
 import { IType } from './lib/IType'
 import { LeafType } from './lib/LeafType'
 import { TypeFlag } from './lib/TypeFlag'
-import { LeafInstance } from './lib'
 
 /**
  * Return true if value is a primitive type
