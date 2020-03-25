@@ -36,7 +36,7 @@ module.exports = {
     '@typescript-eslint/consistent-type-definitions': 'off',
     "@typescript-eslint/explicit-function-return-type": [
       "warn",
-      { allowExpression , allowHigherOrderFunctions: true }
+      { allowExpressions: true , allowHigherOrderFunctions: true }
     ],
     '@typescript-eslint/explicit-member-accessibility': [
       'warn',
