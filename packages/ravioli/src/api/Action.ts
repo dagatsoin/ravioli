@@ -1,4 +1,4 @@
-import { Operation } from 'crafter/src/lib/JSONPatch'
+import { Operation } from '@warfog/crafter'
 import { Mutation } from './Acceptor'
 import { Proposal } from './IPresentable'
 import { MutationName } from './IComponentFactory'

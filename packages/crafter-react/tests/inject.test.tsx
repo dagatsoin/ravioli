@@ -5,7 +5,7 @@ import { observer, inject, Provider } from "../src"
 import { IValueMap } from "../src/types/IValueMap"
 import { render } from "@testing-library/react"
 import { IReactComponent } from "../src/types/IReactComponent"
-import { getGlobal, observable } from "crafter/src"
+import { getGlobal, observable } from "@warfog/crafter"
 
 const crafterContext = getGlobal().$$crafterContext
 

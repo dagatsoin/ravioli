@@ -1,5 +1,5 @@
 {
-  "name": "crafter-react",
+  "name": "@warfog/crafter-react",
   "version": "0.0.1",
   "description": "Crafter provider for React",
   "main": "index.js",
@@ -60,8 +60,7 @@
     "ts-node": "^8.6.2",
     "typescript": "^3.8.2"
   },
-  "dependencies": {
-    "mobx": "^5.15.4",
-    "mobx-react": "^6.1.8"
+  "peerDependencies": {
+    "@warfog/crafter": "^0.0.1"
   }
 }

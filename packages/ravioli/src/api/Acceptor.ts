@@ -1,5 +1,5 @@
 import { Payload } from './shared'
-import { ToLiteral } from 'crafter'
+import { ToLiteral } from '@warfog/crafter'
 
 type Condition<P> = (payload: P) => boolean
 

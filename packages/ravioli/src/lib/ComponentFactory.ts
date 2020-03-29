@@ -3,7 +3,7 @@ import {
   AcceptorFactory,
   IComponentFactory,
   IWithAcceptorFactories,
-  Reaction,
+  StepReaction,
   Transformation,
   MutationName,
   PredicateFunction,
@@ -13,7 +13,7 @@ import {
   InstanceOptions,
 } from '../api/IComponentFactory'
 import { IComponentInstance } from '../api/IComponentInstance'
-import { isNodeType, IType, IComputed } from 'crafter'
+import { isNodeType, IType, IComputed } from '@warfog/crafter'
 import { ComponentInstance, TransformationPackage } from './ComponentInstance'
 import { check } from './helpers'
 import { Mutation } from '../api/Acceptor'
@@ -47,7 +47,7 @@ export class ComponentFactory<
   public packagedActions: ACTIONS = {} as ACTIONS
   public NAPs: Map<
     NAP_NAMES,
-    Reaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
+    StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
   > = new Map()
   public transformations: TransformationPackage<TYPE, MUTATIONS, CONTROL_STATES>[] = []
   private acceptorFactories: Map<string, AcceptorFactory<any>> = new Map()
@@ -166,7 +166,7 @@ export class ComponentFactory<
   }
 
   public addStepReaction<
-    N extends Reaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
+    N extends StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
   >(id: string, nap: N): any {
     this.NAPs.set(id as any, nap)
     return this
@@ -176,7 +176,7 @@ export class ComponentFactory<
   }
   public getNAP(): Map<
     string,
-    Reaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
+    StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
   > {
     return this.NAPs
   }

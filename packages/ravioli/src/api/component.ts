@@ -1,5 +1,5 @@
 import { ComponentFactory } from '../lib/ComponentFactory'
-import { IType } from 'crafter'
+import { IType } from '@warfog/crafter'
 import { IComponentFactory, ComponentOptions } from './IComponentFactory'
 
 export function component<T extends IType<any, any>>(

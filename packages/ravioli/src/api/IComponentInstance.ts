@@ -2,7 +2,7 @@ import { Actions, PackagedActions } from './Action'
 import {
   AcceptorFactory,
   PredicateFunction,
-  Reaction,
+  StepReaction,
   Transformation,
   RepresentationPredicate,
 } from './IComponentFactory'
@@ -16,7 +16,7 @@ export interface IComponentInstance<
   MUTATIONS extends Mutation<any, any>
 > {
   readonly Type: TYPE
-  readonly state: State<REPRESENTATION>
+  readonly state: ComponentState<REPRESENTATION>
   readonly actions: ACTIONS
   compose(composer: ActionComposer<ACTIONS, MUTATIONS>): void
 }
@@ -49,7 +49,7 @@ export interface IEnhancabble {
     predicate: PredicateFunction<any, any, any>
   ): void
   removeControlStatePredicate(id: string): void
-  addStepReaction(id: string, nap: Reaction<any, any, any, any>): void
+  addStepReaction(id: string, nap: StepReaction<any, any, any, any>): void
   setTransformation(id: string, transformation: Transformation<any> | {
     predicate?: RepresentationPredicate<any, any, any>
     computation: Transformation<any>
@@ -61,7 +61,7 @@ type ActionComposer<ACTIONS, MUTATIONS> = (
   actions: ACTIONS
 ) => Proposal<MUTATIONS>[]
 
-export type State<
+export type ComponentState<
   REPRESENTATION,
   CONTROL_STATE extends string = string
 > = {

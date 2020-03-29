@@ -2,14 +2,14 @@ import {
   IComponentInstance,
   ISAMLoop,
   Transformation,
-  State,
+  ComponentState,
   IComponentFactory,
   IWithAcceptorFactories,
   AcceptorFactory,
   IEnhancabble,
   TaggedProposal,
   PackagedActions,
-  Reaction,
+  StepReaction,
   Proposal,
   Mutation,
   Actions,
@@ -21,11 +21,8 @@ import {
   RepresentationPredicate,
   IActionCacheReset
 } from '../api'
-import { getContext, IInstance, toNode, clone, toInstance, CrafterContainer, getGlobal, createTransformer, ITransformer } from 'crafter'
+import { getContext, IInstance, IObservable, toNode, clone, toInstance, CrafterContainer, Migration, IContainer, getGlobal, createTransformer, ITransformer } from '@warfog/crafter'
 import { createNAPProposalBuffer, IProposalBuffer } from './NAPProposalBuffer'
-import { Migration } from 'crafter/src/lib/JSONPatch'
-import { IContainer } from 'crafter/src/IContainer'
-import { IObservable } from 'crafter/src/IObservable'
 
 export type TransformationPackage<TYPE, MUTATIONS, CONTROL_STATES extends string> = [
   string,
@@ -51,7 +48,7 @@ export class ComponentInstance<
     IActionCacheReset {
   
   public Type: TYPE
-  public readonly state: State<REPRESENTATION, CONTROL_STATES>
+  public readonly state: ComponentState<REPRESENTATION, CONTROL_STATES>
   private isStale: boolean = true
   private isRunningNAP: boolean = false
   private _originalActions: ACTIONS = {} as ACTIONS
@@ -65,7 +62,7 @@ export class ComponentInstance<
     MUTATION
   > = createNAPProposalBuffer<MUTATION>()
   private acceptorFactories: Map<string, AcceptorFactory<TYPE>> = new Map()
-  private NAPs: Map<string, Reaction<any, any, any, any>> = new Map()
+  private NAPs: Map<string, StepReaction<any, any, any, any>> = new Map()
   private controlStatePredicates: Map<
     CONTROL_STATES,
     CSPredicate<TYPE, MUTATIONS, CONTROL_STATES>
@@ -437,7 +434,7 @@ export class ComponentInstance<
 
   public addStepReaction(
     NAPName: string,
-    nap: Reaction<any, any, any, any>
+    nap: StepReaction<any, any, any, any>
   ): void {
     this.NAPs.set(NAPName, nap)
   }
@@ -806,8 +803,8 @@ function runNAPs({
 }: Delta<any, any, any> & {
   model: any,
   actions: Actions<any, any, any>
-  factoryStepReactions: Map<string, Reaction<any, any, any, any>>
-  instanceStepReactions: Map<string, Reaction<any, any, any, any>>
+  factoryStepReactions: Map<string, StepReaction<any, any, any, any>>
+  instanceStepReactions: Map<string, StepReaction<any, any, any, any>>
   proposal
 }): void {
   const args = {

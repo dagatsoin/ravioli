@@ -1,7 +1,8 @@
 {
-  "name": "crafter",
+  "name": "@warfog/crafter",
   "version": "0.0.1",
   "description": "Reactive library providing the best of the immutable and mutable world.",
+  "author": "Daniel Neveux",
   "scripts": {
     "perf": "ts-node ./tests/performance.ts",
     "build": "yarn run clean && yarn run lint && yarn run tsc -p ./tsconfig.build.json",
@@ -9,6 +10,8 @@
     "lint": "../../node_modules/.bin/eslint -c ../../.eslintrc.js --ext .ts .",
     "test": "node_modules/.bin/jest --config=./package.json"
   },
+  "main": "dist/index.js",
+  "type": "dist/index.d.ts",
   "jest": {
     "preset": "ts-jest",
     "moduleFileExtensions": [

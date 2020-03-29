@@ -7,7 +7,7 @@ import {
   PackagedActions,
   PredicateFunction,
   ISAMLoop,
-  Reaction,
+  StepReaction,
   IActionCacheReset,
   Transformation,
   RepresentationPredicate,
@@ -81,7 +81,7 @@ export function removeAction(
 export function addStepReaction(
   instance: IComponentInstance<any, any, any, any>,
   NAPName: string,
-  nap: Reaction<any, any, any, any>
+  nap: StepReaction<any, any, any, any>
 ): void {
   ((instance as unknown) as IEnhancabble).addStepReaction(NAPName, nap)
 }

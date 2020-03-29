@@ -1,6 +1,6 @@
 // eslint-disable-next-line max-classes-per-file
 import React, { Component } from 'react'
-import { createTracker, ITracker, Reaction } from 'crafter'
+import { createTracker, ITracker, Reaction } from '@warfog/crafter'
 
 import { setHiddenProp, newSymbol, patch, shallowEqual } from './utils'
 import { IReactComponent } from './types/IReactComponent'

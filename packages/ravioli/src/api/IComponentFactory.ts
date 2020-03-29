@@ -1,11 +1,8 @@
 import { Mutation, Acceptor } from './Acceptor'
 import { PackagedActions, Actions } from './Action'
 import { IComponentInstance } from './IComponentInstance'
-import { IType } from 'crafter/src/lib'
-import { Migration } from 'crafter/src/lib/JSONPatch'
 import { Proposal } from './IPresentable'
-import { ToLiteral, IComputed } from 'crafter'
-import { IContainer } from 'crafter/src/IContainer'
+import { IType, Migration, ToLiteral, IComputed, IContainer } from '@warfog/crafter'
 
 export type ComponentOptions = {
   keepLastControlStateIfUndefined?: boolean
@@ -147,7 +144,7 @@ export interface IComponentFactory<
   >
   addStepReaction<
     I extends string,
-    R extends Reaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
+    R extends StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
   >(
     id: I,
     reaction: R
@@ -160,7 +157,7 @@ export interface IComponentFactory<
     TRANSFORMATION,
     NAP_NAMES | ToLiteral<I>
   >
-  getNAP(): Map<string, Reaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>>
+  getNAP(): Map<string, StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>>
   hasNAP(NAPName: string): boolean
   removeNap<NAP_NAME extends NAP_NAMES>(
     id: NAP_NAME
@@ -218,7 +215,7 @@ export type Delta<TYPE, MUTATION, CONTROL_STATES_PREDICATES> = {
 
 export type Transformation<TYPE> = (model: TYPE) => any
 
-export type Reaction<TYPE, MUTATION, CONTROL_STATES_PREDICATES, ACTIONS> = {
+export type StepReaction<TYPE, MUTATION, CONTROL_STATES_PREDICATES, ACTIONS> = {
   predicate?(
     args: {
       delta: Delta<TYPE, MUTATION, CONTROL_STATES_PREDICATES>

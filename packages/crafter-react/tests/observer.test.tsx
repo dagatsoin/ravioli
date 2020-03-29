@@ -1,11 +1,9 @@
 // eslint-disable-next-line max-classes-per-file
 import React from 'react'
-
+import { observable, getGlobal, computed, optional, object, string } from '@warfog/crafter'
 import { render } from "@testing-library/react"
-import { observable } from 'crafter/src/lib/observable'
-import { getGlobal } from 'crafter'
+
 import { observer, inject, ObserverComponent as Observer } from "../src"
-import { computed, optional, object, string } from 'crafter/src'
 
 const context = getGlobal().$$crafterContext
 
