@@ -2,7 +2,7 @@
   "name": "Ravioli dev",
   "dockerFile": "Dockerfile",
   "appPort": 3000,
-  "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode", "ms-azuretools.vscode-docker"],
+  "extensions": ["knisterpeter.vscode-commitizen", "dbaeumer.vscode-eslint", "esbenp.prettier-vscode", "ms-azuretools.vscode-docker"],
   "settings": {
     "terminal.integrated.shell.linux": "/bin/bash"
   },
