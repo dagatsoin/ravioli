@@ -1,7 +1,7 @@
 import { object } from "../src/object"
 import { getContext, toInstance } from "../src/helpers"
-import { array } from "../src/array"
-import { map } from "../src/map"
+import { array } from "../src/array/factory"
+import { map } from "../src/map/factory"
 import { identifier } from "../src/identifier"
 
 describe('No passed id at creation', function() {

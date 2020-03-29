@@ -2,7 +2,7 @@ import { reference } from '../src/lib/reference'
 import { object } from '../src/object'
 import { array } from '../src/array'
 import { identifier } from '../src/identifier'
-import { map } from '../src/map'
+import { map } from '../src/map/factory'
 import { string, number } from '../src/Primitive'
 import { toInstance, getContext } from '../src/helpers'
 

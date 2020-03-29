@@ -1,7 +1,7 @@
-import { array } from '../src/array'
-import { container } from '../src/lib'
-import { map } from '../src/map'
-import { object } from '../src/object'
+import { array } from '../src/array/factory'
+import { container } from '../src/lib/container/factory'
+import { map } from '../src/map/factory'
+import { object } from '../src/object/factory'
 import { string } from '../src/Primitive'
 import { getContext } from '../src/helpers'
 

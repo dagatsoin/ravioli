@@ -1,8 +1,8 @@
-import { map } from "../src/map"
+import { map } from "../src/map/factory"
 import { string, number } from "../src/Primitive"
 import { isInstance } from "../src/lib/Instance"
 import { isNode } from "../src/lib/isNode"
-import { object } from "../src/object"
+import { object } from "../src/object/factory"
 import { toNode, clone, toInstance, getContext } from "../src/helpers"
 import { INodeInstance } from "../src/lib/INodeInstance"
 import { getGlobal } from '../src/utils/utils'

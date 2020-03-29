@@ -1,11 +1,11 @@
-import { array } from '../array';
-import { map } from '../map';
-import { object } from '../object';
+import { map } from '../map/factory';
+import { object } from '../object/factory';
 import { optional } from '../optional';
 import { boolean, number, string, timeStamp, unknown } from '../Primitive';
 import { IInstance } from './IInstance';
 import { isInstance } from './Instance';
 import { IType } from './IType';
+import { array } from '../array/factory';
 
 export function getTypeFromValue<T extends string | number | object | any[] | Map<any, any> | IInstance<any>>(value: T, isStrict: boolean = false): IType<any> {
   if (isInstance(value)) {

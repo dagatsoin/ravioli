@@ -3,8 +3,8 @@ import { IType } from '../lib/IType'
 import { NodeType } from '../lib/NodeType'
 import { ArrayInstance } from './instance'
 import { IContainer } from '../IContainer'
-import { isInstance } from '../lib'
 import { isUnknownType } from '../Primitive'
+import { isInstance } from '../lib/Instance'
 
 export class ArrayType<TYPE> extends NodeType<TYPE[], TYPE[]> {
   public itemType: IType<TYPE>
