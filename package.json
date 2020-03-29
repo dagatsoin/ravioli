@@ -13,20 +13,15 @@
   "scripts": {
     "test": "lerna run test",
     "new-version": "lerna version --conventional-commits --yes",
-    "build": "yarn run clean && node build.js && tsc -p tsconfig.build.json --outDir packages/ravioli/dist --emitDeclarationOnly --declaration",
-    "clean": "rimraf ./packages/ravioli/dist",
-    "lint": "eslint -c .eslintrc.js --ext .ts ./packages/ravioli",
+    "build": "lerna run build",
+    "clean": "lerna run clean",
+    "lint": "lerna run lint",
     "pretty-quick": "pretty-quick --staged --pattern \"*.ts\""
   },
   "devDependencies": {
-    "@rollup/plugin-typescript": "^4.0.0",
     "husky": "^3.1.0",
     "lerna": "^3.20.2",
     "prettier": "^1.19.1",
-    "pretty-quick": "^2.0.1",
-    "rollup": "^2.2.0",
-    "rollup-plugin-uglify": "^6.0.4",
-    "tslib": "^1.11.1"
-  },
-  "name": "ravioli"
+    "pretty-quick": "^2.0.1"
+  }
 }

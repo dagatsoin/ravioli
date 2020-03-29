@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
-    "baseUrl": "../",
     "module": "ESNext",
-    "declaration": true,
-    "outDir": "dist",
     "jsx": "preserve",
-    "rootDir": "../",
     "downlevelIteration": true,
     "esModuleInterop": true,
     "experimentalDecorators": true,

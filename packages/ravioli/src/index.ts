@@ -1,7 +1,9 @@
 import * as ravioli from './ravioli'
+import * as Crafter from '@warfog/crafter'
 
 export default {
-  ...ravioli
+  ...ravioli,
+  ...Crafter
 }
 
 if (window) {
