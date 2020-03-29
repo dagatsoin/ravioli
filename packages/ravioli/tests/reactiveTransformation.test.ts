@@ -1,5 +1,5 @@
-import { component } from "../src"
-import { object, string, number, array, autorun } from "crafter"
+import { component } from "../src/api"
+import { object, string, number, array, autorun } from "@warfog/crafter"
 
 test('default representation', function() {
   const player = component(object({

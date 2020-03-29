@@ -1,5 +1,6 @@
+import { object, string, noop } from '@warfog/crafter'
+
 import { component, IWithAcceptorFactories } from '../src/api'
-import { object, string, noop } from 'crafter/src'
 import { ComponentFactory } from '../src/lib/ComponentFactory'
 
 describe('Component api', function() {

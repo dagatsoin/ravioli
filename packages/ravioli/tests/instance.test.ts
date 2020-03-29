@@ -14,7 +14,7 @@ import {
   removeTransformation,
 } from '../src/lib/helpers'
 import { component } from '../src/api'
-import { object, string, number, array, noop } from 'crafter'
+import { object, string, number, array, noop } from '@warfog/crafter'
 import { ComponentInstance } from '../src/lib/ComponentInstance'
 
 const User = component(object({ name: string() }))

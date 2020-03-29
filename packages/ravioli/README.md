@@ -3,83 +3,55 @@
 
 Ravioli is like a spaghetti bolognese, but minified and well organized. Also, it does not spread when you are hurry.
 
+## What does Ravioli solve?
+
 **The goal of Ravioli is to code quick but not dirty.**
 
-Heavely inspired by [Mobx](https://mobx.js.org/). Ravioli implements the [SAM pattern](https://sam.js.org/) for making easy to build complex applications like a todo list or a MMORPG.
+Ravioli is an attempt for small teams or junior developer to organize their ideas to achieve great things like a todo list or a MMORPG.
 
-## Dev
+It helps you to cut down your software development with a temporal logic mindset and a clear separation of concern between business code and functionalities.
 
-### VSCode remote friendly.
+All along your development with Ravioli, you will handle your issues with a three questions.
+- is this business concern?
+- is this functional concern?
+- if the user does that, which control state my app will reach?
 
-This project is compatible with VS Code remote.
+### Inspirations
 
-1. Install and launch Docker
-2. Open the project in VS Code, click "Open in a container" on the lower right pop up.
+Heavely inspired by [Mobx State Tree](https://mobx-state-tree.js.org/). Ravioli implements the [SAM pattern](https://sam.js.org/).
 
-## Containerization
+### Is ravioli for you?
+- :heavy_check_mark: you are a junior dev looking for great developement experience
+- :heavy_check_mark: you are a Typescript developer
+yet)
+- :heavy_check_mark: you strugggle to organize your code
 
-### Good practice
+### Is ravioli not for you?
+- :x: you need a library rather a framework (come back later, when the Crafter package will be documented)
+- :x: writing mutable code makes you sick
+- :x: you need incredible performance (come back later, not optimized yet, see the Test section ad the end of the Readme.)
 
-There is some case where containerization is not necessary.
+## Exemple
 
-### A component without mutations is just a model.
+Do you know there is a minimal difference between an entity of a Hack and Slash game and a Todo List?
+- Both have some internal data.
+- Both have some external representation.
+- Both can be in two state: check/unchecked - alive/dead
+- Both have a limited action a user/player can do with.
 
-Imagine a container which model is a "world" of users. Each user has a name.
+We won't use react for this but just some HTML.
 
-A first implementation of this could be
-
+Here we go:
 ```ts
-const User = component(
-  object({
-    name: string()
-  })
-)
-.addAcceptor(model => ({
-  setName(name: string) {
-    model.name = name
-  }
-}))
-.actions({ setName: "setName" })
-
-const World = component(
-  array(User)
-)
-```
-This works, your client is happy.
-Later, your client comes back, and claim that users should have unique names.
-
-So to mutate a name, the acceptor condition should return true only if the name is unique. So the mutator need to **know** about the world to iterate over the others users.
-
-To implement that:
-- we will move the acceptor of the User to the World level.
-- transform the User component in a simple ObjectType, without any business code.
-
-```ts
-const User = object({
-  id: string(),
-  name: string()
+const Grunt = component({
+  health: boolean()
 })
-
-const World = component(
-  array(User)
-).addAcceptor(model => ({
-  setName: {
-    
-    // User must have uniq name
-    condition({newName}: { oldName: string, newName: string }) {
-      return !model.some(({name}) => name === newName)
-    },
-
-    mutator({oldName, newName}: { oldName: string, newName: string }) {
-      const player = model.find(({name}) => name === oldName)
-      if (player) {
-        player.name = newName
-      }
-    }
-  }
-}))
-.actions({ setName: "setName" })
+  .setTransformation('alive')
 ```
+
+# Licence
+
+For now Ravioli is free to use but its source are closed. As I need to to eat I am thinking about paid service to support the development. I will update this section when my plans will be ready.
 
 # API
 ## Crafter
@@ -359,3 +331,12 @@ mutation 309ms
 get snapshot 1 ms
 
 As you can see, the real bottleneck is on the hydration part. Creating nodes is expensive, especially Array nodes.
+
+## Dev
+
+### VSCode remote friendly.
+
+This project is compatible with VS Code remote.
+
+1. Install and launch Docker
+2. Open the project in VS Code, click "Open in a container" on the lower right pop up.

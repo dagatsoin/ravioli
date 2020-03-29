@@ -1,5 +1,5 @@
 import { component } from '../src/api'
-import { object, number } from 'crafter'
+import { object, number } from '@warfog/crafter'
 
 it('should auto heal after a hit', function() {
   const Grunt = component(

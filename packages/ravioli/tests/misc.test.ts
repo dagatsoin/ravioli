@@ -1,6 +1,5 @@
-import { CrafterContainer, getGlobal, object, string, autorun, toInstance, createTransformer, number, array, identifier, boolean } from "crafter/src"
-import { reference } from "crafter/src/lib/reference"
-import { component } from "../src"
+import { CrafterContainer, getGlobal, object, reference, string, autorun, toInstance, createTransformer, number, array, identifier, boolean } from "@warfog/crafter"
+import { component } from "../src/api"
 
 test("Minimal poc of reactive representation", function() {
   const privateContext = new CrafterContainer()

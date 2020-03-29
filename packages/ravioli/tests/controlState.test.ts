@@ -1,6 +1,6 @@
 /* eslint-disable no-shadow */
 import { component } from '../src/api'
-import { object, array, string, boolean, enumeration } from 'crafter'
+import { object, array, string, boolean, enumeration } from '@warfog/crafter'
 
 test('Use case with a control state tree', function() {
   const App = component(

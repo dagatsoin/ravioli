@@ -1,5 +1,5 @@
-import { component } from '../src/api'
-import { object, number, boolean, string } from 'crafter'
+import { component } from "../src/api"
+import { object, number, boolean, string } from '@warfog/crafter'
 
 test('declare action by mutation name', function() {
   const User = component(

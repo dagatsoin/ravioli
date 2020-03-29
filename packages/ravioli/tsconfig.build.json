@@ -1,7 +1,8 @@
 {
-  "extends": "./tsconfig.json",
-  "include": ["src/index.ts"],
-  "exclude" : [
-    "src/plugins"
-  ]
+  "compilerOptions": {
+    "declaration": true,
+    "outDir": "dist",
+  },
+  "include": ["src/**/*"],
+  "extends": "./tsconfig.json"
 }
