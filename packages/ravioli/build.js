@@ -35,7 +35,12 @@ function getConfig(target) {
 
 async function build(config) {
   // create a bundle
-  const bundle = await rollup.rollup(config.inputOptions);
+  let bundle
+  try {
+     bundle = await rollup.rollup(config.inputOptions);
+  } catch (e) {
+    console.error(e)
+  }
 
   // generate code
   await bundle.generate(config.outputOptions);

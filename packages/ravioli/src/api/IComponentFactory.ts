@@ -34,7 +34,7 @@ export interface IComponentFactory<
 > {
   type: IType<TYPE, VALUE>
   packagedActions: ACTIONS
-  mutations: MUTATIONS
+  Mutations: MUTATIONS
   controlStatePredicates: Map<
     CONTROL_STATES,
     CSPredicate<TYPE, MUTATIONS, CONTROL_STATES>
@@ -185,7 +185,7 @@ export type FactoryParameters<F extends AcceptorFactory<any>> = Parameters<
 // Helper type. Extract all mutations names.
 export type MutationName<F extends Mutation<any, any>> = F['type']
 
-export type AcceptorFactory<T> = (model: T) => Acceptor<{ [key: string]: any }>
+export type AcceptorFactory<T, P = any> = (model: T) => Acceptor<P>
 
 export type Predicate<TYPE, MUTATION, CONTROL_STATES extends string, LEAF> =
   | PredicateFunction<TYPE, MUTATION, CONTROL_STATES>

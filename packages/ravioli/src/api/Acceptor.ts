@@ -1,4 +1,3 @@
-import { Payload } from './shared'
 import { ToLiteral } from '@warfog/crafter'
 
 type Condition<P> = (payload: P) => boolean
@@ -6,6 +5,10 @@ type Condition<P> = (payload: P) => boolean
 export type Acceptor<P> = {
   condition?: Condition<P>
   mutator: Mutator<P>
+}
+
+type Payload = {
+  [key: string]: any
 }
 
 export type Mutation<T extends string, P extends Payload> = P extends

@@ -2,15 +2,17 @@
   "compilerOptions": {
     "module": "ESNext",
     "jsx": "preserve",
+    "strict": true,
     "downlevelIteration": true,
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "strictNullChecks": true,
+    "suppressImplicitAnyIndexErrors": true,
     "inlineSourceMap": true,
     "lib": ["es7", "dom", "es2019.array"],
     "target": "es5",
     "moduleResolution": "node",
   },
-  "include": ["src/index.ts", "jest.setup.ts"],
+  "include": ["src/index.ts", "jest.setup.ts", "tests/*"],
   "exclude": ["dist"]
 }

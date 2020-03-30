@@ -66,7 +66,7 @@ export function addActions<
   C extends IComponentFactory<any, any, any, any, any, any, any>
 >(
   instance: IComponentInstance<any, any, any, any>,
-  actions: PackagedActions<any, C['mutations']>
+  actions: PackagedActions<any, C['Mutations']>
 ): void {
   ((instance as unknown) as IEnhancabble).addActions(actions)
 }
@@ -98,7 +98,7 @@ export function addControlStatePredicate<
 >(
   instance: IComponentInstance<any, any, any, any>,
   id: string,
-  predicate: PredicateFunction<T['type']['Type'], T['mutations']>
+  predicate: PredicateFunction<T['type']['Type'], T['Mutations']>
 ): void {
   ((instance as unknown) as IEnhancabble).addControlStatePredicate(
     id,

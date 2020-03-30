@@ -7,5 +7,5 @@ export default {
 }
 
 if (window) {
-  window['$ravioli'] = ravioli
+  (window as any)['$ravioli'] = ravioli
 }

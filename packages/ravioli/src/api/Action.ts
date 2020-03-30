@@ -2,7 +2,6 @@ import { Operation } from '@warfog/crafter'
 import { Mutation } from './Acceptor'
 import { Proposal } from './IPresentable'
 import { MutationName } from './IComponentFactory'
-import { Payload } from './shared'
 
 export enum ActionType {
   update = 'update',
@@ -18,11 +17,11 @@ export type Action<MUTATION extends Mutation<any, any> = any> =
   | AsyncAction<MUTATION>
 
 export type SyncAction<MUTATION extends Mutation<any, any>> = (
-  payload: Payload
+  payload?: any
 ) => Proposal<MUTATION>
 
 export type AsyncAction<MUTATION extends Mutation<any, any>> = (
-  payload: Payload
+  payload?: any
 ) => Promise<Proposal<MUTATION>>
 
 export type ActionIntent = (payload: any) => void

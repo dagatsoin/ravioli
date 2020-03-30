@@ -47,14 +47,16 @@ export class ComponentInstance<
     IEnhancabble,
     IActionCacheReset {
   
-  public Type: TYPE
+  public get Type(): TYPE {
+    throw new Error('[Ravioli] IComponentInstance.Type is just a helper field for linting and may not be used at runtime.')
+  }
   public readonly state: ComponentState<REPRESENTATION, CONTROL_STATES>
   private isStale: boolean = true
   private isRunningNAP: boolean = false
   private _originalActions: ACTIONS = {} as ACTIONS
   private _wrapedActions: ACTIONS = {} as ACTIONS
   private data: IInstance<TYPE, VALUE>
-  private factory: IComponentFactory<TYPE, VALUE, any> &
+  private factory: IComponentFactory<TYPE, VALUE, any, CONTROL_STATES> &
     IWithAcceptorFactories<any>
   private stepMigration: Migration = { forward: [], backward: [] }
   private options?: ComponentOptions
@@ -100,7 +102,7 @@ export class ComponentInstance<
     data,
     options,
   }: {
-    factory: IComponentFactory<TYPE, VALUE, any> & IWithAcceptorFactories<any>
+    factory: IComponentFactory<TYPE, VALUE, any, CONTROL_STATES> & IWithAcceptorFactories<any>
     data: VALUE
     options?: ComponentOptions
   }) {
@@ -110,7 +112,7 @@ export class ComponentInstance<
     this.publicContext = options?.contexts?.public || getGlobal().$$crafterContext
     this.data = toInstance<any>(this.factory.type.create(data))
     toNode(this.data).$addTransactionPatchListener(
-      migration => (this.stepMigration = migration)
+      (migration: Migration) => (this.stepMigration = migration)
     )
     const controlStates = getControlStates<
       CONTROL_STATES
@@ -122,7 +124,7 @@ export class ComponentInstance<
       acceptedMutations: [],
     })
 
-    const initialTransformationPackage = getTransformationPackage({
+    const initialTransformationPackage = getTransformationPackage<CONTROL_STATES>({
       controlStates,
       previousControlStates: [],
       model: this.data,
@@ -247,7 +249,7 @@ export class ComponentInstance<
     const previousControlStates = this.state.controlStates
 
     /* 2 */
-    const controlStates = getControlStates(
+    const controlStates = getControlStates<CONTROL_STATES>(
       {
         instanceControlStatePredicates: this.controlStatePredicates,
         factoryControlStatePredicates: this.factory.controlStatePredicates,
@@ -805,7 +807,7 @@ function runNAPs({
   actions: Actions<any, any, any>
   factoryStepReactions: Map<string, StepReaction<any, any, any, any>>
   instanceStepReactions: Map<string, StepReaction<any, any, any, any>>
-  proposal
+  proposal: Mutation<any, any>[]
 }): void {
   const args = {
     model,

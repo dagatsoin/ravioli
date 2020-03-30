@@ -37,8 +37,9 @@ export class ComponentFactory<
       REPRESENTATION
     >,
     IWithAcceptorFactories<TYPE> {
-  public value: VALUE
-  public mutations: MUTATIONS
+  public get Mutations(): MUTATIONS {
+    throw new Error('[Ravioli] IComponentFactory.Mutations is just a helper field for linting and may not be used at runtime.')
+  }
   public controlStatePredicates: Map<
     CONTROL_STATES,
     CSPredicate<TYPE, MUTATIONS, CONTROL_STATES>
@@ -121,7 +122,7 @@ export class ComponentFactory<
   }
 
   public removeAction(actionName: any): any {
-    delete this.packagedActions[actionName]
+    delete (this.packagedActions as any)[actionName]
     return this
   }
 
