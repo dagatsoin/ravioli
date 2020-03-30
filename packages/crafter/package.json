@@ -1,6 +1,6 @@
 {
   "name": "@warfog/crafter",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Reactive library providing the best of the immutable and mutable world.",
   "author": "Daniel Neveux",
   "scripts": {

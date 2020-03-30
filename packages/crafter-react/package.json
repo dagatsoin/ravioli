@@ -1,6 +1,6 @@
 {
   "name": "@warfog/crafter-react",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Crafter provider for React",
   "main": "index.js",
   "author": "Daniel Neveux",
@@ -52,7 +52,7 @@
     "@types/react": "^16.9.23",
     "@types/react-dom": "^16.9.5",
     "@types/testing-library__jest-dom": "^5.0.1",
-    "@warfog/crafter": "^0.0.1",
+    "@warfog/crafter": "^1.0.0",
     "eslint-plugin-react": "^7.18.3",
     "jest": "^25.1.0",
     "react": "^16.13.0",
