@@ -3,7 +3,8 @@
   "workspaces": [
     "packages/crafter",
     "packages/crafter-react",
-    "packages/ravioli"
+    "packages/ravioli",
+    "packages/example-rpg"
   ],
   "husky": {
     "hooks": {
