@@ -1,6 +1,6 @@
 {
   "name": "@warfog/ravioli",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Daniel Neveux",
   "description": "Reactive framework based on the SAM pattern.",
   "scripts": {
@@ -33,7 +33,7 @@
     "@types/jest": "^24.0.23",
     "@typescript-eslint/eslint-plugin": "^2.21.0",
     "@typescript-eslint/parser": "^2.21.0",
-    "@warfog/crafter": "^1.0.0",
+    "@warfog/crafter": "^1.1.0",
     "eslint": "^6.8.0",
     "jest": "^25.1.0",
     "rimraf": "^3.0.0",
