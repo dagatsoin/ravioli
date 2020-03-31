@@ -30,7 +30,7 @@ describe('array value binding', function() {
   const model = object({
     players: container(array(object({ name: string() }))),
   })
-  let instance
+  let instance: any
 
   beforeEach(function() {
 

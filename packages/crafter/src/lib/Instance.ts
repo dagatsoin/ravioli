@@ -10,9 +10,8 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
   
   public $isInstance: true = true
   public $$container: IContainer
-  
-  protected $$id: string
-  
+  protected $$id!: string
+
   public abstract $snapshot: Input
   public abstract $data: any
   public abstract $type: IType<T, Input>

@@ -7,7 +7,6 @@ import { IContainer } from '../IContainer'
 
 export class LeafType<T extends LeafValueType> extends Type<T, T>
   implements ILeafType<T> {
-  public Type: T
   public isLeaf: true = true
   public typeFlag: TypeFlag
   public isValidSnapshot: InputValidator<T>

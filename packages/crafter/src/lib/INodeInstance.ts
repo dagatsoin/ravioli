@@ -48,7 +48,7 @@ export interface INodeInstance<TYPE, SNAPSHOT = TYPE>
    * If willEmitPatch is true, this will reemit a patch. (used internally in Ravioli)
    */
   $applyOperation<O extends Operation>(operation: O, willEmitPatch?: boolean): void
-  $addTransactionPatchListener(patchListener): void
+  $addTransactionPatchListener(patchListener: PatchListener): void
   $addOperationListener(operationListener: OperationListener): void
   $removeOperationListener(operationListener: OperationListener): void
 }

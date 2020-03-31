@@ -20,11 +20,14 @@ export enum ObserverType {
 
 export abstract class Observer implements IObserver {
   public id: string;
-  public dependencyPaths: string[];
-  public isStale: boolean;
-  public type: ObserverType;
+  
   protected context: IContainer
   protected _isStale = true
+  
+  public abstract dependencyPaths: string[];
+  public abstract isStale: boolean;
+  public abstract type: ObserverType;
+
 
   constructor(idPrefix: string, context?: IContainer) {
     this.context = context || getGlobal().$$crafterContext

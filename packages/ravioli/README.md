@@ -11,7 +11,7 @@ Ravioli is an attempt for small teams or junior developer to organize their idea
 
 It helps you to cut down your software development with a temporal logic mindset and a clear separation of concern between business code and functionalities.
 
-All along your development with Ravioli, you will handle your issues with a three questions.
+All along your development with Ravioli, you will handle your issues with three questions.
 - is this business concern?
 - is this functional concern?
 - if the user does that, which control state my app will reach?
@@ -31,22 +31,197 @@ yet)
 - :x: writing mutable code makes you sick
 - :x: you need incredible performance (come back later, not optimized yet, see the Test section ad the end of the Readme.)
 
-## Exemple
+## Installation
 
-Do you know there is a minimal difference between an entity of a Hack and Slash game and a Todo List?
-- Both have some internal data.
-- Both have some external representation.
-- Both can be in two state: check/unchecked - alive/dead
-- Both have a limited action a user/player can do with.
+`$npm install --save @warfog/crafter @warfog/ravioli`
+
+## Simple Example
+
+```ts
+const store = component(object({counter: number()}))
+  .addAcceptor("increment", ({counter}) => ({ mutator: () => counter++ }))
+  .addActions({increment: "increment"})
+  .create({counter: 0}) // initial model data
+
+autorun(() => console.log(store.state.representation.counter))
+
+store.actions.increment() // 1
+store.actions.increment() // 2
+store.actions.increment() // 3
+```
+
+## Deeper example
+
+What about doing a little RPG instead of the usual todo list?
 
 We won't use react for this but just some HTML.
 
-Here we go:
+Here are the specs of our little game:
+- as a player, I can beat a monster
+- as a player, I can loot a monster
+- as a player, I can see my inventory
+
+### As a player, I can beat a monster
+
+Beat a monster means that we need... a monster. It will be a kobold. It also means that our kobold will have two control states: alive or dead.
+
+Let's begin to write the model. The model is always in a private scope. It won't be accessed by the view, and the end user is not aware of its internal.
+
+To describe a model, we use Crafter which is a core part of Ravioli (and can be used in stand alone). Crafter creates a factory which will be used to instantiate our kobold.
+
+Let give to our kobold a name property and health property.
+
 ```ts
-const Grunt = component({
-  health: boolean()
+// Model.ts
+import { object, string, number, array } from "@warfog/crafter"
+
+export const Kobold = object({
+  name: string(),
+  health: number() 
 })
-  .setTransformation('alive')
+```
+
+```ts
+// Component.ts
+
+import Ravioli from "@warfog/ravioli";
+
+// Import our model previously created
+import { Kobold } from "./Model"
+
+const { component } = Ravioli;
+
+const kobold = component(Kobold)
+  /* 1 */
+  .setControlStatePredicate("isAlive", ({ model }) => model.health > 0)
+  .setControlStatePredicate("isDead", ({ model }) => model.health <= 0)
+
+  /* 2 */
+  .addAcceptor("setHealth", model => ({ mutator: ({ hp }) => model.health += hp))
+  .addAcceptor("removeFromInventory", model => ({ mutator: ({id}) => {
+    model.inventory.splice(model.inventory.findIndex(item => item.id === id), 1)
+  }}))
+  .addActions({
+    hit: () => [{ type: "setHealth", payload: { hp: -3 } }],
+    drop: id => [{ type: 'removeFromInventory', payload: { id }}],
+  })
+  .setTransformation("alive", {
+    predicate: "isAlive",
+    computation: ({name, health}) => ({
+      name,
+      image: "https://tse2.mm.bing.net/th?id=OIP._bdxk_5JB1Vx631GnMjkrgHaGT&pid=Api&P=0&w=300&h=300",
+      health
+    })
+  })
+  .setTransformation("dead", {
+    predicate: "isDead",
+    computation: ({name, inventory: loot}) => ({ name, loot })
+  })
+  .addStepReaction('render', { effect: render })
+  .create({
+    name: "Kobold",
+    health: 10,
+    inventory: [{ id: "sword", quantity: 1 }, { id: "shield", quantity: 1 }]
+  });
+
+const player = component(object({
+  inventory: array(object({
+    id: string(),
+    quantity: number()
+  }))
+})).addAcceptor(
+  'addToInventory',
+  model => ({
+    mutator(item: {id: string, quantity: number}) {
+      model.inventory.push(item)
+    }
+  } as any)
+).addActions({
+  pickItem: function({id}: {id: string}){
+    return [{
+      type: "addToInventory",
+      payload: {id, quantity: 1}
+    }]
+  } as any
+})
+.create()
+
+/** VIEW */
+
+type AliveKobold = {
+  name: string
+  image: string
+  health: number
+}
+
+type DeadKobold = {
+  name: string
+  loot: typeof kobold['Type']['inventory']
+}
+
+window['hit'] = function() {
+  kobold.actions.hit()
+}
+
+window['loot'] = function() {
+  if (kobold.state.representation.loot?.length) {
+    player.actions.pickItem(kobold.state.representation.loot[0])
+    kobold.actions.drop(kobold.state.representation.loot[0].id)
+  }
+}
+
+function isAlive(store: AliveKobold){
+  return `
+    <h1>RPG Example with Ravioli!</h1>
+    <div style="display: flex; flex-direction: column; align-items: center">
+      <i>You are facing a kobold.</i>
+      <img src="${store.image}" with=300/>
+      <b>Health: ${store.health}</b>
+      <button onClick="hit()">Hit</button>
+    </div>
+  `
+}
+function isDead(store: DeadKobold){
+  return `
+    <h1>RPG Example with Ravioli!</h1>
+    <div style="display: flex; flex-direction: column; align-items: center">
+      <i>You have killed the kibold, loot it.</i>
+      <ul>
+        ${store.loot.map(({id}) => `<li>${id}</li>`).join('')}
+      </ul>
+      <button onClick="loot()">Loot</button>
+    </div>
+  `
+}
+
+function playerInventory(playerStore: {inventory: {id: string, quantity: number}[]}) {
+  return `
+  <h2>Player inventory:</h2>
+  ${playerStore.inventory.length
+    ? `
+    <ul>
+      ${playerStore.inventory.map(({id}) => `<li>${id}</li>`).join('')}
+    </ul>
+    `
+    : 'empty :('
+  }
+  `
+} 
+
+function render() {
+  document.getElementById("app")!.innerHTML = `
+      ${kobold.state.controlStates.includes("isAlive")
+      ? isAlive(kobold.state.representation)
+      : isDead(kobold.state.representation)
+    }
+    ${
+      playerInventory(player.state.representation)
+    }
+  `;
+}
+
+// Initial render
+render()
 ```
 
 # Licence

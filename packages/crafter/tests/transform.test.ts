@@ -34,7 +34,13 @@ test("transform to observable object", function() {
     inventory: [{id: 'sword', quantity: 0, isEquiped: false}]
   })
 
-  let test
+  let test: {
+    name: string
+    stuff: {name: string}[]
+  } = {
+    name: '',
+    stuff: []
+  }
 
   const transforModel = createTransformer((m: typeof Model['Type']) => ({
     name: m.name,
@@ -368,14 +374,14 @@ test("Defer transformation by using two contexts", function() {
     }
   }, {contexts: {source: privateContext, output: publicContext}})
 
-  let test
+  let test: any
 
   // React app
   autorun(() => {
     test = reactStore.get()
   })
 
-  let migration
+  let migration: any
 
   expect(playerTransformRun).toBe(1)
   expect(entityTransformRun).toBe(2)
@@ -394,7 +400,7 @@ test("Defer transformation by using two contexts", function() {
   
   expect(test.player.name).toBe('Fraktar')
 
-  publicContext.presentPatch(migration.forward.map(operation => ({
+  publicContext.presentPatch(migration.forward.map((operation: any) => ({
     ...operation,
     path: toInstance(model).$id + operation.path
   })))

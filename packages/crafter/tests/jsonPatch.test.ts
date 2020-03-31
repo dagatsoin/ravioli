@@ -3,6 +3,7 @@ import { observable } from '../src/lib/observable'
 import { object } from '../src/object/factory'
 import { string, number } from '../src/Primitive'
 import { array } from '../src/array'
+import { Operation } from '../src/lib/JSONPatch'
 
 const Player = object({
   name: string(),
@@ -49,7 +50,7 @@ test('apply patch', function() {
       { op: 'remove', path: '/inventory/1' },
       { op: 'replace', path: '/some/nested/field', value: 'bar' },
       { op: 'replace', path: '/some/map/key', value: { field: 'new value' } },
-    ] as any).forEach(op => node.$applyOperation(op))
+    ] as any).forEach((op: Operation) => node.$applyOperation(op))
   )
   expect(target.name).toBe('Fraktos')
   expect(target.inventory[1]).toBeUndefined()

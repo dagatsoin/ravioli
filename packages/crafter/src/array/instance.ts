@@ -223,7 +223,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     this.$data = [] as any
     Object.keys(this).forEach(k => delete this[k])
     // Replace members
-    this.$data.push(...value.map(i => this.$createChildInstance<SUBTYPE>(i)))
+    this.$data.push(...value.map((i: SUBTYPE) => this.$createChildInstance<SUBTYPE>(i)))
     for (let i = 0; i < this.length; i++) {
       this.$addInterceptor(i)
     }
@@ -279,7 +279,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   ): SUBTYPE[] => {
     addObservedLength(this)
     return thisArg
-      ? Array.prototype.filter.call(this, thisArg, callbackfn)
+      ? Array.prototype.filter.call(this, thisArg as any, callbackfn)
       : Array.prototype.filter.call(this, callbackfn)
   }
 
@@ -310,7 +310,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     initialValue?: SUBTYPE
   ): SUBTYPE {
     addObservedLength(this)
-    return Array.prototype.reduce.call(this, callbackfn, initialValue)
+    return Array.prototype.reduce.call(this, callbackfn, initialValue) as any
   }
 
   public reduceRight(
@@ -344,7 +344,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
       this,
       callbackfn,
       initialValue
-    )
+    ) as any
   }
 
   public fill = (
@@ -517,7 +517,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     thisArg?: any
   ): U[] {
     addObservedLength(this)
-    return Array.prototype.map.call(this, callbackfn, thisArg)
+    return Array.prototype.map.call(this, callbackfn, thisArg) as any
   }
 
   public $addInterceptor(index: number | string): void {

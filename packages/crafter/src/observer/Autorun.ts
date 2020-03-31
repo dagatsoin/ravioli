@@ -5,7 +5,6 @@ type AutorunFunction = (p:{isFirstRun: boolean, dispose: () => void}) => void
 
 export class Autorun extends Observer {
   public dependencyPaths: string[] = []
-  public id: string
   public type = ObserverType.Autorun
   public get isStale(): boolean {
     return this._isStale

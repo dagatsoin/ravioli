@@ -43,8 +43,8 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   private $prevValue: TYPE = (undefined as unknown) as TYPE
   private $prevSnapshot: SNAPSHOT = (undefined as unknown) as SNAPSHOT
   constructor(
-    snapshotComputation: (data: DataNode) => SNAPSHOT,
-    valueComputation: (data: DataNode) => TYPE,
+    snapshotComputation: (data: any) => SNAPSHOT,
+    valueComputation: (data: any) => TYPE,
     methodKeys: string[] = [],
     options?: {
       id?: string,

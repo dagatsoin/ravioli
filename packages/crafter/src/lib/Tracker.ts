@@ -9,7 +9,7 @@ export interface ITracker {
 }
 
 export class Tracker implements IObservable<unknown>, ITracker {
-  public $isObservable: true
+  public $isObservable: true = true
   public $patch: Migration<any, any> = {
     forward: [],
     backward: [],

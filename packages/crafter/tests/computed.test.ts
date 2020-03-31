@@ -280,7 +280,7 @@ test("Reshape an existing type", function() {
   }))
 
   const model = Model.create({health: 10})
-  let reshaped
+  let reshaped: any
 
   const dispose = autorun(() => reshaped = representation.get())
   

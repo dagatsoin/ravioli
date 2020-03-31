@@ -18,9 +18,8 @@ export class Computed<T> extends Observer implements IComputed<T> {
   }
   public type = ObserverType.Computed
   public dependencyPaths: string[] = []
-  public id: string
   public readonly fun: (isInitialRun?: true) => T
-  private value: T | IObservable<T>
+  private value!: T | IObservable<T>
   private isAlive: boolean = false
   private isIinitialized = false
   private valueContext: IContainer

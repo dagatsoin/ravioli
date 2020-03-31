@@ -369,7 +369,7 @@ describe('Array methods', function() {
       })
 
       test('on object array: JSON patch apply forward', function() {
-        let shouldBe
+        let shouldBe: any
         getContext(toInstance(world)).transaction(() => {
           shouldBe = clone(world)
             .players.copyWithin(0, 1, 3)
@@ -395,7 +395,7 @@ describe('Array methods', function() {
 
       test('on object array: JSON patch apply backward', function() {
         const shouldBe = getSnapshot(world).players
-        let arrayToReverse
+        let arrayToReverse: any
         getContext(toInstance(world)).transaction(() => {
           arrayToReverse = world.players.copyWithin(0, 1, 3)
         })
@@ -453,7 +453,7 @@ describe('Array methods', function() {
       })
 
       test('on primitive array: JSON patch apply forward', function() {
-        let shouldBe
+        let shouldBe: any
         getContext(toInstance(world)).transaction(() => {
           shouldBe = clone(world)
             .connectedPlayers.copyWithin(0, 1, 3)
@@ -478,7 +478,7 @@ describe('Array methods', function() {
 
       test('on primitive array: JSON patch apply backward', function() {
         const shouldBe = getSnapshot(world.connectedPlayers)
-        let arrayToReverse
+        let arrayToReverse: any
         getContext(toInstance(world)).transaction(
           () => (arrayToReverse = world.connectedPlayers.copyWithin(0, 1, 3))
         )
@@ -571,7 +571,7 @@ describe('Array methods', function() {
       })
 
       test('on object array: JSON patch apply forward', function() {
-        let shouldBe
+        let shouldBe: any
         getContext(toInstance(world)).transaction(() => {
           const _clone = clone(world)
           _clone.players.pop()
@@ -633,7 +633,7 @@ describe('Array methods', function() {
       })
 
       test('on primitive array: JSON patch apply forward', function() {
-        let shouldBe
+        let shouldBe: any
         getContext(toInstance(world)).transaction(() => {
           const _clone = clone(world)
           _clone.connectedPlayers.pop()
@@ -774,7 +774,7 @@ describe('Array methods', function() {
       })
 
       test('on object array: JSON patch apply forward', function() {
-        let shouldBe
+        let shouldBe: any
         getContext(toInstance(world)).transaction(() => {
           shouldBe = clone(world)
             .players.fill(
@@ -815,7 +815,7 @@ describe('Array methods', function() {
 
       test('on object array: JSON patch apply backward', function() {
         const shouldBe = getSnapshot(toInstance(world)).players
-        let arrayToReverse
+        let arrayToReverse: any
         getContext(toInstance(world)).transaction(() => {
           arrayToReverse = world.players.fill(
             {
@@ -891,7 +891,7 @@ describe('Array methods', function() {
       })
 
       test('on primitive array: JSON patch apply forward', function() {
-        let shouldBe
+        let shouldBe: any
         getContext(toInstance(world)).transaction(() => {
           shouldBe = clone(world)
             .connectedPlayers.fill('Dreadbond', 1, 3)
@@ -912,7 +912,7 @@ describe('Array methods', function() {
 
       test('on primitive array: JSON patch apply backward', function() {
         const shouldBe = getSnapshot(toInstance(world)).connectedPlayers
-        let arrayToReverse
+        let arrayToReverse: any
         getContext(toInstance(world)).transaction(
           () => (arrayToReverse = world.connectedPlayers.copyWithin(0, 1, 3))
         )
@@ -1015,7 +1015,7 @@ describe('Array methods', function() {
     })
 
     test('JSON patch apply forward', function() {
-      let shouldBe
+      let shouldBe: any
       getContext(toInstance(world)).transaction(() => {
         shouldBe = clone(world)
           .connectedPlayers.reverse()
@@ -1033,7 +1033,7 @@ describe('Array methods', function() {
 
     test('JSON patch apply backward', function() {
       const shouldBe = getSnapshot(toInstance(world)).connectedPlayers
-      let arrayToReverse
+      let arrayToReverse: any
       getContext(toInstance(world)).transaction(
         () => (arrayToReverse = world.connectedPlayers.reverse())
       )
@@ -1093,7 +1093,7 @@ describe('Array methods', function() {
       })
 
       test('on object array: JSON patch apply forward', function() {
-        let shouldBe
+        let shouldBe: any
         getContext(toInstance(world)).transaction(() => {
           shouldBe = clone(world)
           shouldBe.players.shift()
@@ -1193,7 +1193,7 @@ describe('Array methods', function() {
       })
 
       test('on object array: JSON patch apply forward', function() {
-        let shouldBe
+        let shouldBe: any
         getContext(toInstance(world)).transaction(() => {
           shouldBe = clone(world)
           shouldBe.players.push({ name: 'guest', level: 0, hp: 0 })
@@ -1459,7 +1459,7 @@ describe('Array methods', function() {
       })
 
       test('on object array, length is untouched: JSON patch apply forward', function() {
-        let shouldBe
+        let shouldBe: any
         getContext(toInstance(world)).transaction(() => {
           shouldBe = clone(world)
           shouldBe.players.splice(
@@ -1507,7 +1507,7 @@ describe('Array methods', function() {
 
       test('on object array, length is untouched: JSON patch apply backward', function() {
         const shouldBe = getSnapshot(toInstance(world)).players
-        let arrayToReverse
+        let arrayToReverse: any
         getContext(toInstance(world)).transaction(() => {
           arrayToReverse = clone(world)
           arrayToReverse.players.splice(1, 1, {
@@ -1782,7 +1782,7 @@ describe('Array methods', function() {
       })
 
       test('on primitive array, length is untouched: JSON patch apply forward', function() {
-        let shouldBe
+        let shouldBe: any
         getContext(toInstance(world)).transaction(() => {
           shouldBe = clone(world)
           shouldBe.connectedPlayers.splice(1, 1, 'Troll')
@@ -1901,7 +1901,7 @@ describe('Array methods', function() {
   test('sort via JSON commands', function() {
     const ids = toNode(world.players)
       .$data.map(toInstance)
-      .map(({ $id }) => $id)
+      .map(({ $id }: any) => $id)
     const commands = [
       {
         op: 'sort',

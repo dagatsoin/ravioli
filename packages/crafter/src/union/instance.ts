@@ -4,13 +4,12 @@ import { IFactory } from '../lib/IFactory'
 import { INodeType } from '../lib/INodeType'
 import { IType } from '../lib/IType'
 import { isNode } from "../lib/isNode"
-import { Snapshot } from '../lib/Snapshot'
 import { setNonEnumerable } from '../utils/utils'
 
 import { IInstance } from '../lib'
 import { IContainer } from '../IContainer'
 
-export class UnionInstance<T, S extends Snapshot<T>> extends ContainerInstance<
+export class UnionInstance<T> extends ContainerInstance<
   T
 > {
   public $types: IType<T>[]
@@ -49,7 +48,7 @@ export class UnionInstance<T, S extends Snapshot<T>> extends ContainerInstance<
   }
 }
 
-function clean(unionInstance: UnionInstance<any, any>): void {
+function clean(unionInstance: UnionInstance<any>): void {
   unionInstance.$targetInstance.$kill()
   // Delete previous binding
   if (isNode(unionInstance.$targetInstance)) {

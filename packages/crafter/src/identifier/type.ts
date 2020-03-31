@@ -4,7 +4,6 @@ import { IContainer } from '../IContainer'
 import { IdentifierInstance } from './instance'
 
 export class IdentifierType<T extends string = string> extends Type<T, T> {
-  public Type: T
   public isLeaf: true = true
   public readonly type = TypeFlag.identifier
   constructor() {

@@ -3,7 +3,7 @@ import { setNonEnumerable } from '../../utils/utils'
 import { IInstance } from '../IInstance'
 import { INodeInstance } from '../INodeInstance'
 import { INodeType } from '../INodeType'
-import { BasicOperation, Operation, isAdditiveOperationWithoutKey, isRemovalOperationWithoutKey } from '../JSONPatch'
+import { Operation, isAdditiveOperationWithoutKey, isRemovalOperationWithoutKey } from '../JSONPatch'
 import { NodeInstance } from '../NodeInstance'
 import { isNode } from "../isNode"
 import { ArrayInstance } from '../../array/instance'
@@ -15,7 +15,7 @@ export class ContainerInstance<TYPE> extends NodeInstance<TYPE, any>
   implements IInstanceContainer<TYPE> {
   public $data: any
   public $type: INodeType<TYPE, TYPE>
-  public $targetInstance: IInstance<TYPE>
+  public $targetInstance!: IInstance<TYPE>
   public $isContainer: true = true
 
   constructor(type: INodeType<TYPE, TYPE>, targetInstance: IInstance<TYPE>, options?: {id?: string, context?: IContainer}) {
@@ -42,7 +42,7 @@ export class ContainerInstance<TYPE> extends NodeInstance<TYPE, any>
     if (isNode(this.$targetInstance)) {
       this.$targetInstance.$parent = this.$parent
       this.$targetInstance.$parentKey = this.$parentKey
-      this.$targetInstance.$addOperationListener((log: BasicOperation) => {
+      this.$targetInstance.$addOperationListener((log: Operation) => {
         if (this.$targetInstance instanceof MapInstance) {
           // Map does not need to sync its first level keys. All data is stored in entries.
           return

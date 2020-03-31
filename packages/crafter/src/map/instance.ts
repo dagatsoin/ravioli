@@ -287,7 +287,7 @@ function build(
       })
     } else {
       const _entries = isInstance(entries) ? entries.$snapshot : entries
-      _entries.forEach(entry => {
+      _entries.forEach((entry: [any, any]) => {
         map.set(entry[0], entry[1])
       })
     }
