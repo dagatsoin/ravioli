@@ -68,7 +68,7 @@ export class ComponentInstance<
     MUTATION
   > = createNAPProposalBuffer<MUTATION>()
   private acceptorFactories: Map<string, AcceptorFactory<TYPE>> = new Map()
-  private NAPs: Map<string, StepReaction<any, any, any, any>> = new Map()
+  private NAPs: Map<string, StepReaction<any, any, any, any, any>> = new Map()
   private controlStatePredicates: Map<
     CONTROL_STATES,
     CSPredicate<TYPE, MUTATIONS, CONTROL_STATES>
@@ -335,6 +335,7 @@ export class ComponentInstance<
     }
 
     runNAPs({
+      state: this.state,
       model: this.data,
       previousSnapshot: snapshot,
       controlStates: this.state.controlStates,
@@ -442,7 +443,7 @@ export class ComponentInstance<
 
   public addStepReaction(
     NAPName: string,
-    nap: StepReaction<any, any, any, any>
+    nap: StepReaction<any, any, any, any, any>
   ): void {
     this.NAPs.set(NAPName, nap)
   }
@@ -823,15 +824,18 @@ function runNAPs({
   controlStates,
   previousControlStates,
   actions,
+  state
 }: Delta<any, any, any> & {
   model: any,
+  state: ComponentState<any>
   actions: Actions<any, any, any>
-  factoryStepReactions: Map<string, StepReaction<any, any, any, any>>
-  instanceStepReactions: Map<string, StepReaction<any, any, any, any>>
+  factoryStepReactions: Map<string, StepReaction<any, any, any, any, any>>
+  instanceStepReactions: Map<string, StepReaction<any, any, any, any, any>>
   proposal: Mutation<any, any>[]
 }): void {
   const args = {
     model,
+    state,
     delta: {
       previousSnapshot,
       acceptedMutations,

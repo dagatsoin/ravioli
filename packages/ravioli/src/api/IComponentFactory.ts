@@ -1,6 +1,6 @@
 import { Mutation, Acceptor } from './Acceptor'
 import { PackagedActions, Actions } from './Action'
-import { IComponentInstance } from './IComponentInstance'
+import { IComponentInstance, ComponentState } from './IComponentInstance'
 import { Proposal } from './IPresentable'
 import { IType, Migration, ToLiteral, IContainer } from '@warfog/crafter'
 
@@ -146,7 +146,7 @@ export interface IComponentFactory<
   >
   addStepReaction<
     I extends string,
-    R extends StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
+    R extends StepReaction<TYPE, TRANSFORMATION, MUTATIONS, CONTROL_STATES, ACTIONS>
   >(
     id: I,
     reaction: R
@@ -159,7 +159,7 @@ export interface IComponentFactory<
     TRANSFORMATION,
     NAP_NAMES | ToLiteral<I>
   >
-  getNAP(): Map<string, StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>>
+  getNAP(): Map<string, StepReaction<TYPE, TRANSFORMATION, MUTATIONS, CONTROL_STATES, ACTIONS>>
   hasNAP(NAPName: string): boolean
   removeNap<NAP_NAME extends NAP_NAMES>(
     id: NAP_NAME
@@ -221,7 +221,7 @@ export type Delta<TYPE, MUTATION, CONTROL_STATES_PREDICATES> = {
 
 export type Transformation<TYPE> = (model: TYPE) => any
 
-export type StepReaction<TYPE, MUTATION, CONTROL_STATES_PREDICATES, ACTIONS> = {
+export type StepReaction<TYPE, REPRESENTATION, MUTATION, CONTROL_STATES_PREDICATES extends string, ACTIONS> = {
   predicate?(
     args: {
       delta: Delta<TYPE, MUTATION, CONTROL_STATES_PREDICATES>
@@ -231,7 +231,8 @@ export type StepReaction<TYPE, MUTATION, CONTROL_STATES_PREDICATES, ACTIONS> = {
   effect(
     args: {
       delta: Delta<TYPE, MUTATION, CONTROL_STATES_PREDICATES>
-      model: TYPE      
+      model: TYPE
+      state: ComponentState<REPRESENTATION, CONTROL_STATES_PREDICATES>
     },
     actions: ACTIONS
   ): void

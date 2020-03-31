@@ -51,7 +51,7 @@ export interface IEnhancabble {
     predicate: PredicateFunction<any, any, any>
   ): void
   removeControlStatePredicate(id: string): void
-  addStepReaction(id: string, nap: StepReaction<any, any, any, any>): void
+  addStepReaction(id: string, nap: StepReaction<any, any, any, any, any>): void
   setTransformation(id: string, transformation: Transformation<any> | {
     predicate?: RepresentationPredicate<any, any, any>
     computation: Transformation<any>

@@ -81,7 +81,7 @@ export function removeAction(
 export function addStepReaction(
   instance: IComponentInstance<any, any, any, any>,
   NAPName: string,
-  nap: StepReaction<any, any, any, any>
+  nap: StepReaction<any, any, any, any, any>
 ): void {
   ((instance as unknown) as IEnhancabble).addStepReaction(NAPName, nap)
 }

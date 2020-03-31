@@ -68,7 +68,7 @@ test('transform to primitive', function() {
   const player = component(object({
     name: string()
   }))
-    .addAcceptor('setName', model => ({mutator({name}: {name: string}): void { model.name = name }}))
+    .addAcceptor('setName', model => ({mutator({name: _name}: {name: string}): void { model.name = _name }}))
     .addActions({setName: 'setName'})
     .setTransformation('toString', model => model.name)
     .create()

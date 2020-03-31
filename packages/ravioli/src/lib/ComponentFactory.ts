@@ -48,7 +48,7 @@ export class ComponentFactory<
   public packagedActions: ACTIONS = {} as ACTIONS
   public NAPs: Map<
     NAP_NAMES,
-    StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
+    StepReaction<TYPE, REPRESENTATION, MUTATIONS, CONTROL_STATES, ACTIONS>
   > = new Map()
   public transformations: TransformationPackage<TYPE, MUTATIONS, CONTROL_STATES>[] = []
   private acceptorFactories: Map<string, AcceptorFactory<any>> = new Map()
@@ -168,7 +168,7 @@ export class ComponentFactory<
   }
 
   public addStepReaction<
-    N extends StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
+    N extends StepReaction<TYPE, REPRESENTATION, MUTATIONS, CONTROL_STATES, ACTIONS>
   >(id: string, nap: N): any {
     this.NAPs.set(id as any, nap)
     return this
@@ -178,7 +178,7 @@ export class ComponentFactory<
   }
   public getNAP(): Map<
     string,
-    StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
+    StepReaction<TYPE, REPRESENTATION, MUTATIONS, CONTROL_STATES, ACTIONS>
   > {
     return this.NAPs
   }

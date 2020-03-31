@@ -48,6 +48,7 @@ const kobold = component(
     predicate: "isDead",
     computation: model => ({ name: model.name, loot: model.inventory })
   })
+  .addStepReaction('render', { effect: render })
   .create({
     name: "Kobold",
     health: 10,
@@ -91,7 +92,6 @@ type DeadKobold = {
 
 window['hit'] = function() {
   kobold.actions.hit()
-  render()
 }
 
 window['loot'] = function() {
@@ -99,7 +99,6 @@ window['loot'] = function() {
     player.actions.pickItem(kobold.state.representation.loot[0])
     kobold.actions.drop(kobold.state.representation.loot[0].id)
   }
-  render()
 }
 
 function isAlive(store: AliveKobold){
@@ -152,4 +151,5 @@ function render() {
   `;
 }
 
+// Initial render
 render()
