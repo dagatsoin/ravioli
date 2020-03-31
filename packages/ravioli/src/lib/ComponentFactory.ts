@@ -13,7 +13,7 @@ import {
   InstanceOptions,
 } from '../api/IComponentFactory'
 import { IComponentInstance } from '../api/IComponentInstance'
-import { isNodeType, IType, IComputed } from '@warfog/crafter'
+import { isNodeType, IType } from '@warfog/crafter'
 import { ComponentInstance, TransformationPackage } from './ComponentInstance'
 import { check } from './helpers'
 import { Mutation } from '../api/Acceptor'
@@ -24,7 +24,7 @@ export class ComponentFactory<
   MUTATIONS extends Mutation<any, any> = { type: never },
   CONTROL_STATES extends string = never,
   ACTIONS = any,
-  REPRESENTATION extends IComputed<any> = IComputed<TYPE>,
+  REPRESENTATION extends TYPE = TYPE,
   NAP_NAMES extends string = never
 >
   implements

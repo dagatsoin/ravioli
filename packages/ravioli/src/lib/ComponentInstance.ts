@@ -24,7 +24,7 @@ import {
 import { getContext, IInstance, IObservable, toNode, clone, toInstance, CrafterContainer, Migration, IContainer, getGlobal, createTransformer, ITransformer } from '@warfog/crafter'
 import { createNAPProposalBuffer, IProposalBuffer } from './NAPProposalBuffer'
 
-export type TransformationPackage<TYPE, MUTATIONS, CONTROL_STATES extends string> = [
+export type TransformationPackage<TYPE, MUTATIONS extends Mutation<any, any>, CONTROL_STATES extends string> = [
   string,
   Transformation<TYPE> | {
     predicate?: RepresentationPredicate<TYPE, MUTATIONS, CONTROL_STATES>
@@ -48,6 +48,9 @@ export class ComponentInstance<
     IActionCacheReset {
   
   public get Type(): TYPE {
+    throw new Error('[Ravioli] IComponentInstance.Type is just a helper field for linting and may not be used at runtime.')
+  }
+  public get Factory(): IComponentFactory<TYPE, REPRESENTATION, MUTATIONS> {
     throw new Error('[Ravioli] IComponentInstance.Type is just a helper field for linting and may not be used at runtime.')
   }
   public readonly state: ComponentState<REPRESENTATION, CONTROL_STATES>

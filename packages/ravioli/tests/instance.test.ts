@@ -216,7 +216,7 @@ describe("transformation", function() {
     setTransformation(foo, 'bar', noop)
 
     expect(
-      (foo as any).transformations.some(([id]) => id === 'bar')
+      (foo as any).transformations.some(([id]: [any]) => id === 'bar')
     ).toBeDefined()
   })
 
@@ -270,8 +270,8 @@ describe('Instance enhancement', function() {
     }))
 
     const foo = Foo.create()
-
-    addActions<typeof Foo>(foo, {
+    
+    addActions<typeof foo>(foo, {
       bar() {
         return [{ type: 'bar' }]
       },
@@ -283,7 +283,7 @@ describe('Instance enhancement', function() {
     const Comp = component(object({}))
     const comp = Comp.create()
 
-    addActions<typeof Comp>(comp, {
+    addActions(comp, {
       foo() {
         return []
       },
@@ -419,7 +419,7 @@ describe('Instance enhancement', function() {
       },
     }))
 
-    addActions<typeof Grunt>(Thrall, {
+    addActions<typeof Thrall>(Thrall, {
       hit() {
         return [
           {

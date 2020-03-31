@@ -2,7 +2,7 @@ import { Mutation, Acceptor } from './Acceptor'
 import { PackagedActions, Actions } from './Action'
 import { IComponentInstance } from './IComponentInstance'
 import { Proposal } from './IPresentable'
-import { IType, Migration, ToLiteral, IComputed, IContainer } from '@warfog/crafter'
+import { IType, Migration, ToLiteral, IContainer } from '@warfog/crafter'
 
 export type ComponentOptions = {
   keepLastControlStateIfUndefined?: boolean
@@ -24,12 +24,12 @@ export type InstanceOptions = {
 }
 
 export interface IComponentFactory<
-  TYPE = any,
-  VALUE = any,
-  MUTATIONS extends Mutation<any, any> = { type: never },
+  TYPE,
+  VALUE,
+  MUTATIONS extends Mutation<any, any> = { type: never; payload: never; },
   CONTROL_STATES extends string = never,
   ACTIONS = any,
-  TRANSFORMATION extends IComputed<any> = IComputed<TYPE>,
+  TRANSFORMATION extends TYPE = TYPE,
   NAP_NAMES extends string = never
 > {
   type: IType<TYPE, VALUE>
@@ -187,16 +187,20 @@ export type MutationName<F extends Mutation<any, any>> = F['type']
 
 export type AcceptorFactory<T, P = any> = (model: T) => Acceptor<P>
 
-export type Predicate<TYPE, MUTATION, CONTROL_STATES extends string, LEAF> =
+export type Predicate<TYPE, MUTATION extends Mutation<any, any>, CONTROL_STATES extends string, LEAF> =
   | PredicateFunction<TYPE, MUTATION, CONTROL_STATES>
   | PredicateTree<LEAF>
 
-export type CSPredicate<TYPE, MUTATION, CONTROL_STATES extends string> = Predicate<TYPE, MUTATION, CONTROL_STATES, CONTROL_STATES | { previous: CONTROL_STATES }>
-export type RepresentationPredicate<TYPE, MUTATION, CONTROL_STATES extends string> = Predicate<TYPE, MUTATION, CONTROL_STATES, CONTROL_STATES>
+export type CSPredicate<
+  TYPE,
+  MUTATIONS extends Mutation<any, any>,
+  CONTROL_STATES extends string = never
+> = Predicate<TYPE, MUTATIONS, CONTROL_STATES, CONTROL_STATES | { previous: CONTROL_STATES }>
+export type RepresentationPredicate<TYPE, MUTATION extends Mutation<any, any>, CONTROL_STATES extends string> = Predicate<TYPE, MUTATION, CONTROL_STATES, CONTROL_STATES>
 
 export type PredicateFunction<
   T,
-  MUTATION,
+  MUTATION extends Mutation<any, any>,
   CONTROL_STATES = string
 > = (args: {
   model: T

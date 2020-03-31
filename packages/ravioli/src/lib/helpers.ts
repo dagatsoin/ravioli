@@ -10,7 +10,7 @@ import {
   StepReaction,
   IActionCacheReset,
   Transformation,
-  RepresentationPredicate,
+  RepresentationPredicate
 } from '../api'
 
 export function addHiddenMethod(instance: any, key: string, method: Function): void {
@@ -63,10 +63,10 @@ export function present(
 }
 
 export function addActions<
-  C extends IComponentFactory<any, any, any, any, any, any, any>
+  I extends IComponentInstance<any, any, any, any>
 >(
-  instance: IComponentInstance<any, any, any, any>,
-  actions: PackagedActions<any, C['Mutations']>
+  instance: I,
+  actions: PackagedActions<any, I['Factory']['Mutations']>
 ): void {
   ((instance as unknown) as IEnhancabble).addActions(actions)
 }

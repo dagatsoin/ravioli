@@ -5,6 +5,7 @@ import {
   StepReaction,
   Transformation,
   RepresentationPredicate,
+  IComponentFactory,
 } from './IComponentFactory'
 import { Proposal } from './IPresentable'
 import { Mutation } from './Acceptor'
@@ -16,6 +17,7 @@ export interface IComponentInstance<
   MUTATIONS extends Mutation<any, any>
 > {
   readonly Type: TYPE
+  readonly Factory: IComponentFactory<TYPE, REPRESENTATION, MUTATIONS>
   readonly state: ComponentState<REPRESENTATION>
   readonly actions: ACTIONS
   compose(composer: ActionComposer<ACTIONS, MUTATIONS>): void

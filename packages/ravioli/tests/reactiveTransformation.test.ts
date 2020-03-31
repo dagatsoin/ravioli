@@ -18,7 +18,7 @@ test('default representation', function() {
       ]
     })
 
-    let inventory
+    let inventory = []
 
     autorun(() => {
       inventory = player.state.representation.inventory.slice()
@@ -50,7 +50,7 @@ test('custom representation', function() {
       ]
     })
 
-    let inventory
+    let inventory = []
 
     autorun(() => {
       inventory = player.state.representation.inventory.slice()
