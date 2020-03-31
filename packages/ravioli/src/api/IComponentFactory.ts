@@ -39,13 +39,14 @@ export interface IComponentFactory<
     CONTROL_STATES,
     CSPredicate<TYPE, MUTATIONS, CONTROL_STATES>
   >
-  transformations: [
-    string,
-    Transformation<TYPE> | {
+  transformations: {
+    id: string,
+    transformer: Transformation<TYPE> | {
       predicate?: RepresentationPredicate<TYPE, MUTATIONS, CONTROL_STATES>
       computation: Transformation<TYPE>
-    }
-  ][]
+    },
+    isObservable: boolean
+  }[]
   create(
     value?: VALUE,
     options?: InstanceOptions
@@ -122,7 +123,8 @@ export interface IComponentFactory<
     representation: C | {
       predicate?: RepresentationPredicate<TYPE, MUTATIONS, CONTROL_STATES>
       computation: C
-    }
+    },
+    isObservable?: boolean
   ): IComponentFactory<
     TYPE,
     VALUE,

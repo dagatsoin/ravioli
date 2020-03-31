@@ -125,7 +125,7 @@ describe('Component api', function() {
     .setTransformation('bar', noop)
 
     expect(
-      ((Foo as unknown) as ComponentFactory).transformations.some(([id]) => id === 'bar')
+      ((Foo as unknown) as ComponentFactory).transformations.some(({id}) => id === 'bar')
     ).toBeDefined()
   })
 

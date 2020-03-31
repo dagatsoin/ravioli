@@ -21,16 +21,17 @@ import {
   RepresentationPredicate,
   IActionCacheReset
 } from '../api'
-import { getContext, IInstance, IObservable, toNode, clone, toInstance, CrafterContainer, Migration, IContainer, getGlobal, createTransformer, ITransformer } from '@warfog/crafter'
+import { getContext, IInstance, IObservable, toNode, clone, toInstance, CrafterContainer, Migration, IContainer, getGlobal, createTransformer, ITransformer, Computed } from '@warfog/crafter'
 import { createNAPProposalBuffer, IProposalBuffer } from './NAPProposalBuffer'
 
-export type TransformationPackage<TYPE, MUTATIONS extends Mutation<any, any>, CONTROL_STATES extends string> = [
-  string,
-  Transformation<TYPE> | {
+export type TransformationPackage<TYPE, MUTATIONS extends Mutation<any, any>, CONTROL_STATES extends string> = {
+  id: string,
+  transformer: Transformation<TYPE> | {
     predicate?: RepresentationPredicate<TYPE, MUTATIONS, CONTROL_STATES>
     computation: Transformation<TYPE>
-  }
-]
+  },
+  isObservable: boolean
+}
 
 export class ComponentInstance<
   TYPE,
@@ -73,7 +74,7 @@ export class ComponentInstance<
     CSPredicate<TYPE, MUTATIONS, CONTROL_STATES>
   > = new Map()
   private transformations: TransformationPackage<TYPE, MUTATIONS, CONTROL_STATES>[] = []
-  private currentTransformation?: { id: string, transformer: ITransformer<IInstance<TYPE, any>, REPRESENTATION> }
+  private currentTransformation?: { id: string, transformer: ITransformer<IInstance<TYPE, any>, REPRESENTATION>, isObservable: boolean }
   private packagedActions: PackagedActions<any, any> = {}
   private privateContext: IContainer
   private publicContext: IContainer
@@ -139,6 +140,7 @@ export class ComponentInstance<
     if (initialTransformationPackage !== undefined) {
       this.currentTransformation = {
         id: initialTransformationPackage.id,
+        isObservable: initialTransformationPackage.isObservable,
         transformer: createTransformer(
           initialTransformationPackage.computation,
           {
@@ -289,6 +291,7 @@ export class ComponentInstance<
       else {
         this.currentTransformation = {
           id: transformationPackage.id,
+          isObservable: transformationPackage.isObservable,
           transformer: createTransformer(
             transformationPackage.computation,
             {
@@ -326,9 +329,9 @@ export class ComponentInstance<
     /* 5 */
     this.isRunningNAP = true
     
-    // Defer render if there is some extra proposal to handle.
+    // Defer public context notification if there is some extra proposal to handle.
     if (!this.options?.debounceReaction ?? true) {
-      this.render()
+      this.notifyPublicContext()
     }
 
     runNAPs({
@@ -348,9 +351,9 @@ export class ComponentInstance<
     if (this.NAPproposalBuffer.mutations.length) {
       this.startStep(this.NAPproposalBuffer.getTaggedProposal())
     }
-    // No more NAP to handle. Render.
+    // No more NAP to handle. Spread the world to the public context.
     if (this.options?.debounceReaction) {
-      this.render()
+      this.notifyPublicContext()
     }
   }
 
@@ -475,30 +478,37 @@ export class ComponentInstance<
     C extends Transformation<TYPE>
   >(
     id: string,
-    transformation: C | {
+    transformer: C | {
       predicate?: RepresentationPredicate<TYPE, MUTATIONS, CONTROL_STATES>
       computation: C
-    }
+    },
+    isObservable = true
   ): any {
-    const existingRepresentation = this.transformations.find(([_id]) => id === _id)
+    const existingRepresentation = this.transformations.find(({id:_id}) => id === _id)
     if (existingRepresentation) {
-      existingRepresentation[1] = transformation
+      existingRepresentation.transformer = transformer
+      existingRepresentation.isObservable = isObservable
     } else {
-      this.transformations.push([id, transformation])
+      this.transformations.push({id, transformer, isObservable})
     }
     return this
   }
 
   public removeTransformation(id: string): any {
-    this.transformations.splice(this.transformations.findIndex(([_id]) => _id === id), 1)
+    this.transformations.splice(this.transformations.findIndex(({id:_id}) => _id === id), 1)
     return this
   }
 
-  private render() {
-    if (this.currentTransformation !== undefined) {
+  private notifyPublicContext() {
+    if (
+      this.currentTransformation !== undefined && // This is not the default transformation
+      this.currentTransformation.isObservable // This transformation is observable
+    ) {
+      const representationId = (this.currentTransformation!.transformer(this.data) as unknown as Computed<any>).valueId
+
       this.publicContext.presentPatch(this.stepMigration.forward.map(operation => ({
         ...operation,
-        path: toInstance(this.state.representation).$id + operation.path
+        path: representationId + operation.path
       })))
     }
   }
@@ -695,20 +705,22 @@ function getTransformationPackage<T extends string>(
     previousControlStates,
   }: {
     controlStates: T[]
-    instanceTransformations: [
-      string,
-      Transformation<any> | {
+    instanceTransformations: {
+      id: string,
+      transformer: Transformation<any> | {
         predicate?: RepresentationPredicate<any, any, T>
         computation: Transformation<any>
-      }
-    ][]
-    factoryTransformations: [
-      string,
-      Transformation<any> | {
+      },
+      isObservable: boolean
+    }[]
+    factoryTransformations: {
+      id: string,
+      transformer: Transformation<any> | {
         predicate?: RepresentationPredicate<any, any, T>
         computation: Transformation<any>
-      }
-    ][]
+      },
+      isObservable: boolean
+    }[]
     previousControlStates: T[]
     model: any
     acceptedMutations: any[]
@@ -716,24 +728,28 @@ function getTransformationPackage<T extends string>(
 ): {
   id: string,
   computation: Transformation<any>
+  isObservable: boolean
  } | undefined {
   let representationPackage: {
-    id: string,
+    id: string
     computation: Transformation<any>
+    isObservable: boolean
    } | undefined
 
   // Search in the array until it find a predicate which is valid
   // If no predicate is valid it will return the last global presentation (without predicate) it founds
   for (let i = 0; i < instanceTransformations.length; i++) {
-    const rep = instanceTransformations[i][1]
+    const rep = instanceTransformations[i].transformer
     if (typeof rep === 'function') {
       representationPackage = {
-        id: instanceTransformations[i][0],
+        id: instanceTransformations[i].id,
+        isObservable: instanceTransformations[i].isObservable,
         computation: rep
       }
     } else if (rep.predicate && runPredicate(rep.predicate)) {
       representationPackage = {
-        id: instanceTransformations[i][0],
+        id: instanceTransformations[i].id,
+        isObservable: instanceTransformations[i].isObservable,
         computation: rep.computation
       }
     }
@@ -748,15 +764,17 @@ function getTransformationPackage<T extends string>(
   // If no predicate is valid it will return the last global presentation (without predicate) it founds
   // Otherwise it will return undefined
   for (let i = 0; i < factoryTransformations.length; i++) {
-    const rep = factoryTransformations[i][1]
+    const rep = factoryTransformations[i].transformer
     if (typeof rep === 'function') {
       representationPackage = {
-        id: factoryTransformations[i][0],
+        id: factoryTransformations[i].id,
+        isObservable: factoryTransformations[i].isObservable,
         computation: rep
       }
     } else if (rep.predicate && runPredicate(rep.predicate)) {
       representationPackage = {
-        id: factoryTransformations[i][0],
+        id: factoryTransformations[i].id,
+        isObservable: factoryTransformations[i].isObservable,
         computation: rep.computation
       }
     }

@@ -63,3 +63,23 @@ test('custom representation', function() {
   
     expect(inventory.length).toBe(3)
 })
+
+test('transform to primitive', function() {
+  const player = component(object({
+    name: string()
+  }))
+    .addAcceptor('setName', model => ({mutator({name}: {name: string}): void { model.name = name }}))
+    .addActions({setName: 'setName'})
+    .setTransformation('toString', model => model.name)
+    .create()
+  
+    let name = ''
+
+    autorun(() => {
+      name = player.state.representation
+    })
+
+    player.actions.setName({name: 'Fraktar'})
+
+    expect(name).toBe('Fraktar')
+})

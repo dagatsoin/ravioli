@@ -147,22 +147,23 @@ export class ComponentFactory<
     C extends Transformation<TYPE>
   >(
     id: string,
-    transformation: C | {
+    transformer: C | {
       predicate?: RepresentationPredicate<TYPE, MUTATIONS, CONTROL_STATES>
       computation: C
-    }
+    },
+    isObservable: boolean = true
   ): any {
-    const existingRepresentation = this.transformations.find(([_id]) => id === _id)
+    const existingRepresentation = this.transformations.find(({id: _id}) => id === _id)
     if (existingRepresentation) {
-      existingRepresentation[1] = transformation
+      existingRepresentation[1] = transformer
     } else {
-      this.transformations.push([id, transformation])
+      this.transformations.push({id, transformer, isObservable})
     }
     return this
   }
 
   public removeTransformation(id: string): any {
-    this.transformations.splice(this.transformations.findIndex(([_id]) => _id === id), 1)
+    this.transformations.splice(this.transformations.findIndex(({id: _id}) => _id === id), 1)
     return this
   }
 
