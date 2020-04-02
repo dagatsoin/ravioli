@@ -158,21 +158,30 @@ export class ObjectInstance<
     operation: O & BasicOperation,
     willEmitPatch: boolean = false
   ): void => {
+    const childKey = getChildKey(this.$path, operation.path)
     // Apply operation on this object
     if (
       isOwnLeafPath(this.$path, operation.path) &&
       operation.op === 'replace'
     ) {
+      let backup
+      if (willEmitPatch) {
+         backup = this.$data[childKey].$value
+      }
       // Apply the operation to the child key
-      this.$data[getChildKey(this.$path, operation.path)].$setValue(
+      this.$data[childKey].$setValue(
         operation.value
       )
+      if (willEmitPatch) {
+        this.$$container.addUpdatedObservable(this)
+        addReplacePatch(this as any, operation, {replaced: backup})
+      }
     }
     // Or delegate to children
     else if (operation.path.includes(this.$path)) {
       // Get the concerned child key
       toNode(
-        toInstance(this.$data[getChildKey(this.$path, operation.path)])
+        toInstance(this.$data[childKey])
       ).$applyOperation(operation, willEmitPatch)
     }
   }
@@ -252,7 +261,6 @@ function addPropGetSet(
   if (isReferenceType(obj.$type.properties[propName])) {
     Object.defineProperty(obj, propName, {
       get() {
-       // obj.$$container.addObservedPath(getRoot(obj).$id + obj.$path + '/' + propName)
         const instance = obj.$$container.getReferenceTarget(
           obj.$data[propName].$value
         )
