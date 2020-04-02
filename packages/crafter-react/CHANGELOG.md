@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# 1.2.0 (2020-04-02)
+
+
+### Code Refactoring
+
+* rename crafter package to @warfog/crafter ([06701b0](https://github.com/dagatsoin/ravioli/commit/06701b0564357d9b518ee19878c4ac4a992e2ce5))
+
+
+### BREAKING CHANGES
+
+* renamed package crafter to @warfog/crafter
+
+
+
+
+
 # [1.1.0](https://github.com/dagatsoin/ravioli/compare/v1.0.0...v1.1.0) (2020-03-31)
 
 **Note:** Version bump only for package @warfog/crafter-react
