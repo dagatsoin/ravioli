@@ -21,9 +21,9 @@ export class Tracker implements IObservable<unknown>, ITracker {
     return this.id
   }
 
-  constructor(idPrefix: string = '', context?: IContainer) {
+  constructor(idPrefix: string = 'Tracker', context?: IContainer) {
     this.context = context || getGlobal().$$crafterContext
-    this.id = idPrefix + '#' + this.context.getUID()
+    this.id = this.context.getUID(idPrefix + '#')
     this.context.useUID(this.id)
   }
 

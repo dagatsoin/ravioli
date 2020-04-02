@@ -1,6 +1,5 @@
 import { IContainer } from '../IContainer'
 import { getGlobal } from '../utils/utils'
-// import { Operation } from '../lib/JSONPatch'
 
 export interface IObserver {
   id: string
@@ -19,19 +18,36 @@ export enum ObserverType {
 }
 
 export abstract class Observer implements IObserver {
-  public id: string;
-  
+  public get id(): string {
+    return this._id
+  }
+
   protected context: IContainer
   protected _isStale = true
+  private _id: string  
   
   public abstract dependencyPaths: string[];
   public abstract isStale: boolean;
   public abstract type: ObserverType;
 
-
-  constructor(idPrefix: string, context?: IContainer) {
+  constructor({
+    id,
+    type,
+    context
+  }: {
+    type: ObserverType,
+    id?: string,
+    context?: IContainer
+  }) {
     this.context = context || getGlobal().$$crafterContext
-    this.id = idPrefix + this.context.getUID()
+    if (id) {
+      if (!this.context.isUID(id)) {
+        throw new Error(`UID ${id} is already in use`)
+      }
+      this._id = id
+    } else {
+      this._id = this.context.getUID(toString(type) + '#')
+    }
     this.context.useUID(this.id)
   }
   public notifyChangeFor(): void {
@@ -40,7 +56,6 @@ export abstract class Observer implements IObserver {
 
   public abstract dispose(): void
   public abstract runAndUpdateDeps(): void
-
 }
 
 /**
@@ -49,4 +64,15 @@ export abstract class Observer implements IObserver {
  */
 export function isRootObserver(observer: IObserver): boolean {
   return observer.type === ObserverType.Autorun
+}
+
+function toString(type: ObserverType): string {
+  switch (type) {
+    case ObserverType.Autorun:
+      return 'Autorun'
+    case ObserverType.Computed:
+      return 'Computed'
+    case ObserverType.Reaction:
+      return 'Reaction'
+  }
 }

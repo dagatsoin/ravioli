@@ -94,7 +94,7 @@ export class CrafterContainer implements IContainer {
    * Durability: Once a transaction completes successfully, its changes are saved as patch (with rollback/forward command list) and a snapshot of the new model.
    */
   public transaction(fun: () => any): any {
-    const id = this.getUID()
+    const id = this.getUID('Transaction#')
     const isRootTransactionStart = !this.state.rootTransactionId
     const managerStateBackup = isRootTransactionStart ? this.snapshot : undefined
 
@@ -159,10 +159,10 @@ export class CrafterContainer implements IContainer {
   /**
    * Get a free UID for this container
    */
-  public getUID(): string {
+  public getUID(prefix?: string): string {
     let id: string
     do {
-      id = Math.floor(Math.random() * 1000000).toString()
+      id = prefix + Math.floor(Math.random() * 1000000).toString()
     } while (this.state.uids.includes(id))
     return id
   }

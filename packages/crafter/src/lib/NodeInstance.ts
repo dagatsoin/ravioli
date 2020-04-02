@@ -61,7 +61,7 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
       }
       this.$$id = options.id
     } else {
-      this.$$id = this.$$container.getUID()
+      this.$$id = this.$$container.getUID('NodeInstance#')
     }
     this.$$container.useUID(this.$$id)
     this.$$container.registerAsReferencable(this.$$id, this)

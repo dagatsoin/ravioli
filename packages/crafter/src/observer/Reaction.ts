@@ -14,7 +14,10 @@ export class Reaction extends Observer {
   private action?: TrackedFunction
 
   constructor(sideEffect: SideEffect, context?: IContainer) {
-    super('Reaction#', context)
+    super({
+      type: ObserverType.Reaction,
+      context
+    })
     this._isStale = false
     this.reaction = sideEffect
   }

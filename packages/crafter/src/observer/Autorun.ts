@@ -13,7 +13,10 @@ export class Autorun extends Observer {
   private isFirstRun = true
 
   constructor(fun: AutorunFunction, context?: IContainer) {
-    super('Autorun#', context)
+    super({
+      type: ObserverType.Autorun,
+      context
+    })
     this.fun = fun
     this.context.initReaction(this)
   }

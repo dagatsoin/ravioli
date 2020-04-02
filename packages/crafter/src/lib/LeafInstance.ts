@@ -28,7 +28,7 @@ export class LeafInstance<T> extends Instance<T, T> {
     super(options?.context)
     this.$data = value
     this.$type = type
-    this.$$id = options?.id || 'LeafInstance' + this.$$container.getUID()
+    this.$$id = options?.id || this.$$container.getUID('LeafInstance#')
     Object.keys(this).forEach(key => setNonEnumerable(this, key))
 
     // Rather having unused condition in the setter, the constructor

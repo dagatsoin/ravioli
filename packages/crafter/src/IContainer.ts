@@ -100,7 +100,7 @@ export interface IContainer {
   /**
    * aree UIDor this container
    */
-  getUID(): string
+  getUID(prefix?: string): string
 
   /**
    * Return true if this UID is free to use in the container

@@ -20,7 +20,7 @@ export class IdentifierInstance<T extends string> extends Instance<T, T> {
     // Counter intuitively we do not validate the uniqness of the id, as it is already
     // used by the parent caller.
     this.$type = type
-    this.$$id = 'ID#' + this.$$container.getUID()
+    this.$$id = this.$$container.getUID('Instance#')
     this.$$container.useUID(this.$$id)
     this.$data = value
     Object.keys(this).forEach(key => setNonEnumerable(this, key))

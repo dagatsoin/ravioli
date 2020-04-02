@@ -27,7 +27,11 @@ export class Computed<T> extends Observer implements IComputed<T> {
   private readonly isStrict: boolean
 
   constructor(fun: (boundThis?: IObservable<any>) => T, options?: ComputedOptions) {
-    super('Computed#', options?.contexts?.source)
+    super({
+      type,
+      id: options?.computedId,
+      context: options?.contexts?.source
+    })
     this.fun = fun
     this.isObservableValue = options?.isObservable ?? true
     this.valueContext = options?.contexts?.output || this.context
