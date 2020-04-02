@@ -49,6 +49,6 @@
   },
   "keywords": [],
   "peerDependencies": {
-    "@warfog/crafter": "^0.0.1"
+    "@warfog/crafter": "^1.2.0"
   }
 }
