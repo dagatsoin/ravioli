@@ -26,7 +26,10 @@
     ],
     "setupFilesAfterEnv": [
       "<rootDir>/jest.setup.js"
-    ]
+    ],
+    "moduleNameMapper": {
+      "^@warfog/crafter$": "<rootDir>/../crafter/src"
+    }
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^4.0.0",
