@@ -1,6 +1,6 @@
 {
   "name": "@warfog/crafter-react",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Crafter provider for React",
   "main": "index.js",
   "author": "Daniel Neveux",

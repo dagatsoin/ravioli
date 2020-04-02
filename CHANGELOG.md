@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.1](https://github.com/dagatsoin/ravioli/compare/v1.2.0...v1.2.1) (2020-04-02)
+
+
+### Bug Fixes
+
+* **ravioli:** bump crafter version ([e2349b3](https://github.com/dagatsoin/ravioli/commit/e2349b38e0db40c2ff7ace5f32edd26981835a25))
+
+
+
+
+
 # 1.2.0 (2020-04-02)
 
 
