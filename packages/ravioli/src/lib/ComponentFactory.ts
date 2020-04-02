@@ -151,13 +151,13 @@ export class ComponentFactory<
       predicate?: RepresentationPredicate<TYPE, MUTATIONS, CONTROL_STATES>
       computation: C
     },
-    isObservable: boolean = true
+    isBoxed: boolean = false
   ): any {
     const existingRepresentation = this.transformations.find(({id: _id}) => id === _id)
     if (existingRepresentation) {
       existingRepresentation[1] = transformer
     } else {
-      this.transformations.push({id, transformer, isObservable})
+      this.transformations.push({id, transformer, isBoxed})
     }
     return this
   }

@@ -1,10 +1,11 @@
-import { sync, toInstance, getContext } from '../src/helpers'
+import { toInstance, getContext } from '../src/helpers'
 import { getObservable, observable } from '../src/lib/observable'
 import { autorun } from '../src/observer/Autorun'
 import { computed } from '../src/observer/Computed'
 import { number } from '../src/Primitive'
 import { object } from '../src/object'
 import { getGlobal } from '../src/utils/utils'
+import { isInstance } from '../src/lib/Instance'
 
 const context = getGlobal().$$crafterContext
 
@@ -79,41 +80,6 @@ test('Computed always return the same observable', function() {
   expect(newId === initialId).toBeTruthy()
 })
 
-test('Computed is a reactive source', function() {
-  context.clearContainer()
-  const model = observable({
-    name: 'Fraktar',
-    stats: {
-      health: 10,
-      force: 4,
-    },
-  })
-
-  const statsRepresentation = computed(() => ({ health: model.stats.health }))
-
-  const representation = {
-    name: model.name,
-    stats: { health: model.stats.health },
-  }
-
-  let run = 0
-  const dispose = autorun(() => {
-    run++
-    representation.name = model.name
-    representation.stats = statsRepresentation.get()
-  })
-  expect(context.snapshot.observerGraph.nodes.length).toBe(2)
-  expect(representation.stats).toEqual({ health: 10 })
-
-  context.transaction(() => {
-    model.stats.health = 11
-  })
-
-  expect(run).toBe(2)
-  expect(representation.stats).toEqual({ health: 11 })
-  dispose()
-})
-
 test('Unused computed are not recomputed when their deps change', function() {
   getGlobal().$$crafterContext.clearContainer()
   const model = observable({
@@ -174,84 +140,102 @@ test('Unused computed are not recomputed when their deps change', function() {
   dispose()
 })
 
-it('should clone an observable and sync its value on each change', function() {
-  const titles = new Map()
-  titles.set(0, 'Noob')
-  titles.set(1, 'Not so bad')
-  const source = observable({
-    name: 'Fraktar',
-    inventory: [
-      {
-        id: 'sword',
-        quantity: 2,
-      },
-    ],
-    titles,
-    questLog: {
-      current: {
-        id: 0,
-        todo: ['dzdz', 'dzqd'],
-      },
-    },
-  })
-  const target = sync(source)
-
-  expect(target.questLog.current.id).toBe(0)
-  context.transaction(() => {
-    source.questLog.current.id = 1
-  })
-  expect(target.questLog.current.id).toBe(1)
-})
-
-describe('Unbox value when returning a primitive', function() {
-  test("model is a primitive", function() {
+describe('Compute a boxed value', function() {
+  test("expression returns a leaf instance", function() {
     const model = number().create(0)
-    const computedValue = computed(() => model)
+    const computedValue = computed(() => model) // No need to set isBoxed param.
     autorun(({isFirstRun, dispose}) => {
+      const value = computedValue.get()
+      expect(isInstance(value)).toBeFalsy()
       if (isFirstRun) {
-        expect(computedValue.get()).toEqual(0)
+        expect(value).toEqual(0)
       } else {
-        expect(computedValue.get()).toEqual(1)
+        expect(value).toEqual(1)
         dispose()
       }
     })
     context.transaction(() => toInstance(model).$setValue(1))
   })
 
-  test("model is a an object", function() {
+  test("expression returns a non observable object", function() {
     const model = object({count: number()}).create({count: 0})
-    const computedValue = computed(() => model.count)
-    autorun(({isFirstRun, dispose}) => {
-      if (isFirstRun) {
-        expect(computedValue.get()).toEqual(0)
-      } else {
-        expect(computedValue.get()).toEqual(1)
-        dispose()
-      }
-    })
-    context.transaction(() => model.count++)
-  })
-
-  test("react when the computed value is a primitive", function() {
-    const model = object({count: number()}).create({count: 0})
-    const computedValue = computed(() => model.count)
+    const computedValue = computed(() => ({
+      count: model.count
+    }), {isBoxed: true}) // Need to set isBoxed param. Otherwize it will return an INodeInstance
     let count
-    autorun(() => count = computedValue.get())
+    autorun(() => {
+      const value = computedValue.get()
+      expect(isInstance(value)).toBeFalsy()
+      count = value.count
+    })
     getContext(toInstance(model)).transaction(() => model.count++)
     expect(count).toBe(1)
   })
 
-  test("react when the computed value is not observable", function() {
+  test("expression returns a primitive", function() {
     const model = object({count: number()}).create({count: 0})
-    const computedValue = computed(() => ({count: model.count}), {isObservable: false})
+    const computedValue = computed(() => model.count,) // No need to set isBoxed param.
     let count
-    autorun(() => count = computedValue.get().count)
+    autorun(() => {
+      const value = computedValue.get()
+      expect(isInstance(value)).toBeFalsy()
+      count = value
+    })
     getContext(toInstance(model)).transaction(() => model.count++)
     expect(count).toBe(1)
   })
 })
 
-
+describe('Compute an observable value', function() {
+  test("expression returns an observable object", function() {
+    const model = object({count: number()}).create({count: 0})
+    const computedValue = computed(() => ({count: model.count}))
+    let count
+    autorun(() => {
+      const value = computedValue.get()
+      expect(isInstance(value)).toBeTruthy()
+      count = value.count
+    })
+    getContext(toInstance(model)).transaction(() => model.count++)
+    expect(count).toBe(1)
+  })
+  test("expression returns an observable array", function() {
+    const model = object({count: number()}).create({count: 0})
+    const computedValue = computed(() => {
+      const ret = []
+      for (let i = 0; i < model.count; i++) {
+        ret.push(i)
+      }
+      return ret
+    })
+    let count
+    autorun(() => {
+      const value = computedValue.get()
+      expect(isInstance(value)).toBeTruthy()
+      count = value.length
+    })
+    getContext(toInstance(model)).transaction(() => model.count++)
+    expect(count).toBe(1)
+  })
+  test("expression returns an observable map", function() {
+    const model = object({count: number()}).create({count: 0})
+    const computedValue = computed(() => {
+      const ret = new Map()
+      for (let i = 0; i < model.count; i++) {
+        ret.set(i, i)
+      }
+      return ret
+    })
+    let size
+    autorun(() => {
+      const value = computedValue.get()
+      expect(isInstance(value)).toBeTruthy()
+      size = value.size
+    })
+    getContext(toInstance(model)).transaction(() => model.count++)
+    expect(size).toBe(1)
+  })
+})
 /**
  * In some case (Computed scenario) the value may have more or less key than the previous value.
  * 

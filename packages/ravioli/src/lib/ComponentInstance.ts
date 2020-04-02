@@ -21,7 +21,7 @@ import {
   RepresentationPredicate,
   IActionCacheReset
 } from '../api'
-import { getContext, IInstance, IObservable, toNode, clone, toInstance, CrafterContainer, Migration, IContainer, getGlobal, createTransformer, ITransformer, Computed } from '@warfog/crafter'
+import { getContext, IInstance, IObservable, toNode, clone, toInstance, CrafterContainer, Migration, IContainer, getGlobal, createTransformer, ITransformer } from '@warfog/crafter'
 import { createNAPProposalBuffer, IProposalBuffer } from './NAPProposalBuffer'
 
 export type TransformationPackage<TYPE, MUTATIONS extends Mutation<any, any>, CONTROL_STATES extends string> = {
@@ -30,7 +30,7 @@ export type TransformationPackage<TYPE, MUTATIONS extends Mutation<any, any>, CO
     predicate?: RepresentationPredicate<TYPE, MUTATIONS, CONTROL_STATES>
     computation: Transformation<TYPE>
   },
-  isObservable: boolean
+  isBoxed: boolean
 }
 
 export class ComponentInstance<
@@ -74,7 +74,7 @@ export class ComponentInstance<
     CSPredicate<TYPE, MUTATIONS, CONTROL_STATES>
   > = new Map()
   private transformations: TransformationPackage<TYPE, MUTATIONS, CONTROL_STATES>[] = []
-  private currentTransformation?: { id: string, transformer: ITransformer<IInstance<TYPE, any>, REPRESENTATION>, isObservable: boolean }
+  private currentTransformation?: { id: string, transformer: ITransformer<IInstance<TYPE, any>, REPRESENTATION>, isBoxed: boolean }
   private packagedActions: PackagedActions<any, any> = {}
   private privateContext: IContainer
   private publicContext: IContainer
@@ -114,7 +114,7 @@ export class ComponentInstance<
     this.options = options
     this.privateContext = options?.contexts?.private || new CrafterContainer()
     this.publicContext = options?.contexts?.public || getGlobal().$$crafterContext
-    this.data = toInstance<any>(this.factory.type.create(data))
+    this.data = toInstance<any>(this.factory.type.create(data, { context: this.privateContext}))
     toNode(this.data).$addTransactionPatchListener(
       (migration: Migration) => (this.stepMigration = migration)
     )
@@ -136,14 +136,15 @@ export class ComponentInstance<
       instanceTransformations: this.transformations,
       factoryTransformations: this.factory.transformations
     })
-
+    
     if (initialTransformationPackage !== undefined) {
       this.currentTransformation = {
         id: initialTransformationPackage.id,
-        isObservable: initialTransformationPackage.isObservable,
+        isBoxed: initialTransformationPackage.isBoxed,
         transformer: createTransformer(
           initialTransformationPackage.computation,
           {
+            isBoxed: initialTransformationPackage.isBoxed,
             contexts: {
               source: this.privateContext,
               output: this.publicContext
@@ -156,7 +157,7 @@ export class ComponentInstance<
     if (this.currentTransformation === undefined) {
       this.state = {
         controlStates,
-        representation: clone<any>(this.data),
+        representation: clone<any>(this.data,{ context: this.publicContext }),
         stepId
       }
     } else {
@@ -284,14 +285,15 @@ export class ComponentInstance<
     if (hasNewTransformation) {
       // Default transformation, sync representation with model
       if (transformationPackage === undefined) {
+        toInstance(this.state.representation).$kill()
         this.currentTransformation = undefined
-        Object.defineProperty(this.state, 'representation', {value: clone(this.data)})
+        Object.defineProperty(this.state, 'representation', {value: clone(this.data, {context: this.publicContext })})
       }
       // Custom transformation
       else {
         this.currentTransformation = {
           id: transformationPackage.id,
-          isObservable: transformationPackage.isObservable,
+          isBoxed: transformationPackage.isBoxed,
           transformer: createTransformer(
             transformationPackage.computation,
             {
@@ -483,14 +485,14 @@ export class ComponentInstance<
       predicate?: RepresentationPredicate<TYPE, MUTATIONS, CONTROL_STATES>
       computation: C
     },
-    isObservable = true
+    isBoxed = true
   ): any {
     const existingRepresentation = this.transformations.find(({id:_id}) => id === _id)
     if (existingRepresentation) {
       existingRepresentation.transformer = transformer
-      existingRepresentation.isObservable = isObservable
+      existingRepresentation.isBoxed = isBoxed
     } else {
-      this.transformations.push({id, transformer, isObservable})
+      this.transformations.push({id, transformer, isBoxed})
     }
     return this
   }
@@ -501,15 +503,11 @@ export class ComponentInstance<
   }
 
   private notifyPublicContext() {
-    if (
-      this.currentTransformation !== undefined && // This is not the default transformation
-      this.currentTransformation.isObservable // This transformation is observable
-    ) {
-      const representationId = (this.currentTransformation!.transformer(this.data) as unknown as Computed<any>).valueId
-
+    // This is not the default transformation
+    if (this.currentTransformation !== undefined) {
       this.publicContext.presentPatch(this.stepMigration.forward.map(operation => ({
         ...operation,
-        path: representationId + operation.path
+        path: this.data.$id + operation.path
       })))
     }
   }
@@ -712,7 +710,7 @@ function getTransformationPackage<T extends string>(
         predicate?: RepresentationPredicate<any, any, T>
         computation: Transformation<any>
       },
-      isObservable: boolean
+      isBoxed: boolean
     }[]
     factoryTransformations: {
       id: string,
@@ -720,7 +718,7 @@ function getTransformationPackage<T extends string>(
         predicate?: RepresentationPredicate<any, any, T>
         computation: Transformation<any>
       },
-      isObservable: boolean
+      isBoxed: boolean
     }[]
     previousControlStates: T[]
     model: any
@@ -729,12 +727,12 @@ function getTransformationPackage<T extends string>(
 ): {
   id: string,
   computation: Transformation<any>
-  isObservable: boolean
+  isBoxed: boolean
  } | undefined {
   let representationPackage: {
     id: string
     computation: Transformation<any>
-    isObservable: boolean
+    isBoxed: boolean
    } | undefined
 
   // Search in the array until it find a predicate which is valid
@@ -744,13 +742,13 @@ function getTransformationPackage<T extends string>(
     if (typeof rep === 'function') {
       representationPackage = {
         id: instanceTransformations[i].id,
-        isObservable: instanceTransformations[i].isObservable,
+        isBoxed: instanceTransformations[i].isBoxed,
         computation: rep
       }
     } else if (rep.predicate && runPredicate(rep.predicate)) {
       representationPackage = {
         id: instanceTransformations[i].id,
-        isObservable: instanceTransformations[i].isObservable,
+        isBoxed: instanceTransformations[i].isBoxed,
         computation: rep.computation
       }
     }
@@ -769,13 +767,13 @@ function getTransformationPackage<T extends string>(
     if (typeof rep === 'function') {
       representationPackage = {
         id: factoryTransformations[i].id,
-        isObservable: factoryTransformations[i].isObservable,
+        isBoxed: factoryTransformations[i].isBoxed,
         computation: rep
       }
     } else if (rep.predicate && runPredicate(rep.predicate)) {
       representationPackage = {
         id: factoryTransformations[i].id,
-        isObservable: factoryTransformations[i].isObservable,
+        isBoxed: factoryTransformations[i].isBoxed,
         computation: rep.computation
       }
     }

@@ -5,7 +5,9 @@ import { IContainer } from "./IContainer"
 export type ITransformer<A, B> = (object: A) => B
 
 type ITransformerOptions = {
-    isObservable?: boolean
+    isBoxed?: boolean // Passed to the computed, applied only on object that we don't want to be deeply observable
+    computedId?: string // ID of the computed
+    valueId?: string // ID of the value of the computed
     contexts?: {output?: IContainer, source?: IContainer}
 }
 let memoizationId = 0
@@ -20,9 +22,16 @@ export function createTransformer<A, B>(
 
     // Memoizes: object id -> reactive view that applies transformer to the object
     const views: { [id: number]: IComputed<B> } = {}
-    const isObservable = options?.isObservable ?? true
+    const isBoxed = !!options?.isBoxed
     function createView(sourceObject: A): IComputed<B> {
-        return computed(() => transformer(sourceObject), {isObservable, contexts: options?.contexts})
+        return computed(
+            () => transformer(sourceObject),
+            {
+                computedId: options?.computedId,
+                valueId: options?.valueId,
+                isBoxed,
+                contexts: options?.contexts,
+            })
     }
 
     return (object: A): B => {

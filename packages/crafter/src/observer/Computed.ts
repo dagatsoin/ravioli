@@ -1,29 +1,42 @@
 import { IObservable } from '../IObservable'
-import { observable } from '../lib/observable'
+import { observable, isObservable } from '../lib/observable'
 import { ObserverType, Observer } from './Observer'
 import { LeafInstance } from '../lib/LeafInstance'
 import { isPrimitive } from '../Primitive'
 import { toNode } from '../helpers'
 import { IContainer } from '../IContainer'
-import { isNode } from '../lib/isNode'
-import { isInstance } from '../lib/Instance'
+import { isInstance } from '../lib'
 
 export interface IComputed<T> {
   get(): T
 }
 
+/**
+ * A Computed is a memoized pure function which outputs either:
+ * - an Observable object
+ * - a boxed observable value (primitive, binary, ...)
+ * A computed expression is evaluated lazily. The function is evaluated will only when Computed.get() is called.
+ * During the evaluation, Crafter will register all observable access to maintain a list of dependencies.
+ * If one of those dependency changes during a transaction, the computed value will be mark as stale.
+ * During the next call to Computed.get(), if the value is stale, the expression will run again, if no stale, it
+ * will send back the cached value.
+ */
+
+const type = ObserverType.Computed
+
 export class Computed<T> extends Observer implements IComputed<T> {
   public get isStale(): boolean {
     return this._isStale
   }
-  public type = ObserverType.Computed
+  public type = type
   public dependencyPaths: string[] = []
   public readonly fun: (isInitialRun?: true) => T
   private value!: T | IObservable<T>
   private isAlive: boolean = false
   private isIinitialized = false
   private valueContext: IContainer
-  private readonly isObservableValue: boolean
+  private valueId?: string
+  private readonly isBoxed: boolean
   private readonly isStrict: boolean
 
   constructor(fun: (boundThis?: IObservable<any>) => T, options?: ComputedOptions) {
@@ -33,8 +46,9 @@ export class Computed<T> extends Observer implements IComputed<T> {
       context: options?.contexts?.source
     })
     this.fun = fun
-    this.isObservableValue = options?.isObservable ?? true
+    this.isBoxed = !!options?.isBoxed
     this.valueContext = options?.contexts?.output || this.context
+    this.valueId = options?.valueId
     this.isStrict = options && options.useOptional !== undefined
       ? options.useOptional
       : true
@@ -48,11 +62,19 @@ export class Computed<T> extends Observer implements IComputed<T> {
     }
     if (this._isStale) {
       this.runAndUpdateDeps(target)
-      // If the computed value is an observable, add the observable value
-      // if not, add this id.
-      if (isInstance(this.value)) {
+      // The value is an observable node instance and the user
+      // don't want a boxed value.
+      // Its observers will track the value ID.
+      if (isObservable(this.value) && !this.isBoxed) {
         this.valueContext.addObservedPath(this.value.$id)
-      } else {
+      }
+      // The value is:
+      // - a primitive,
+      // - a LeafInstance
+      // - a non observable object
+      // - an observable node but the user wants a boxed value
+      // The observers will track the Computed ID.
+      else {
         this.valueContext.addObservedPath(this.id)
       }
     }
@@ -60,8 +82,8 @@ export class Computed<T> extends Observer implements IComputed<T> {
     return this.value
   }
 
-  public get valueId(): string{
-    return isInstance(this.value)
+  public get observedValueId(): string{
+    return isObservable(this.value)
       ? this.value.$id
       : this.id
   }
@@ -70,7 +92,7 @@ export class Computed<T> extends Observer implements IComputed<T> {
     this._isStale = true
     this.isAlive = false
     if (isInstance(this.value)) {
-      this.valueContext.unregisterAsReferencable(this.id)
+      this.value.$kill()
     }
   }
 
@@ -101,21 +123,24 @@ export class Computed<T> extends Observer implements IComputed<T> {
     this.valueContext.pauseSpies()
     // The observer run for the first. We set the observable result.
     if (!this.isIinitialized) {
-      // This computed value is not observable
-      if (!this.isObservableValue) {
-        this.value = value
-      } 
-      // The computation return a leaf instance
-      else if (value instanceof LeafInstance) {
+      // The computation return a leaf instance.
+      if (value instanceof LeafInstance) {
+        // A leaf instance is not a reactive source
         this.value = value.$data
       }
       // The computation return a primitive
       else if (isPrimitive(value)) {
+        // This must be an observable value
         this.value = value
       }
       // The computation return an object
       else {
-        this.value = observable(value, { context: this.valueContext, isStrict: this.isStrict })
+        // The user don't want a deep observable object.
+        if (this.isBoxed) {
+          this.value = value
+        } else {
+          this.value = observable(value, { context: this.valueContext, isStrict: this.isStrict, id: this.valueId })         
+        }
       }
 
       this.isIinitialized = true
@@ -123,7 +148,7 @@ export class Computed<T> extends Observer implements IComputed<T> {
     // The observer has already ran. We update the observable value.
     // Note this $setValue won't emit any patch, because it only happens during the learning phase.
     else {
-      if (isNode(this.value)) {
+      if (isObservable(this.value)) {
         this.valueContext.transaction(() => toNode(this.value).$setValue(value))
       } else {
         this.value = value
@@ -145,7 +170,9 @@ export class Computed<T> extends Observer implements IComputed<T> {
 }
 
 export type ComputedOptions = {
-  isObservable?: boolean
+  isBoxed?: boolean
+  computedId?: string
+  valueId?: string
   useOptional?: boolean
   contexts?: {output?: IContainer, source?: IContainer}
 }

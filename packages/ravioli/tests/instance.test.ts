@@ -342,6 +342,7 @@ describe('Instance enhancement', function() {
   })
 
   test('instance actions, mutations and nap override factory behaviors', function() {
+    const battleLog: string[] = []
     const Grunt = component(
       object({
         hp: number(),
@@ -381,7 +382,7 @@ describe('Instance enhancement', function() {
             ({ type, payload }) => type === 'setHP' && payload.hp < 0
           ),
         effect: (_, { heal }) => {
-          console.log('Thrall is hit: -3')
+          battleLog.push('Thrall is hit: -3')
           heal()
         },
       })
@@ -395,8 +396,8 @@ describe('Instance enhancement', function() {
           ({ type, payload }) => type === 'setHP' && payload.hp < 0
         ),
       effect: (_, { heal }) => {
-        console.log('Thrall is hit: -3')
-        console.log('Buff double heal')
+        battleLog.push('Thrall is hit: -3')
+        battleLog.push('Buff double heal')
         heal()
         heal()
       },
@@ -409,7 +410,7 @@ describe('Instance enhancement', function() {
           ({ type, payload }) => type === 'setHP' && payload.hp > 0
         ),
       effect: () => {
-        console.log('Thrall is healed: +6')
+        battleLog.push('Thrall is healed: +6')
       },
     })
 

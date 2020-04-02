@@ -23,14 +23,17 @@ test("tracker", function() {
   }
   let run = 0
 
-  const name = computed(() => model.name)
+  const name = computed(() => model.name, {isBoxed: true})
+
+  let test: string 
 
   autorun(() => {
-    console.log(name.get())
+    test = name.get()
     run++
   })
   
   model.name = "Fraktos"
   
+  expect(test!).toEqual('Fraktos')
   expect(run).toEqual(2)
 })

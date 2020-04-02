@@ -350,9 +350,9 @@ export class CrafterContainer implements IContainer {
     }
     const targets = directDependencies.concat(
       ...directDependencies.map(dep => {
-        // If the dep is a derivation, we retrieve its observable $id
+        // If the dep is a derivation, we retrieve its id (for boxed value, the computed if, otherwise the value id)
         const sourceId = dep.type === ObserverType.Computed
-          ? (dep as Computed<any>).valueId
+          ? (dep as Computed<any>).observedValueId
           : dep.id
         return this.getTargets(sourceId)
       })

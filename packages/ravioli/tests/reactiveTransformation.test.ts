@@ -1,5 +1,5 @@
 import { component } from "../src/api"
-import { object, string, number, array, autorun } from "@warfog/crafter"
+import { object, string, number, array, autorun, getGlobal } from "@warfog/crafter"
 
 test('default representation', function() {
   const player = component(object({
@@ -65,6 +65,7 @@ test('custom representation', function() {
 })
 
 test('transform to primitive', function() {
+  getGlobal().$$crafterContext.clearContainer()
   const player = component(object({
     name: string()
   }))

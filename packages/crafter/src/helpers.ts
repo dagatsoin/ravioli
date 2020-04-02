@@ -80,11 +80,11 @@ export function getSnapshot<T extends IType<any>>(
  */  return toInstance(instance).$snapshot
 }
 
-export function clone<T>(instance: T, context?: IContainer): T {
+export function clone<T>(instance: T, options?: {id?: string, context?: IContainer}): T {
   const node = toNode(instance)
   const snapshot = getSnapshot(node)
   if (isInstance(instance) && node.$type.isValidSnapshot(snapshot)) {
-    return node.$type.create(snapshot, { context: context || instance.$$container }) as T
+    return node.$type.create(snapshot, { id: options?.id, context: options?.context || instance.$$container }) as T
   }
   throw new Error('Trying to clone other than an IInstance')
 }

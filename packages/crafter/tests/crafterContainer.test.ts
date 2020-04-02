@@ -209,7 +209,7 @@ test('invalidated observer during side effect are not run twice', function() {
   }
 
   // Child component
-  const y = computed(() => props.y)
+  const y = computed(() => props.y, {isBoxed: true})
   let ranChild = 0
   autorun(() => {
     ranChild++
@@ -253,7 +253,7 @@ test('invalidated observer during side effect are immediately stale', function()
   }
 
   // Child autorun
-  const y = computed(() => props.y)
+  const y = computed(() => props.y, {isBoxed: true})
   autorun(() => render(y.get()))
 
   // Parent component

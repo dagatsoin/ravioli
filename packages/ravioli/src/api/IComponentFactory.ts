@@ -45,7 +45,7 @@ export interface IComponentFactory<
       predicate?: RepresentationPredicate<TYPE, MUTATIONS, CONTROL_STATES>
       computation: Transformation<TYPE>
     },
-    isObservable: boolean
+    isBoxed: boolean
   }[]
   create(
     value?: VALUE,
@@ -124,7 +124,7 @@ export interface IComponentFactory<
       predicate?: RepresentationPredicate<TYPE, MUTATIONS, CONTROL_STATES>
       computation: C
     },
-    isObservable?: boolean
+    isBoxed?: boolean
   ): IComponentFactory<
     TYPE,
     VALUE,

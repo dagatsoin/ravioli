@@ -1,6 +1,25 @@
 import { CrafterContainer, getGlobal, object, reference, string, autorun, toInstance, createTransformer, number, array, identifier, boolean } from "@warfog/crafter"
 import { component } from "../src/api"
 
+test("Simplest component", function() {
+  getGlobal().$$crafterContext.clearContainer()
+  const store = component(object({counter: number()}))
+    .addAcceptor("increment", (model) => ({ mutator: () => model.counter++ }))
+    .addActions({increment: "increment"})
+    .create({counter: 0}) // initial model data
+
+  let count
+  autorun(() => count = store.state.representation.counter)
+
+  expect(count).toBe(0)
+  store.actions.increment()
+  expect(count).toBe(1)
+  store.actions.increment()
+  expect(count).toBe(2)
+  store.actions.increment()
+  expect(count).toBe(3)
+})
+
 test("Minimal poc of reactive representation", function() {
   const privateContext = new CrafterContainer()
   const publicContext = getGlobal().$$crafterContext as CrafterContainer

@@ -20,7 +20,21 @@ const context = getGlobal().$$crafterContext
 
 beforeEach(context.clearContainer)
 
-test('Autorun', function() {
+test('Simple autorun', function(){
+  const model = observable({
+    name: 'Fraktar'
+  })
+  let run = 0
+  const dispose = autorun(() => {
+    run++
+    model.name
+  })
+  getContext(toInstance(model)).transaction(() => model.name = 'Fraktos')
+  dispose()
+  expect(run).toBe(2)
+})
+
+test('Autorun with computed', function() {
   const model = observable({
     name: 'Fraktar',
     buffs: [
@@ -125,7 +139,7 @@ test('Nested autorun execution. Trigger an autorun while another autorun is runn
   }
 
   // Child component
-  const y = computed(() => props.y)
+  const y = computed(() => props.y, {isBoxed: true})
   const dispose0 = autorun(({isFirstRun}) => {
     render(y.get())
     if (!isFirstRun) {
