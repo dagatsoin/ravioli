@@ -15,8 +15,12 @@
       "es2019.array"
     ],
     "target": "es5",
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "baseUrl": "../",
+    "paths": {
+      "@warfog/crafter": ["crafter/src"]
+    }
   },
-  "include": ["src", "tests", "./jest.setup.ts"],
+  "include": ["src/index.ts", "jest.setup.ts", "tests/*", "../crafter/src/*"],
   "exclude" : ["dist"]
 }

@@ -16,11 +16,6 @@
     "test:size": "size-limit"
   },
   "jest": {
-    "globals": {
-      "ts-jest": {
-        "tsConfig": "<rootDir>/tsconfig.test.json"
-      }
-    },
     "transform": {
       "^.+\\.tsx?$": "ts-jest"
     },
@@ -44,6 +39,9 @@
     "watchPathIgnorePatterns": [
       "<rootDir>/node_modules/"
     ],
+    "moduleNameMapper": {
+      "^@warfog/crafter$": "<rootDir>/../crafter/src"
+    },
     "testURL": "http://127.0.0.1/"
   },
   "devDependencies": {
