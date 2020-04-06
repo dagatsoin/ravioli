@@ -2,10 +2,11 @@ import { toInstance, getContext } from '../src/helpers'
 import { getObservable, observable } from '../src/lib/observable'
 import { autorun } from '../src/observer/Autorun'
 import { computed } from '../src/observer/Computed'
-import { number } from '../src/Primitive'
+import { number, string } from '../src/Primitive'
 import { object } from '../src/object'
 import { getGlobal } from '../src/utils/utils'
 import { isInstance } from '../src/lib/Instance'
+import { CrafterContainer } from '../src'
 
 const context = getGlobal().$$crafterContext
 
@@ -277,4 +278,47 @@ test("Reshape an existing type", function() {
   expect(reshaped.stats).toBeUndefined()
 
   dispose()
+})
+
+test("Computed notify read even if its context is not running reaction", function(){
+  const privateContext0 = new CrafterContainer()
+  const privateContext1 = new CrafterContainer()
+  const publicContext = getGlobal().$$crafterContext
+  const model0 = object({count: number()}).create({count: 0}, {context: privateContext0})
+  const model1 = object({foo: string()}).create({foo: 'bar'}, {context: privateContext1})
+  const computed0 = computed(() => ({
+    count: model0.count
+  }), {contexts: {
+    output: publicContext,
+    source: privateContext0
+  }})
+  const computed1 = computed(() => ({
+    foo: model1.foo
+  }), {contexts: {
+    output: publicContext,
+    source: privateContext1
+  }})
+  let count = 0
+  let foo = ''
+  let run = 0
+  autorun(() => {
+    run++
+    count = computed0.get().count
+    foo = computed1.get().foo
+  })
+  privateContext1.transaction(() => model1.foo = "foo")
+  publicContext.presentPatch([{
+    path: toInstance(model1).$id + '/foo',
+    op: 'replace',
+    value: 'foo'
+  } as any])
+  privateContext0.transaction(() => model0.count++)
+  publicContext.presentPatch([{
+    path: toInstance(model0).$id + '/count',
+    op: 'replace',
+    value: '1'
+  } as any])
+  expect(run).toBe(3)
+  expect(foo).toBe('foo')
+  expect(count).toBe(1)
 })
