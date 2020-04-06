@@ -192,10 +192,10 @@ export class ComponentInstance<
         const action = (payload: any): Mutation<any, any>[] => [{ type: store[key], payload }]
         switch (type) {
           case 'string':
-            // The dev used a shortcul action.
-            // Create an action which return the correct proposal.
-            this._originalActions[store[key]] = action
-            this._wrapedActions[store[key]] = toSyncAction(this, action)
+            // The dev used an acceptor reference.
+            // Wrap the acceptor mutator in an synchronous action.
+            this._originalActions[key] = action
+            this._wrapedActions[key] = toSyncAction(this, action)
             break
           case 'function':
             this._originalActions[key] = store[key]

@@ -19,12 +19,12 @@ test('declare action by mutation name', function() {
       },
     }))
     .addActions({
-      setName: 'setName',
+      rename: 'setName',
     })
 
   const user = User.create()
 
-  user.actions.setName({ name: 'Fraktar' })
+  user.actions.rename({ name: 'Fraktar' })
 
   expect(user.state.representation.name).toBe('Fraktar')
 })

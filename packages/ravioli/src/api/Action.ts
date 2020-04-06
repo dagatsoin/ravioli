@@ -77,12 +77,12 @@ export type Actions<
     : I[key] extends ConfigurableAction<any, any>
     ? I[key]['action']
     : // The action is the name of an acceptor.
-    key extends MUTATION['type']
+    I[key] extends MUTATION['type']
     ? // Generate a function which takes the mutator payload if any
-      Extract<MUTATION, { type: key }>['payload'] extends undefined
-      ? () => Proposal<Extract<MUTATION, { type: key }>>
+      Extract<MUTATION, { type: I[key] }>['payload'] extends undefined
+      ? () => Proposal<Extract<MUTATION, { type: I[key] }>>
       : (
-          payload: Extract<MUTATION, { type: key }>['payload']
+          payload: Extract<MUTATION, { type: I[key] }>['payload']
         ) => Proposal<MUTATION>
     : never
 }
