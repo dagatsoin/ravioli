@@ -1,6 +1,6 @@
 {
   "name": "@warfog/ravioli",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "author": "Daniel Neveux",
   "description": "Reactive framework based on the SAM pattern.",
   "scripts": {
