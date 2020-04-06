@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.2](https://github.com/dagatsoin/ravioli/compare/v1.2.1...v1.2.2) (2020-04-06)
+
+
+### Bug Fixes
+
+* **crafter:** computeds read notification in cross context ([33767c8](https://github.com/dagatsoin/ravioli/commit/33767c879b42cd97aa3561ab9ae221563d6d2f5e))
+
+
+
+
+
 # 1.2.0 (2020-04-02)
 
 

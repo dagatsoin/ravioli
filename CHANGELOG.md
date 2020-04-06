@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.2](https://github.com/dagatsoin/ravioli/compare/v1.2.1...v1.2.2) (2020-04-06)
+
+
+### Bug Fixes
+
+* **crafter:** computeds read notification in cross context ([33767c8](https://github.com/dagatsoin/ravioli/commit/33767c879b42cd97aa3561ab9ae221563d6d2f5e))
+* **crafter-react:** fix test suite startup ([84d29df](https://github.com/dagatsoin/ravioli/commit/84d29df1f4983a7ea01b38f3a0acc2d47dd204c7))
+
+
+
+
+
 ## [1.2.1](https://github.com/dagatsoin/ravioli/compare/v1.2.0...v1.2.1) (2020-04-02)
 
 
