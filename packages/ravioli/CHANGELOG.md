@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.3](https://github.com/dagatsoin/ravioli/compare/v1.2.2...v1.2.3) (2020-04-06)
+
+
+### Bug Fixes
+
+* **ravioli:** action shortcut ([f4b8556](https://github.com/dagatsoin/ravioli/commit/f4b85569398d8e3f3c47372d10b3cb21c6edac88))
+
+
+
+
+
 ## [1.2.2](https://github.com/dagatsoin/ravioli/compare/v1.2.1...v1.2.2) (2020-04-06)
 
 **Note:** Version bump only for package @warfog/ravioli
