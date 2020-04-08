@@ -6,7 +6,6 @@ import { Graph, removeNode, removeNodeEdges, getTreeEdges, Edge } from './Graph'
 import { INodeInstance } from './lib/INodeInstance'
 import { Tracker } from './lib/Tracker'
 import { State, IContainer, ContextListener } from './IContainer'
-import { Computed } from './observer/Computed'
 
 function getInitState(): State {
   return {
@@ -351,9 +350,7 @@ export class CrafterContainer implements IContainer {
     const targets = directDependencies.concat(
       ...directDependencies.map(dep => {
         // If the dep is a derivation, we retrieve its id (for boxed value, the computed if, otherwise the value id)
-        const sourceId = dep.type === ObserverType.Computed
-          ? (dep as Computed<any>).observedValueId
-          : dep.id
+        const sourceId = dep.id
         return this.getTargets(sourceId)
       })
     )

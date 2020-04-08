@@ -2,13 +2,12 @@ import { computed, IComputed } from "./observer/Computed"
 import { addHiddenProp } from "./utils/utils"
 import { IContainer } from "./IContainer"
 
-export type ITransformer<A, B> = (object: A) => B
+export type ITransformer<A, B> = (object: A, contexts?: Contexts) => B
+
+type Contexts = {output?: IContainer, source?: IContainer}
 
 type ITransformerOptions = {
-    isBoxed?: boolean // Passed to the computed, applied only on object that we don't want to be deeply observable
-    computedId?: string // ID of the computed
-    valueId?: string // ID of the value of the computed
-    contexts?: {output?: IContainer, source?: IContainer}
+    contexts?: Contexts
 }
 let memoizationId = 0
 
@@ -22,24 +21,19 @@ export function createTransformer<A, B>(
 
     // Memoizes: object id -> reactive view that applies transformer to the object
     const views: { [id: number]: IComputed<B> } = {}
-    const isBoxed = !!options?.isBoxed
-    function createView(sourceObject: A): IComputed<B> {
+    function createView(sourceObject: A, contexts?: Contexts): IComputed<B> {
         return computed(
             () => transformer(sourceObject),
-            {
-                computedId: options?.computedId,
-                valueId: options?.valueId,
-                isBoxed,
-                contexts: options?.contexts,
-            })
+            { contexts }
+        )
     }
 
-    return (object: A): B => {
+    return (object: A, contexts?: Contexts): B => {
         const identifier = getMemoizationId(object)
         let reactiveView = views[identifier]
         if (reactiveView) return reactiveView.get()
         // Not in cache; create a reactive view
-        reactiveView = views[identifier] = createView(object)
+        reactiveView = views[identifier] = createView(object, options?.contexts || contexts)
         return reactiveView.get()
     }
 }

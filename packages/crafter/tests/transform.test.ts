@@ -1,4 +1,4 @@
-import { autorun, object, array, getContext, toInstance, getSnapshot, number, string, boolean, identifier, computed, CrafterContainer, getGlobal, toNode, ObserverType, IInstance } from "../src"
+import { autorun, object, array, getContext, toInstance, getSnapshot, number, string, boolean, identifier, computed, CrafterContainer, getGlobal, toNode } from "../src"
 import { createTransformer } from "../src/transformer"
 import { reference } from "../src/lib/reference"
 
@@ -7,7 +7,7 @@ test("transform to primitive", function() {
   const model = Model.create()
   let count
 
-  const transforModel = createTransformer((m: typeof Model['Type']) => m.count, {isBoxed: true})
+  const transforModel = createTransformer((m: typeof Model['Type']) => m.count)
 
   autorun(() => {
     count = transforModel(model)
@@ -79,7 +79,7 @@ test("transform to non observable object", function() {
   const transforModel = createTransformer((m: typeof Model['Type']) => ({
     name: m.name,
     age: m.age
-  }), {isBoxed: true})
+  }))
 
   autorun(() => {
     profil = transforModel(model)
@@ -214,12 +214,12 @@ test("transform", function() {
   const serializeState = createTransformer((s: typeof Graph['Type']) => ({
       nodes: s.nodes.map(serializeBox as any),
       edges: s.edges.map(serializeArrow as any),
-  }), {isBoxed: true})
+  }))
 
 
-  const serializeBox = createTransformer((node: typeof Node) => getSnapshot(node), {isBoxed: true})
+  const serializeBox = createTransformer((node: typeof Node) => getSnapshot(node))
 
-  const serializeArrow = createTransformer((edge: typeof Edge) => getSnapshot(edge), {isBoxed: true})
+  const serializeArrow = createTransformer((edge: typeof Edge) => getSnapshot(edge))
 
   autorun(() => {
     const s = serializeState(graph)
@@ -412,24 +412,4 @@ test("Defer transformation by using two contexts", function() {
   expect(worldTransformRun).toBe(1)
   expect(reactStoreComputedRun).toBe(2)
 
-})
-
-describe("Set id to the transformed view", function() {
-  const context = getGlobal().$$crafterContext
-  test("boxed value", function(){
-    context.clearContainer()
-    const transform = createTransformer((m) => m, {computedId: "customId"})
-    const dispose = autorun(() => transform('foo'))
-    expect(context.snapshot.observerGraph.nodes.find(n => n.type === ObserverType.Computed)!.id).toBe("customId")
-    dispose()
-  })
-  test("observable value", function(){
-    context.clearContainer()
-    const transform = createTransformer((m) => ({foo: m}), {computedId: "customId", valueId: "valueId"})
-    let value: IInstance<any>
-    const dispose = autorun(() => value = toInstance(transform('foo')))
-    expect(value!.$id).toBe("valueId")
-    expect(context.snapshot.observerGraph.nodes.find(n => n.type === ObserverType.Computed)!.id).toBe("customId")
-    dispose()
-  })
 })

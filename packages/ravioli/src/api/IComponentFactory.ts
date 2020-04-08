@@ -219,7 +219,7 @@ export type Delta<TYPE, MUTATION, CONTROL_STATES_PREDICATES> = {
   migration: Migration
 }
 
-export type Transformation<TYPE> = (model: TYPE) => any
+export type Transformation<TYPE> = (model: TYPE, contexts?: { source?: IContainer, output?: IContainer }) => any
 
 export type StepReaction<TYPE, REPRESENTATION, MUTATION, CONTROL_STATES_PREDICATES extends string, ACTIONS> = {
   predicate?(

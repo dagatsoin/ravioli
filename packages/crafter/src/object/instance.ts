@@ -34,7 +34,6 @@ import { ReferenceValue, isReferenceType } from '../lib/reference'
 import { IContainer } from '../IContainer'
 import { isIdentifierType } from '../identifier'
 import { Computed } from '../observer'
-import { getTypeFromValue } from '../lib/getTypeFromValue'
 
 export class ObjectInstance<
   TYPE extends {},
@@ -109,49 +108,8 @@ export class ObjectInstance<
         'Crafter object. Tried to set an object value while model is locked.'
       )
     }
-    // Special case, affecting new value to a Computed
-    // may need to reshape the type.
-    // Also, as this is an internal Computed operation
-    // this won't emit patch
-    if (this.$$container.isRunningReaction) {
-      const valueKeys = Object.keys(value)
-      const propsKeys = Object.keys(this.$type.properties)
 
-      const isNowDead = (pk: string): boolean =>
-        // Value does not contains this key
-        !valueKeys.includes(pk) ||
-        // This value field is now undefined
-        value[pk] === undefined && this.$data[pk] !== undefined
-
-      // Sync props
-      const propsToRemove = propsKeys.filter(isNowDead)
-      const missingKeys = valueKeys
-        .filter(vk => value[vk] !== undefined)
-        .filter(vk => !propsKeys.includes(vk))
-
-      // Delete dead properties
-      propsToRemove.forEach(key => {
-        this.$data[key].$kill()
-        delete this.$data[key]
-        delete this.$type.properties[key]
-      })
-      
-      // Add new props
-      missingKeys.forEach(key => {
-        this.$type.properties[key] = getTypeFromValue(value[key], true) // always use strict mode
-        add(this as any, value[key], key)
-      })
-
-      valueKeys
-        .filter(key => !!value[key]) // exlucde undefined value field
-        .forEach(key => {
-          this.$data[key].$setValue(value[key])
-        })
-    } else {
-      Object.keys(this.$data).forEach(key =>
-        this.$data[key].$setValue(value[key])
-      )
-    }
+    Object.keys(this.$data).forEach(key => this.$data[key].$setValue(value[key]))
   }
 
   public $applyOperation = <O extends Operation>(

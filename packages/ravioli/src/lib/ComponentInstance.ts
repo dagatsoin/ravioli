@@ -74,7 +74,7 @@ export class ComponentInstance<
     CSPredicate<TYPE, MUTATIONS, CONTROL_STATES>
   > = new Map()
   private transformations: TransformationPackage<TYPE, MUTATIONS, CONTROL_STATES>[] = []
-  private currentTransformation?: { id: string, transformer: ITransformer<IInstance<TYPE, any>, REPRESENTATION>, isBoxed: boolean }
+  private currentTransformation?: { id: string, transformer: ITransformer<IInstance<TYPE, any>, REPRESENTATION> }
   private packagedActions: PackagedActions<any, any> = {}
   private privateContext: IContainer
   private publicContext: IContainer
@@ -140,11 +140,9 @@ export class ComponentInstance<
     if (initialTransformationPackage !== undefined) {
       this.currentTransformation = {
         id: initialTransformationPackage.id,
-        isBoxed: initialTransformationPackage.isBoxed,
         transformer: createTransformer(
           initialTransformationPackage.computation,
           {
-            isBoxed: initialTransformationPackage.isBoxed,
             contexts: {
               source: this.privateContext,
               output: this.publicContext
@@ -293,7 +291,6 @@ export class ComponentInstance<
       else {
         this.currentTransformation = {
           id: transformationPackage.id,
-          isBoxed: transformationPackage.isBoxed,
           transformer: createTransformer(
             transformationPackage.computation,
             {
