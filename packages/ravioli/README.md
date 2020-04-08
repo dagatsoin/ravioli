@@ -28,8 +28,8 @@ All along your development with Ravioli, you will handle your issues with a bunc
 
 ## Is ravioli for you?
 - :heavy_check_mark: you are a junior dev looking for a great developement experience
-- :heavy_check_mark: you are a Typescript developer
-- :heavy_check_mark: you strugggle to organize your code and are looking for a opinionated framework
+- :heavy_check_mark: you have to develop a temporal logic app (tabletop game, form with steps, ...)
+- :heavy_check_mark: you are lead dev who is looking for a simple solution to onboard junior dev on project with Separation of Concern in mind.
 
 ## Is ravioli not for you?
 - :x: you need a library rather a framework (come back later, when the Crafter package will be documented)
@@ -54,16 +54,27 @@ SAM and Ravioli are based on temporal logic. Each action starts a new step and l
 3. The model acceptors accept/reject each part of the proposal and do the appropriate mutations.
 4. If the model changed we compute the new component state.
 5. This new state may lead to trigger some automatic actions. Each action will lead to a new step (if some changes are made)
-6. We notify the external world that our component state has changes (eg. refresh the view, side effects...)
+6. We notify the external world that our component state has changed (eg. to refresh the view, to trigger side effects...)
 
 # Ravioli parts
 
 A Ravioli is a component
 > At this point of development, they are not composable yet.
 
-Each component is like a Redux store or a Mobx State tree and its role is to simplify the development of stateful application.
+Each component is like a Redux store or a Mobx State tree and its role is to handle the state of your software.
 
-A component is like a black box with which let user interact it through some actions.
+The main differences are:
+- Ravioli comes out of the box with a temporal logic, based on state machine.
+  Each Raviolo has its own state machine (either finite or not) which allows only certains actions/mutations/transformations.
+  As en example you see a Player can be Alive or Dead.
+  Each control states having its own actions. Fire, walk, when Alive. Revive, pop in cimetery when Dead.
+  Those states being isolated, there is no chance that a Dead Player shots an Alive Player. Out of the box, without additional code.
+- Actions are not mutations. It means that an action is like in real life. An attempt of the exterior world (view) to influence an interior world (model).
+  In such, an action does not mutate the model but presents a proposal which the model will accept or reject.
+  Think a Player A which shots another Player B. Even if the lifebar of B is low, only B will decide of its own death or not. Because only B has all the informations, like secret buffs, to take such decision.
+- View and Model isolation. The view (as the compiled representation of the model) has no read/write access to the model. This clear isolation
+  makes the component like a black box which the user interacts with through some actions.
+- Modularity. Ravioli is still in early development but is designed in mind to have its "modules" (Action, Model, Representation) living in a decentralized manners. At term, it will be possible to have the model on the server, the actions on a micro services, the view on the client.
 
 ## Action
 An action is a high level interface for the external world of a component. It is the only way to interact with the model.
@@ -95,18 +106,18 @@ function drinkHealthPotion() {
 
 >### Action are "fire and forget".
 >
->This concept is important and reflect the real life. You are never sure that your action will lead to the expected result. There is always a little chance to fail, something unknown or something you have not anticipated.
+>This concept is important and reflects the real life. You are never sure that your action will lead to the expected result. There is always a little chance to fail, something unknown or something you have not anticipated.
 >
->Think about hiting a kobold in a table top game. Your action is to hit. But the success depends on the rolling dice.
+>Think about hiting a kobold in a table top game. Your action is to hit. But the success depends on the rolling dice and maybe on internal state (secret buff) which will cancel your attempt.
 >
->You want to be rich? Your only possible action is to work, but here too, the success will depends of a billion of factors.
+>You want to be rich? Your only possible (async) action is to work, but here too, the success will depends of a billion of factors.
 
 ## Proposal
 
-A seen in the example above, a proposal is an array of declarative mutations that the action wants to perform on the model.
+As seen in the example above, a proposal is an array of declarative mutations that the action wants to perform on the model.
 Note even that the proposal has a specific shape, its content does not need to be valid to be presented to the model. Only the model will decide it is valid or not.
 
-```json
+```ts
 [{ 
   type: "ADD_TODO", // Well defined mutation
   payload: {
@@ -129,7 +140,7 @@ Once the proposal is received, the model will called its acceptors to let them d
 
 ### Data
 
-The model shape of the component is built declartively like this.
+The model shape of the component is built declaratively like this.
 ```ts
 const Player = object({
   name: string(),
@@ -161,7 +172,7 @@ const setHpValidator = model => payload => (
 If the mutation passes the validator, it will be marked as accepted and passed down to the mutator.
 
 #### Mutator
-A mutator is a simple *non pure* function. It returns nothing and mutate the model data. This is where the mutation happes
+This is where the mutation happens. A mutator is a simple *unpure* function. It returns nothing and mutates the model data.
 
 ```ts
 const setHpMutator = model => payload => (
@@ -172,12 +183,12 @@ const setHpMutator = model => payload => (
 ## State
 It is how the world sees your component.
 
-As I stated above, the model is isolated. The state is NOT the model, but its public view.
+As I stated above, the model is isolated. The state is NOT the model, but its public interface.
 
 The State is composed of:
 - all the available actions for the current step
 - the current control state of the component
-- an observable representation of the model
+- an observable computed representation of the model
 
 ## Control State
 
@@ -186,19 +197,19 @@ This notion directly comes for the State Machine pattern. A Control State is a s
 For example a Todo of a todo list can be Complete or UnComplete.
 A character of a video game can be Alive, Dead or Fighting.
 
-Also, Ravioli does not enforce the concept of a FINITE state machine. You can have multiple control states at a time if you need. Eg a app state can be `['STARTED', 'RUNNING_ONLINE', 'FETCHING']`
+Also, Ravioli does not enforce the concept of a FINITE state machine. You can have multiple control states in a row. Eg a app state can be `['STARTED', 'RUNNING_ONLINE', 'FETCHING']`
 
 A control state predicate is a pure function of the model.
 ```ts
 const isAlive = model => model.health > 0
 ```
-The component state exposes the current controls states of the model in an array. `myApp.state.controlStates // ['STARTED', 'RUNNING_ONLINE', 'FETCHING']`
+The component state exposes the current control states of the model in an array. `myApp.state.controlStates // ['STARTED', 'RUNNING_ONLINE', 'FETCHING']`
 
 ## Representation
 
 > Terminology, the difference between a view and a representation. By me.
 >
-> A view is how an exterior observer see a subject. In such, a view can be subjective and not conform to what the subject wants to look like. Eg. a view could be the rendered frame buffer or a HTML representation. And everyone know how the same code looks different from browser to browser.
+> A view is how an exterior observer sees a subject. In such, a view can be subjective and not conform to what the subject wants to look like. Eg. a view could be the rendered frame buffer or a HTML representation. And everyone know how the same code looks different from browser to browser.
 >
 > A representation is decided by the subject of the observation. In our context, the subject is the component and the representation some HTML tag. In such, the represention is 100% conform to the attempt of the subject.
 
@@ -238,10 +249,9 @@ autorun(() => document.getElementById("app")!.innerHTML = player.state.represent
 > Ravioli comes with an adapter for React called Crafter-React but it is not published on NPM yet. It provides an observer for React component exactly like `react-mobx` to make your UI (really) reactive.
 
 ### Default representation
-Each component is instantiated with a default representation which is an exact synchronised clone of the model. In such, it not violates the decoupling principle but happily trample the principles of private/public data isolation and business/functional abstraction.
+Each component is instantiated with a default representation which is an exact synchronised clone of the model. In such, it not violates the decoupling principle but happily tramples the principles of private/public data isolation and business/functional abstraction.
 
 In the counter example below, you can see that the representation has the same shape as the model.
-
 
 # Installation
 
@@ -273,7 +283,7 @@ Here are the specs of our little game:
 - as a player, I can loot a monster
 - as a player, I can see my inventory
 
-First it won't be a real game but I will keep this base for futur tutorials and examples and will enhance it each time.
+First it won't be a real game but I will keep this base for futur tutorials and examples and I will enhance it each time.
 
 ### As a player, I can beat a monster
 
@@ -303,7 +313,7 @@ export const Kobold = object({
 })
 ```
 
-Cool now we are able to create some Kobold!
+Cool. Now we are able to create some Kobold!
 
 > Test it: 
 > 
@@ -338,14 +348,14 @@ const kobold = Kobold
   .setControlStatePredicate("isDead", ({ model }) => model.health <= 0)
 
 ```
-> When you create a kobold you will have acces to its control state like this:
+> When you create a kobold you will have access to its control state like this:
 >
 > ```ts
 > const boss = Kobold.create({name: "Candle master", health: 10}))
 > console.log(boss.state.controlStates) // ["isAlive"]
 > ```
 
-Note the control state appears in an array. In Ravioli we are not force to have only one control state at a time like in a Finite State Machine. Your app can be in mutliple control state if you need to. (more on that later)
+Note the control state appears in an array. In Ravioli we are not force to have only one control state at a time like in a Finite State Machine. Your app can be in mutliple control states if you need to. (more on that later)
 
 #### Acceptor
 
@@ -360,7 +370,13 @@ An acceptor has two roles:
 - validate the data (is this mutation allowed at this point?)
 - do the mutation
 
-For now, we will just do the mutation. And it is quite simple, like in good old javascript. Mutate the data!! 
+For now, we will just do the mutation. And it is quite simple, like in good old javascript. Mutate the data!! Bye, bye reducers.
+
+> Immutable lovers, come back. Ravioli mixes the best of the two worlds. Simplicity of mutable code and security of immutable data.
+>
+> I will details this part in futur doc updates. To make it short, each mutation is an [ACID transaction](https://dev.to/dagatsoin/wizar-devlog-01-ravioli-acid-transaction-implementation-almost-b4c):
+> - If a transaction throws, the model data won't change.
+> - Each transaction leads to an immutable, stuctural sharing snapshot so you have still access to a time machine of your component
 
 ```ts
   // Component.ts
@@ -418,7 +434,7 @@ To show you how reactivity works, let's separate the render from the representat
   `
 ```
 
-2. Write a autorun which will render the HTML page each time the representation is updated
+2. Write an autorun which will render the HTML page each time the representation is updated
 
 ```ts
 // Component.ts
@@ -511,13 +527,13 @@ Refresh your app. Click on hit and beat it!!
 
 Oh wait. The health is now below 0 :(
 
-To fix this we set a second transformation when the kobold will is dead.
+To fix this we set a second transformation when the kobold is dead.
 
 #### Bind representation to control states
 
 ##### Refactor
 
-To bind a transformation to a control state, we just need to pass the desired control state to the `setTransformation` function.
+To map a transformation to a control state, we just need to pass the desired control state to the `setTransformation` function.
 
 ```ts
 // replace the previous transform
@@ -560,7 +576,7 @@ function isDead(store: DeadKobold) {
 }
 ```
 
-Refresh the app. Hit the Kobold. Now, when the component reach the "isDead" control state, a new view is displayed! Congratulations, you beat the Candle Master!
+Refresh the app. Hit the Kobold. Now, when the component reaches the "isDead" control state, a new view is displayed! Congratulations, you beat the Candle Master!
 
 Our first ticket is complete!! Next!
 
@@ -587,7 +603,7 @@ inventory: array(object{
 ```
 #### Add acceptor
 
-We now need to add an acceptor for removing an item from the inventory. Note again, the name and the purpose is not revelant from a functional point of view but is from a business point of view. 
+We now need to add an acceptor for removing an item from the inventory. Note again, the name and the purpose are not revelant from a functional point of view but are from a business point of view. 
 ```ts
   .addAcceptor("removeFromInventory", model => ({ mutator: ({id}) => {
     model.inventory.splice(model.inventory.findIndex(item => item.id === id), 1)
@@ -635,11 +651,11 @@ window.loot = function() {
 }
 ```
 
->Note this is an example of an anti pattern.
+> Note this is an example of an anti pattern.
 >
->Indeed the `if` condition is a business rule. In a game it is the role of the Game Master to accept or reject the pick action, because it knows about what is inside inventory of all players and NPCs.
+> Indeed the `if` condition is a business rule. In a game it is the role of the Game Master to accept or reject the pick action, because it knows about what is inside inventory of all players and NPCs.
 >
->Still, it works, but it could be a vulnerability in our game. If the client manages to by pass this condition, it will be able to pickup as many item as he wants.
+> Still, it works, but it could be a vulnerability in our game. If the client manages to by pass this condition, it will be able to pickup as many item as he wants.
 >
 > Never trust the client! 100% of cheaters are players!
 >
@@ -664,15 +680,15 @@ function isDead(store: DeadKobold) {
 
 Now, refresh and rekill the kobold and loot it. Its loot list should empty.
 
-Congratulations, we finished our second specs: **As a player, I can loot a monster**
+Congratulations, we have completed our second specs: **As a player, I can loot a monster**
 
 Now let's make this player more tangible.
 
 ## As a player, I can see my inventory
 
-There is two way to solve this. Use a second component or update the existing one to add a player field.
+There are two ways to solve this. Use a second component or update the existing one to add a player field.
 
-For the sake of the example I will go to add a second component to show you that you can use more than one store in your app.
+For the sake of the example I will go to add a second component to show you that you can use more than one data store in your app.
 
 ### Model
 
@@ -730,7 +746,7 @@ Let's do it simple. As we have access to the ids of the loot. We can pass it to 
 ```
 
 Now we will trigger our action in the same global `loot` function. Two actions on two
-different components will be triggers sequentially.
+different components will be triggered sequentially.
 The `autorun` which renders the app will update two times.
 
 ```ts
@@ -778,7 +794,7 @@ And voilà! Now your player sees its inventory picking each items on the dead Ko
 
 ### Conclusion
 
-This was a detailled explanation on how Ravioli works with a simple example. There is field of improvments which will be treated in futur blog post on my [dev.to](https://dev.to/dagatsoin):
+This was a detailled explanation on how Ravioli works with a simple example. There is field of improvements which will be treated in futur blog post on my [dev.to](https://dev.to/dagatsoin):
 - merge the two components into a single tree to
 - make one render when clicking on loot instead of two
 - improve security to prevent user to add too many items
@@ -789,14 +805,14 @@ This was a detailled explanation on how Ravioli works with a simple example. The
 
 # Licence
 
-For now Ravioli has no licence and is not free to use commercialy. That means you can experience with it but not use it for commercial purpose.
+For now Ravioli has no licence and is not free to use commercialy. That means you can experience with it or do non commercial open source with it but not use it for commercial purpose.
 As I need to to eat, I am thinking about paid service to support the development. I will update this section when my plans will be ready.
 
 # Performance
 
 Ravioli is not written with performance in mind but developper experience in mind. Treat a 100k+ array of complexe objects in no time is out of scope here.
 However, the performance it provides is quite descent from the majority of the app.
-And a lot of performance improvments should be still possible (use proxy instead of getter/setter to minimize memory heap, cache some node values, ...)   
+And a lot of performance improvements should be still possible (use proxy instead of getter/setter to minimize memory heap, lazy props evaluation, cache some node values, ...)   
 
 ## Dev
 
