@@ -523,8 +523,10 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   public $addInterceptor(index: number | string): void {
     Object.defineProperty(this, index, {
       get() {
-        this.$$container.addObservedPath(getRoot(this).$id +  this.$path + '/' + index)
         const instance = this.$data[index]
+        if (!isNode(instance)) {
+          this.$$container.addObservedPath(getRoot(this).$id +  this.$path + '/' + index)
+        }
         return instance
           ? // Prevent throwing if index does not exist
             // Return undefined instead

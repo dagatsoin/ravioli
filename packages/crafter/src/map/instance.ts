@@ -61,9 +61,9 @@ const methodKeys = [
   'size',
 ]
 
-export class MapInstance<K, TYPE>
-  extends NodeInstance<Map<K, TYPE>, Map<any, TYPE> | [any, TYPE][]>
-  implements Map<K, TYPE> {
+export class MapInstance<TYPE>
+  extends NodeInstance<Map<string, TYPE>, Map<any, TYPE> | [any, TYPE][]>
+  implements Map<string, TYPE> {
   public get size(): number {
     this.addObservedLength()
     return this.$data.size
@@ -71,12 +71,12 @@ export class MapInstance<K, TYPE>
   public get [Symbol.toStringTag](): string {
     return this.$data[Symbol.toStringTag]
   }
-  public $type: MapType<K, TYPE>
-  public $data: DataMap<K, TYPE>
+  public $type: MapType<TYPE>
+  public $data: DataMap<TYPE>
   
   constructor(
-    type: MapType<K, TYPE>,
-    entries?: [K, TYPE | Snapshot<TYPE>][] | Map<K, TYPE | Snapshot<TYPE>>,
+    type: MapType<TYPE>,
+    entries?: [string, TYPE | Snapshot<TYPE>][] | Map<string, TYPE | Snapshot<TYPE>>,
     options?: {
       id?: string,
       context?: IContainer
@@ -114,7 +114,7 @@ export class MapInstance<K, TYPE>
   }
 
   public $setValue(
-    values: Map<K, TYPE> | [K, TYPE][] | MapInstance<K, TYPE>
+    values: Map<string, TYPE> | [string, TYPE][] | MapInstance<TYPE>
   ): void {
     if (!this.$$container.isWrittable) {
       throw new Error(
@@ -124,7 +124,7 @@ export class MapInstance<K, TYPE>
 
     this.$data.clear()
     if (Array.isArray(values)) {
-      ;(values as [K, TYPE][]).forEach(entry => {
+      ;(values as [string, TYPE][]).forEach(entry => {
         const [key, value] = entry
         this.$data.set(key, this.$createChildInstance(value))
       })
@@ -146,7 +146,7 @@ export class MapInstance<K, TYPE>
 
   public $createChildInstance = <I = TYPE>(item: I): I & IInstance<I> => 
     // @todo: remove when ref will be implemented
-     (this.$type as MapType<any, any>).itemType.create(
+     (this.$type as MapType<any>).itemType.create(
       isInstance(item) ? getSnapshot(item) : item,
       { context: this.$$container }
     )
@@ -178,7 +178,7 @@ export class MapInstance<K, TYPE>
     }
   }
 
-  public delete = (key: K): boolean => {
+  public delete = (key: string): boolean => {
     try {
       present(this, [{ op: 'remove', path: this.$path + '/' + key }])
     } catch (e) {
@@ -187,22 +187,24 @@ export class MapInstance<K, TYPE>
     return true
   }
   public forEach = (
-    callbackfn: (value: TYPE, key: K, map: Map<K, TYPE>) => void,
+    callbackfn: (value: TYPE, key: string, map: Map<string, TYPE>) => void,
     thisArg?: any
   ): void => {
     this.addObservedLength()
     Map.prototype.forEach.call(thisArg || this.$data, callbackfn)
   }
-  public get = (key: K): TYPE | undefined => {
-    this.$$container.addObservedPath(getRoot(this).$id + this.$path + '/' + key)
-    const instance = this.$data.get(key)
+  public get = (key: string): TYPE | undefined => {
+    const instance = this.$data.get(key) // case where JSON path is serialized
+    if (!isNode(instance)) {
+      this.$$container.addObservedPath(getRoot(this).$id + this.$path + '/' + key)
+    }
     return instance ? unbox(instance, this.$$container) : undefined
   }
-  public has = (key: K): boolean => {
+  public has = (key: string): boolean => {
     this.$$container.addObservedPath(getRoot(this).$id + this.$path + '/' + key)
     return this.$data.has(key)
   }
-  public set = (key: K, value: TYPE | IInstance<TYPE>): this => {
+  public set = (key: string, value: TYPE | IInstance<TYPE>): this => {
     present(this, [
       {
         op: this.has(key) ? 'replace' : 'add',
@@ -213,28 +215,28 @@ export class MapInstance<K, TYPE>
     this.refineTypeIfNeeded(value)
     return this
   }
-  public [Symbol.iterator](): IterableIterator<[K, TYPE]> {
+  public [Symbol.iterator](): IterableIterator<[string, TYPE]> {
     this.addObservedLength()
     return (this.$data[Symbol.iterator]() as unknown) as IterableIterator<
-      [K, TYPE]
+      [string, TYPE]
     >
   }
-  public entries(): IterableIterator<[K, TYPE]> {
+  public entries(): IterableIterator<[string, TYPE]> {
     this.addObservedLength()
-    const newMap = new Map<K, TYPE>()
+    const newMap = new Map<string, TYPE>()
 
     this.$data.forEach((value, key) => {
       newMap.set(key, unbox(value, this.$$container))
     })
     return newMap.entries()
   }
-  public keys(): IterableIterator<K> {
+  public keys(): IterableIterator<string> {
     this.addObservedLength()
     return this.$data.keys()
   }
   public values(): IterableIterator<TYPE> {
     this.addObservedLength()
-    const newMap = new Map<K, TYPE>()
+    const newMap = new Map<string, TYPE>()
 
     this.$data.forEach((value, key) => {
       newMap.set(key, unbox(value, this.$$container))
@@ -260,7 +262,7 @@ export class MapInstance<K, TYPE>
   }
 }
 
-function generateSnapshot<T>(data: DataMap<any, T>): [any, T][] {
+function generateSnapshot<T>(data: DataMap<T>): [any, T][] {
   const value: [any, T][] = []
   data.forEach((item, key) => {
     value.push([key, item.$snapshot])
@@ -268,7 +270,7 @@ function generateSnapshot<T>(data: DataMap<any, T>): [any, T][] {
   return value
 }
 
-function generateValue<T>(data: DataMap<any, T>): Map<any, T> {
+function generateValue<T>(data: DataMap<T>): Map<any, T> {
   const value: Map<any, T> = new Map()
   data.forEach((item, key) => {
     value.set(key, item.$value)
@@ -277,8 +279,8 @@ function generateValue<T>(data: DataMap<any, T>): Map<any, T> {
 }
 
 function build(
-  map: MapInstance<any, any>,
-  entries: [any, any][] | Map<any, any> | MapInstance<any, any> = []
+  map: MapInstance<any>,
+  entries: [any, any][] | Map<any, any> | MapInstance<any> = []
 ): void {
   map.$$container.transaction(() => {
     if (entries instanceof Map) {
@@ -307,7 +309,7 @@ type Proposal<T = any> = MapOperation<T>
  * Accept the value if the model is writtable
  */
 function present<T>(
-  model: MapInstance<any, T>,
+  model: MapInstance<T>,
   proposal: Proposal[],
   willEmitPatch: boolean = true
 ): void {
@@ -371,10 +373,10 @@ function present<T>(
 }
 
 function add(
-  model: MapInstance<any, any>,
+  model: MapInstance<any>,
   command: AddOperation | ReplaceOperation
 ): void {
-  const key = getKey(model, command)
+  const key = getKey(model, command.path)
   const item = toInstance(model.$type.itemType.create(command.value, { context: model.$$container }))
 
   model.$data.set(key, item)
@@ -385,16 +387,16 @@ function add(
 }
 
 function replace(
-  model: MapInstance<any, any>,
+  model: MapInstance<any>,
   command: AddOperation | ReplaceOperation
 ): ReplaceChanges {
-  const key = getKey(model, command)
+  const key = getKey(model, command.path)
   const itemToReplace = model.get(key)
   itemToReplace.$kill()
   const changes = {
     replaced: getSnapshot(itemToReplace),
   }
-  const target = model.$data.get(key)
+  const target = model.get(key)
   if (target === undefined) {
     throw new Error("[CRAFTER: Map.replace target index is not valid. " + command)
   }
@@ -403,10 +405,10 @@ function replace(
 }
 
 function deleteInMap(
-  model: MapInstance<any, any>,
+  model: MapInstance<any>,
   command: RemoveOperation
 ): RemoveChanges {
-  const key = getKey(model, command)
+  const key = getKey(model, command.path)
   const itemToRemove = model.get(key)
   itemToRemove.$kill()
 
@@ -421,13 +423,13 @@ function deleteInMap(
 }
 
 function copy(
-  model: MapInstance<any, any>,
+  model: MapInstance<any>,
   command: CopyOperation
 ): CopyChanges | undefined {
-  const fromKey = getChildKey(model.$path, command.from)
-  const destinationKey = getKey(model, command)
-  const from = model.$data.get(fromKey)
-  const to = model.$data.get(destinationKey)
+  const fromKey = getKey(model, command.from)
+  const destinationKey = getKey(model, command.path)
+  const from = model.get(fromKey)
+  const to = model.get(destinationKey)
 
   if (from === undefined) {
     throw new Error(
@@ -446,11 +448,11 @@ function copy(
 }
 
 function move(
-  model: MapInstance<any, any>,
+  model: MapInstance<any>,
   command: MoveOperation
 ): MoveChanges {
-  const from = getChildKey(model.$path, command.from)
-  const to = getKey(model, command)
+  const from = getKey(model, command.from)
+  const to = getKey(model, command.path)
   const movedItem = model.get(from)
   const changes = {
     moved: getSnapshot(movedItem),
@@ -471,7 +473,7 @@ type ClearChanges<T> = {
   removed: [string, T][]
 }
 
-function clear(model: MapInstance<any, any>): ClearChanges<any> {
+function clear(model: MapInstance<any>): ClearChanges<any> {
   const snapshot =
     model.$snapshot instanceof Map
       ? Array.from(model.$snapshot.entries())
@@ -491,7 +493,7 @@ function clear(model: MapInstance<any, any>): ClearChanges<any> {
 }
 
 function addClearPatch(
-  model: MapInstance<any, any>,
+  model: MapInstance<any>,
   command: ClearOperation,
   changes: ClearChanges<any>
 ): void {
@@ -508,31 +510,10 @@ function addClearPatch(
 }
 
 function getKey(
-  model: MapInstance<any, any>,
-  proposal: Proposal
-): string | number {
-  const stringKey = getChildKey(model.$path, proposal.path)
-  const key = isNaN(stringKey as any /* prevent unecessary Number conversion*/)
-    ? stringKey
-    : Number(stringKey)
-  if (!isValidMapKey(model, key, proposal)) {
-    throw new Error(`Crafter ${key} is not a valid Map key.`)
-  }
-  return key
-}
-
-/**
- * Return true if the string is a valid Object or Map index.
- */
-function isValidMapKey(
-  model: MapInstance<any, any>,
-  index: string | number,
-  proposal: Proposal<any>
-): boolean {
-  return (
-    // other command than add must lead to an existing index
-    proposal.op !== 'add'
-      ? model.has(index) // check if the key exists, not if there is a value (undefined is a valid value)
-      : true
-  )
+  model: MapInstance<any>,
+  path: string
+): string {
+  const nodePathSegmentsLength = model.$path.split('/').length
+  const pathSegments = path.split('/')
+  return pathSegments[nodePathSegmentsLength]
 }

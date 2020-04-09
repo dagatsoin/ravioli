@@ -5,9 +5,9 @@ import { Snapshot } from './Snapshot'
 
 export type DataObject<T> = { [key in keyof T]: IInstance<any> }
 export type DataArray<T> = IInstance<T>[]
-export type DataMap<K, T> = Map<K, IInstance<T>>
+export type DataMap<T> = Map<string, IInstance<T>>
 
-export type DataNode = DataArray<any> | DataObject<any> | DataMap<any, any>
+export type DataNode = DataArray<any> | DataObject<any> | DataMap<any>
 
 export type OperationListener = (operation: Operation) => void
 

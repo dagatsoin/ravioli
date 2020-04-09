@@ -35,6 +35,7 @@ import { IContainer } from '../IContainer'
 import { isIdentifierType } from '../identifier'
 import { Computed } from '../observer'
 import { getTypeFromValue } from '../lib/getTypeFromValue'
+import { isNode } from '../lib/isNode'
 
 export class ObjectInstance<
   TYPE extends {},
@@ -203,10 +204,10 @@ export class ObjectInstance<
     // Special case: identifier field
     // If no value is present, set the value to the $$id of the model
     const value = this.$identifierKey === key
-      ? item[key as string] || this.$$id
-      : isInstance(item[key as string])
-        ? getSnapshot(item[key as string])
-        : item[key as string]
+      ? this.$$id
+      : isInstance(item)
+        ? getSnapshot(item)
+        : item
 
     return this.$type.properties[key].create(
       value,
@@ -238,7 +239,6 @@ function build(object: ObjectInstance<any, any, any, any>, value = {}): void {
       if (object.$type.properties[key] instanceof Computed) {
         Object.defineProperty(object, key, {
           get() {
-         //   object.$$container.addObservedPath(getRoot(object).$id + object.$path + '/' + key)
             return object.$type.properties[key].get(object)
           },
           enumerable: true,
@@ -247,7 +247,7 @@ function build(object: ObjectInstance<any, any, any, any>, value = {}): void {
       }
       else {
         present(object, [
-          { op: 'add', path: object.$path + '/' + key, value: value ?? [key] },
+          { op: 'add', path: object.$path + '/' + key, value: value[key] },
         ])
       }
     })
@@ -281,7 +281,9 @@ function addPropGetSet(
         const instance = obj.$data[propName]
         // This check is required in case the object has moving shape (case of Computed)
         if (instance) {
-          obj.$$container.addObservedPath(getRoot(obj).$id + obj.$path + '/' + propName)
+          if (!isNode(instance)) {
+            obj.$$container.addObservedPath(getRoot(obj).$id + obj.$path + '/' + propName)
+          }
           // return the instance if it is a node or the value if it is a leaf
           return unbox(instance, obj.$$container)
         } else {

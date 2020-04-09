@@ -16,28 +16,28 @@ test('Create empty instance', function() {
 test('Create map of primitives', function() {
   const Players = map(string())
   const players = Players.create([
-    [0, 'Fraktar'],
-    [1, 'Dreadbond'],
-    [2, 'Elwein'],
+    ['0', 'Fraktar'],
+    ['1', 'Dreadbond'],
+    ['2', 'Elwein'],
   ])
   expect(isInstance(players)).toBeTruthy()
   expect(isNode(players)).toBeTruthy()
-  expect(players.get(0)).toBe('Fraktar')
+  expect(players.get('0')).toBe('Fraktar')
   // test with passing a map
   const m = new Map([
-    [0, 'Fraktar'],
-    [1, 'Dreadbond'],
-    [2, 'Elwein'],
+    ['0', 'Fraktar'],
+    ['1', 'Dreadbond'],
+    ['2', 'Elwein'],
   ])
   const players2 = Players.create(m)
-  expect(players2.get(0)).toBe('Fraktar')
+  expect(players2.get('0')).toBe('Fraktar')
 })
 
 test('Can be created during a transaction', function() {
   const context = getGlobal().$$crafterContext
   context.transaction(() => {
-    const a = map(string()).create([[0, 'a']])
-    expect(a.get(0)).toEqual('a')
+    const a = map(string()).create([['0', 'a']])
+    expect(a.get('0')).toEqual('a')
   })
 })
 
@@ -62,7 +62,7 @@ test('Create map of objects', function() {
 
   expect(isInstance(players)).toBeTruthy()
   expect(isNode(players)).toBeTruthy()
-  expect(players.get(0)!.name).toBe('Fraktar')
+  expect(players.get('0')!.name).toBe('Fraktar')
 })
 
 test('set value', function() {
@@ -71,8 +71,8 @@ test('set value', function() {
   const instance0 = model0.create()
   getContext(toInstance(instance0)).transaction(() => {
     instance0.map = new Map([
-      [0, 'a'],
-      [1, 'b'],
+      ['0', 'a'],
+      ['1', 'b'],
     ])
     expect(instance0.map.size).toBe(2)
   })
@@ -81,34 +81,34 @@ test('set value', function() {
   const instance1 = model1.create()
   getContext(toInstance(instance1)).transaction(() => {
     instance1.map = new Map([
-      [0, { name: 'Fraktar' }],
-      [1, { name: 'Elweïn' }],
+      ['0', { name: 'Fraktar' }],
+      ['1', { name: 'Elweïn' }],
     ])
     expect(instance1.map.size).toBe(2)
-    expect(instance1.map.get(0)).toEqual({ name: 'Fraktar' })
+    expect(instance1.map.get('0')).toEqual({ name: 'Fraktar' })
   })
 })
 
 test('get value', function() {
   const Players = map(string())
   const players = Players.create([
-    [0, 'Fraktar'],
-    [1, 'Dreadbond'],
-    [2, 'Elwein'],
+    ['0', 'Fraktar'],
+    ['1', 'Dreadbond'],
+    ['2', 'Elwein'],
   ])
-  expect(toNode<typeof Players['Type']>(players).$value.get(0)).toBe('Fraktar')
-  expect(toNode<typeof Players['Type']>(players).$value.get(1)).toBe(
+  expect(toNode<typeof Players['Type']>(players).$value.get('0')).toBe('Fraktar')
+  expect(toNode<typeof Players['Type']>(players).$value.get('1')).toBe(
     'Dreadbond'
   )
-  expect(toNode<typeof Players['Type']>(players).$value.get(2)).toBe('Elwein')
+  expect(toNode<typeof Players['Type']>(players).$value.get('2')).toBe('Elwein')
 })
 
 test('clone', function() {
   const Players = map(string())
   const players = Players.create([
-    [0, 'Fraktar'],
-    [1, 'Dreadbond'],
-    [2, 'Elwein'],
+    ['0', 'Fraktar'],
+    ['1', 'Dreadbond'],
+    ['2', 'Elwein'],
   ])
 
   const cloned = clone(toNode<typeof Players['Type']>(players))
@@ -132,17 +132,17 @@ describe('attach/detach', function() {
     expect(getPath(arrNode)).toBe('/map')
     getContext(toInstance(instance)).transaction(() => {
       instance.map = new Map([
-        [0, { name: 'Fraktar' }],
-        [1, { name: 'Elweïn' }],
+        ['0', { name: 'Fraktar' }],
+        ['1', { name: 'Elweïn' }],
       ])
     })
-    expect(getPath(toNode(instance.map.get(0)))).toBe('/map/0')
+    expect(getPath(toNode(instance.map.get('0')))).toBe('/map/0')
   })
 
   test('detach', function() {
     const model = map(object({ name: string() }))
-    const instance = model.create([[0, { name: 'Fraktar' }]])
-    const nodeRef = instance.get(0)
+    const instance = model.create([['0', { name: 'Fraktar' }]])
+    const nodeRef = instance.get('0')
     getContext(toInstance(instance)).transaction(() => instance.delete(0))
     expect(toNode(nodeRef).$parent).toBeUndefined()
     expect(toNode(nodeRef).$parentKey).toBe('')
@@ -201,7 +201,7 @@ describe('Basic JSON operation', function() {
         },
       })
     })
-    expect(world.entities.get(4)?.type).toBe('Weapon')
+    expect(world.entities.get('4')?.type).toBe('Weapon')
   })
 
   test('replace', function() {
@@ -214,11 +214,11 @@ describe('Basic JSON operation', function() {
         },
       })
     })
-    expect(world.entities.get(3)?.type).toBe('Weapon')
+    expect(world.entities.get('3')?.type).toBe('Weapon')
   })
 
   test('remove', function() {
-    const removedNode = toNode(world.entities.get(3))
+    const removedNode = toNode(world.entities.get('3'))
     getContext(toInstance(world)).transaction(() => {
       toNode(world).$applyOperation({
         op: 'remove',
@@ -231,7 +231,7 @@ describe('Basic JSON operation', function() {
   })
 
   test('move', function() {
-    const movedNode = toNode(world.entities.get(2))
+    const movedNode = toNode(world.entities.get('2'))
     getContext(toInstance(world)).transaction(() => {
       toNode(world).$applyOperation({
         op: 'move',
@@ -239,7 +239,7 @@ describe('Basic JSON operation', function() {
         path: '/entities/1',
       })
     })
-    expect(world.entities.get(1)?.type).toBe('Item')
+    expect(world.entities.get('1')?.type).toBe('Item')
     expect(movedNode.$parent).toBeUndefined()
   })
 
@@ -251,7 +251,7 @@ describe('Basic JSON operation', function() {
         path: '/entities/1',
       })
     })
-    expect(world.entities.get(1)?.type).toBe('Item')
+    expect(world.entities.get('1')?.type).toBe('Item')
   })
 })
 
@@ -261,9 +261,9 @@ test('value', function() {
       name: string(),
     })
   )
-  const model = Model.create([[0, { name: 'Fraktar' }]])
+  const model = Model.create([['0', { name: 'Fraktar' }]])
   expect(toNode<typeof Model['Type']>(model).$value instanceof Map).toBeTruthy()
-  expect(toNode<typeof Model['Type']>(model).$value.get(0)).toEqual({
+  expect(toNode<typeof Model['Type']>(model).$value.get('0')).toEqual({
     name: 'Fraktar',
   })
 })
@@ -271,16 +271,16 @@ test('value', function() {
 test('take snapshot', function() {
   const Players = map(string())
   const players = Players.create([
-    [0, 'Fraktar'],
-    [1, 'Dreadbond'],
-    [2, 'Elwein'],
+    ['0', 'Fraktar'],
+    ['1', 'Dreadbond'],
+    ['2', 'Elwein'],
   ])
   expect(
     Players.getSnapshot(toInstance<typeof Players['Type']>(players))
   ).toEqual([
-    [0, 'Fraktar'],
-    [1, 'Dreadbond'],
-    [2, 'Elwein'],
+    ['0', 'Fraktar'],
+    ['1', 'Dreadbond'],
+    ['2', 'Elwein'],
   ])
 })
 
@@ -291,11 +291,11 @@ test('apply snapshot', function() {
 
   getContext(toInstance(players)).transaction(() => {
     Players.applySnapshot(toNode<typeof Players['Type']>(players), [
-      [0, 'Fraktar'],
-      [1, 'Dreadbond'],
-      [2, 'Elwein'],
+      ['0', 'Fraktar'],
+      ['1', 'Dreadbond'],
+      ['2', 'Elwein'],
     ])
-    expect(players.get(0)).toBe('Fraktar')
+    expect(players.get('0')).toBe('Fraktar')
   })
 })
 
@@ -350,19 +350,19 @@ describe('Map methods', function() {
   })
   test('forEach', function() {
     getContext(toInstance(players)).transaction(() => players.forEach(value => value.level++))
-    expect(players.get(0)!.level).toBe(2)
+    expect(players.get('0')!.level).toBe(2)
   })
   test('get', function() {
-    expect(players.get(0)!.level).toBe(1)
+    expect(players.get('0')!.level).toBe(1)
   })
   test('has', function() {
-    expect(players.has(0)).toBeTruthy()
+    expect(players.has('0')).toBeTruthy()
   })
   test('set', function() {
     getContext(toInstance(players)).transaction(() => {
       players.set(3, { name: 'Ghost', level: 4, hp: 8 })
     })
-    expect(players.get(3)!.name).toBe('Ghost')
+    expect(players.get('3')!.name).toBe('Ghost')
   })
   test('size', function() {
     expect(players.size).toBe(3)
@@ -370,7 +370,7 @@ describe('Map methods', function() {
   test('entries', function() {
     expect(Array.from(players.entries())).toEqual([
       [
-        0,
+        '0',
         {
           name: 'Fraktar',
           level: 1,
@@ -378,7 +378,7 @@ describe('Map methods', function() {
         },
       ],
       [
-        1,
+        '1',
         {
           name: 'Elwein',
           level: 2,
@@ -386,7 +386,7 @@ describe('Map methods', function() {
         },
       ],
       [
-        2,
+        '2',
         {
           name: 'Dreadbond',
           level: 2,
@@ -396,7 +396,7 @@ describe('Map methods', function() {
     ])
   })
   test('keys', function() {
-    expect(Array.from(players.keys())).toEqual([0, 1, 2])
+    expect(Array.from(players.keys())).toEqual(['0', '1', '2'])
   })
   test('values', function() {
     expect(Array.from(players.values())).toEqual([

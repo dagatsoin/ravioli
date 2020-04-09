@@ -1,5 +1,5 @@
 import { array } from '../src/array/factory'
-import { getSnapshot, toInstance, toNode } from '../src/helpers'
+import { getSnapshot, toInstance, toNode, getContext } from '../src/helpers'
 import { isInstance, isLeafType, isNodeType } from '../src/lib'
 import { object } from '../src/object'
 import { number, string } from '../src/Primitive'
@@ -186,4 +186,23 @@ test("Reshape an existing type", function() {
   })
 
   expect(model.stats.health).toBe(10)
+})
+
+test('object patch contains only leaf operation', function(){
+  const model = object({
+    player: object({
+      name: string(),
+      stats: object({
+        health: number()
+      })
+    })
+  }).create({player:{ name: "Fraktar", stats: { health: 10 }}})
+
+  const context = getContext(toInstance(model))
+  let patch!: any
+
+  context.transaction(() => {
+    model.player = {name: "Fraktos", stats: { health: 5 }}
+    patch = context.snapshot.updatedObservables
+  })
 })

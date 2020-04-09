@@ -62,12 +62,6 @@ export class Computed<T> extends Observer implements IComputed<T> {
     }
     if (this._isStale) {
       this.runAndUpdateDeps(target)
-      // The value is an observable node instance and the user
-      // don't want a boxed value.
-      // Its observers will track the value ID.
-    }
-    if (isObservable(this.value) && !this.isBoxed) {
-      this.valueContext.addObservedPath(this.value.$id)
     }
     // The value is:
     // - a primitive,
@@ -75,10 +69,9 @@ export class Computed<T> extends Observer implements IComputed<T> {
     // - a non observable object
     // - an observable node but the user wants a boxed value
     // The observers will track the Computed ID.
-    else {
+    if (!isObservable(this.value) || this.isBoxed) {
       this.valueContext.addObservedPath(this.id)
     }
-
     return this.value
   }
 

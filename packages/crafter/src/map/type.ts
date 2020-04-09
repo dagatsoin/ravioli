@@ -5,9 +5,9 @@ import { MapInstance } from './instance'
 import { IContainer } from '../IContainer'
 import { isInstance } from '../lib'
 
-export class MapType<K, TYPE> extends NodeType<
-  Map<K, TYPE>,
-  Map<K, TYPE> | [K, TYPE][]
+export class MapType<TYPE> extends NodeType<
+  Map<string, TYPE>,
+  Map<string, TYPE> | [string, TYPE][]
 > {
   public itemType: IType<TYPE, TYPE>
   public isNode: true = true
@@ -18,10 +18,10 @@ export class MapType<K, TYPE> extends NodeType<
   }
 
   public create(values?: any, options?: {id?: string, context?: IContainer}): any {
-    return new MapInstance<any, any>(this, values, options)
+    return new MapInstance<any>(this, values, options)
   }
 
-  public isValidSnapshot(value: any): value is Map<K, TYPE> {
+  public isValidSnapshot(value: any): value is Map<string, TYPE> {
     if (isInstance(value)) {
       return false
     } 
@@ -35,7 +35,7 @@ export class MapType<K, TYPE> extends NodeType<
     } else return false
   }
 
-  public isValidValue(value: any): value is Map<K, TYPE> {
+  public isValidValue(value: any): value is Map<string, TYPE> {
     return isInstance(value)
       ? value.$type === this && [...value.$data.values()].every(this.itemType.isValidValue)
       : this.isValidSnapshot(value)

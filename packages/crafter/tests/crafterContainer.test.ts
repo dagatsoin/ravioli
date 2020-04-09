@@ -1,9 +1,8 @@
 import { observable } from '../src/lib/observable'
-import { autorun, Autorun } from '../src/observer/Autorun'
+import { autorun } from '../src/observer/Autorun'
 import { computed } from '../src/observer/Computed'
 import { createTracker } from '../src/lib/Tracker'
 import { getGlobal } from '../src/utils/utils'
-import { IObserver } from '../src/observer/Observer'
 import { CrafterContainer, object, string, toInstance } from '../src'
 
 const context = getGlobal().$$crafterContext
@@ -19,59 +18,6 @@ test('prevent transaction during execution', function() {
         /Transaction are not allowed here./.test(err)
     ).toBeTruthy()
   }
-
-})
-
-test('Spy observers', function() {
-  // This test ensure the consistency of nested observers or neighbours observers dependency paths
-  const model = observable({
-    name: 'Fraktar',
-    stats: {
-      health: 10,
-      force: 4,
-    },
-  })
-
-  const healthRepresentation = computed(() => ({
-    baseHealth: model.stats.health,
-  }))
-  const forceRepresentation = computed(() => ({
-    baseForce: model.stats.force,
-  }))
-
-  const statsRepresentation = computed(() => ({
-    health: healthRepresentation.get(),
-    force: forceRepresentation.get(),
-  }))
-
-  const appRepresentation = computed(() => ({
-    name: model.name,
-    stats: statsRepresentation.get(),
-  }))
-
-  const reaction = new Autorun(() => {
-    appRepresentation.get()
-  })
-
-  expect(
-    context.snapshot.observerGraph.nodes.find(({id}) => reaction.id === id)?.dependencyPaths.length
-  ).toBe(1)
-  expect(
-    context.snapshot.observerGraph.nodes.find(({id}) => (appRepresentation as unknown as IObserver).id === id)?.dependencyPaths.length
-  ).toBe(2)
-  expect(
-    context.snapshot.observerGraph.nodes.find(({id}) => (statsRepresentation as unknown as IObserver).id === id)?.dependencyPaths.length
-  ).toBe(2)
-  expect(
-    context.snapshot.observerGraph.nodes.find(({id}) => (healthRepresentation as unknown as IObserver).id === id)?.dependencyPaths.length
-  ).toBe(2)
-  expect(
-    context.snapshot.observerGraph.nodes.find(({id}) => (forceRepresentation as unknown as IObserver).id === id)?.dependencyPaths.length
-  ).toBe(2)
-
-  reaction.dispose()
-  
-  expect(context.snapshot.observerGraph.nodes.length).toBe(0)
 })
 
 test('When a autorun is created, all lazy computed value are awake and added to the graph dependencies.', function() {
