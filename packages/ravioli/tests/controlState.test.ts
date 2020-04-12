@@ -1,6 +1,6 @@
 /* eslint-disable no-shadow */
 import { component } from '../src/api'
-import { object, array, string, boolean, enumeration } from '@warfog/crafter'
+import { object, array, string, boolean, enumeration, autorun, number } from '@warfog/crafter'
 
 test('Use case with a control state tree', function() {
   const App = component(
@@ -176,7 +176,7 @@ test('Use case with a control state tree', function() {
   const { actions } = app
 
   actions.setConnected({ connected: true })
-  expect(app.state.controlStates.sort()).toEqual(['OFF'].sort())
+  expect(app.state.controlStates.slice()).toEqual(['OFF'])
 
   actions.setServiceStatus({
     serviceStatus: [
@@ -214,7 +214,7 @@ test('Use case with a control state tree', function() {
       },
     ],
   })
-  expect(app.state.controlStates).toEqual(['OFF'])
+  expect(app.state.controlStates.slice()).toEqual(['OFF'])
 
   actions.setServiceStatus({
     serviceStatus: [
@@ -252,29 +252,29 @@ test('Use case with a control state tree', function() {
       },
     ],
   })
-  expect(app.state.controlStates).toEqual(['ON'])
+  expect(app.state.controlStates.slice()).toEqual(['ON'])
 
   actions.setLoginStatus({ loginStatus: 'loggedOnline' })
-  expect(app.state.controlStates).toEqual(['LOGGED_ONLINE'])
+  expect(app.state.controlStates.slice()).toEqual(['LOGGED_ONLINE'])
 
   actions.setSynchronised({ isSynchronised: true })
-  expect(app.state.controlStates).toEqual(['RUNNING_ONLINE'])
+  expect(app.state.controlStates.slice()).toEqual(['RUNNING_ONLINE'])
 
   // Disable data
   actions.setSynchronised({ isSynchronised: false })
-  expect(app.state.controlStates).toEqual(['RUNNING_OFFLINE'])
+  expect(app.state.controlStates.slice()).toEqual(['RUNNING_OFFLINE'])
 
   // Enable data
   actions.setSynchronised({ isSynchronised: true })
-  expect(app.state.controlStates).toEqual(['RUNNING_ONLINE'])
+  expect(app.state.controlStates.slice()).toEqual(['RUNNING_ONLINE'])
 
   // Logout when data is enabled
   actions.setLoginStatus({ loginStatus: 'loggedOut' })
-  expect(app.state.controlStates).toEqual(['LOGGED_OUT'])
+  expect(app.state.controlStates.slice()).toEqual(['LOGGED_OUT'])
 
   // Reconnect when data is enabled
   actions.setLoginStatus({ loginStatus: 'loggedOnline' })
-  expect(app.state.controlStates).toEqual(['RUNNING_ONLINE'])
+  expect(app.state.controlStates.slice()).toEqual(['RUNNING_ONLINE'])
 
   // Logout when data is enabled
   app.compose(baseActions => [
@@ -282,31 +282,31 @@ test('Use case with a control state tree', function() {
     baseActions.setUserId({ id: '' }),
     baseActions.setSynchronised({ isSynchronised: false }),
   ])
-  expect(app.state.controlStates).toEqual(['LOGGED_OUT'])
+  expect(app.state.controlStates.slice()).toEqual(['LOGGED_OUT'])
 
   // Disable data.
   actions.setConnected({ connected: false })
-  expect(app.state.controlStates).toEqual(['LOGGED_OUT'])
+  expect(app.state.controlStates.slice()).toEqual(['LOGGED_OUT'])
 
   // Login when data is disabled
   actions.setLoginStatus({ loginStatus: 'loggedOffline' })
-  expect(app.state.controlStates).toEqual(['LOGGED_OFFLINE'])
+  expect(app.state.controlStates.slice()).toEqual(['LOGGED_OFFLINE'])
 
   // Restore data
   actions.setUserId({ id: 'foo' })
-  expect(app.state.controlStates).toEqual(['RUNNING_OFFLINE'])
+  expect(app.state.controlStates.slice()).toEqual(['RUNNING_OFFLINE'])
 
   // Enable data.
   actions.setConnected({ connected: true })
-  expect(app.state.controlStates).toEqual(['RUNNING_OFFLINE'])
+  expect(app.state.controlStates.slice()).toEqual(['RUNNING_OFFLINE'])
 
   // Relogin online
   actions.setLoginStatus({ loginStatus: 'loggedOnline' })
-  expect(app.state.controlStates).toEqual(['LOGGED_ONLINE'])
+  expect(app.state.controlStates.slice()).toEqual(['LOGGED_ONLINE'])
 
   // Sync data
   actions.setSynchronised({ isSynchronised: true })
-  expect(app.state.controlStates).toEqual(['RUNNING_ONLINE'])
+  expect(app.state.controlStates.slice()).toEqual(['RUNNING_ONLINE'])
 })
 
 test('Use case with declarative control state', function() {
@@ -489,7 +489,7 @@ test('Use case with declarative control state', function() {
   const { actions } = app
 
   actions.setConnected({ connected: true })
-  expect(app.state.controlStates).toEqual(['OFF', 'LOGIN_STATUS_LOGGEDOUT'])
+  expect(app.state.controlStates.slice().slice()).toEqual(['OFF', 'LOGIN_STATUS_LOGGEDOUT'])
 
   actions.setServiceStatus({
     serviceStatus: [
@@ -527,7 +527,7 @@ test('Use case with declarative control state', function() {
       },
     ],
   })
-  expect(app.state.controlStates).toEqual(['OFF', 'LOGIN_STATUS_LOGGEDOUT'])
+  expect(app.state.controlStates.slice()).toEqual(['OFF', 'LOGIN_STATUS_LOGGEDOUT'])
 
   actions.setServiceStatus({
     serviceStatus: [
@@ -565,17 +565,17 @@ test('Use case with declarative control state', function() {
       },
     ],
   })
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     ['SERVICES_READY', 'LOGIN_STATUS_LOGGEDOUT', 'ON'].sort()
   )
 
   actions.setLoginStatus({ loginStatus: 'loggedOnline' })
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     ['SERVICES_READY', 'LOGIN_STATUS_ONLINE', 'LOGGED_ONLINE'].sort()
   )
 
   actions.setSynchronised({ isSynchronised: true })
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     [
       'SERVICES_READY',
       'SYNCHRONISED',
@@ -586,13 +586,13 @@ test('Use case with declarative control state', function() {
 
   // Disable data
   actions.setSynchronised({ isSynchronised: false })
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     ['SERVICES_READY', 'LOGIN_STATUS_ONLINE', 'RUNNING_OFFLINE'].sort()
   )
 
   // Enable data
   actions.setSynchronised({ isSynchronised: true })
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     [
       'SERVICES_READY',
       'SYNCHRONISED',
@@ -606,7 +606,7 @@ test('Use case with declarative control state', function() {
     actions.setLoginStatus({ loginStatus: 'loggedOut' }),
     actions.setSynchronised({ isSynchronised: false }),
   ])
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     ['SERVICES_READY', 'LOGIN_STATUS_LOGGEDOUT', 'LOGGED_OUT'].sort()
   )
 
@@ -615,7 +615,7 @@ test('Use case with declarative control state', function() {
     actions.setLoginStatus({ loginStatus: 'loggedOnline' }),
     actions.setSynchronised({ isSynchronised: true }),
   ])
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     [
       'SERVICES_READY',
       'SYNCHRONISED',
@@ -630,25 +630,25 @@ test('Use case with declarative control state', function() {
     actions.setUserId({ id: '' }),
     actions.setSynchronised({ isSynchronised: false }),
   ])
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     ['SERVICES_READY', 'LOGIN_STATUS_LOGGEDOUT', 'LOGGED_OUT'].sort()
   )
 
   // Disable data.
   actions.setConnected({ connected: false })
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     ['SERVICES_READY', 'LOGIN_STATUS_LOGGEDOUT', 'LOGGED_OUT'].sort()
   )
 
   // Login when data is disabled
   actions.setLoginStatus({ loginStatus: 'loggedOffline' })
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     ['SERVICES_READY', 'LOGIN_STATUS_OFFLINE', 'LOGGED_OFFLINE'].sort()
   )
 
   // Restore data
   actions.setUserId({ id: 'foo' })
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     [
       'SERVICES_READY',
       'RESTORED',
@@ -659,7 +659,7 @@ test('Use case with declarative control state', function() {
 
   // Enable data.
   actions.setConnected({ connected: true })
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     [
       'SERVICES_READY',
       'RESTORED',
@@ -670,7 +670,7 @@ test('Use case with declarative control state', function() {
 
   // Relogin online
   actions.setLoginStatus({ loginStatus: 'loggedOnline' })
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     [
       'SERVICES_READY',
       'RESTORED',
@@ -681,7 +681,7 @@ test('Use case with declarative control state', function() {
 
   // Sync data
   actions.setSynchronised({ isSynchronised: true })
-  expect(app.state.controlStates.sort()).toEqual(
+  expect(app.state.controlStates.slice().sort()).toEqual(
     [
       'SERVICES_READY',
       'RESTORED',
@@ -729,4 +729,33 @@ test('Use case with declarative control state', function() {
   function isSynchronised({ model }: { model: typeof Model['Type'] }) {
     return model.appModel.isSynchronised
   }
+})
+
+test("control state is a reactive source", function() {
+  const model = component(object({
+    health: number()
+  }))
+  .setControlStatePredicate('isAlive', ({model}) => model.health > 0)
+  .setControlStatePredicate('isDead', ({model}) => model.health <= 0)
+  .addAcceptor('setHealth', model => ({
+    mutator({hp}: {hp: number}){ model.health += hp }
+  }))
+  .addActions({
+    hit(){ return [{type: 'setHealth', payload: {hp: -6}}]}
+  })
+  .create({health: 10})
+  
+  let controlState!: string
+
+  autorun(() => {
+    console.log(model.state.controlStates[0])
+    controlState = model.state.controlStates[0]
+  })
+
+  expect(controlState).toBe('isAlive')
+
+  model.actions.hit()
+  model.actions.hit()
+
+  expect(controlState).toBe('isDead')
 })

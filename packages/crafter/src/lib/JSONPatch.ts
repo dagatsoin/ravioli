@@ -1,5 +1,6 @@
 import { SortCommands } from '../array'
 import { IObserver } from '../observer/Observer'
+import { getChildKey } from '../helpers'
 
 export interface AddOperation<T = any> extends Operation {
   op: 'add'
@@ -146,7 +147,8 @@ export function isRemovalOperationWithoutKey({op}: Operation): boolean {
 }
 
 
-export function isDependent({op, path}: Operation) {
+export function isDependent(operation: Operation) {
+  const {op, path} = operation
   return function (node: IObserver): boolean {
     return (
       // Path is part of the dependency
@@ -156,7 +158,10 @@ export function isDependent({op, path}: Operation) {
       hasPath(node, path + '/length') && isLenghtOperation({op, path}) ||
       // The node depends on the length of a map
       // and the operation was a set, delete, ...
-      hasPath(node, path + '/size') && isLenghtOperation({op, path})
+      hasPath(node, path + '/size') && isLenghtOperation({op, path}) ||
+      // This is a splice operation
+      // See if observed index has been updated
+      op === 'splice' && node.dependencyPaths.some(depPath => getChildKey(depPath, path) >= (operation as SpliceOperation).start)
     )
   }
 }

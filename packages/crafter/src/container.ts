@@ -308,8 +308,8 @@ export class CrafterContainer implements IContainer {
 
   public presentPatch<O extends Operation>(patch: O[]): void {
     const staleObservers: IObserver[] = []
-    patch.forEach(({op, path}) => {
-      const observers = this.getTargets(path, op)
+    patch.forEach(operation => {
+      const observers = this.getTargets(operation)
       // Remove duplicate. An observer can be present because it is dependent of a previous observable.
       .filter(o => staleObservers.indexOf(o) === -1)
     
@@ -340,28 +340,42 @@ export class CrafterContainer implements IContainer {
   /**
    * Return a list of observers which depends directly or indirectly on the given observable
    */
-  private getTargets(path: string, op?: Operation['op']): IObserver[] {
+  private getTargets(operation: Operation): IObserver[] {
     // Get direct dependencies
     const directDependencies: IObserver[] = []
-    if (op) {
-      directDependencies.push(...this.getDirectDependencies({path, op}))
-    } else {
-      directDependencies.push(...this.state.observerGraph.nodes.filter(node => hasPath(node, path)))
-    }
+    directDependencies.push(...this.getDirectDependencies(operation))
+    
     const targets = directDependencies.concat(
       ...directDependencies.map(dep => {
         // If the dep is a derivation, we retrieve its id (for boxed value, the computed if, otherwise the value id)
         const sourceId = dep.type === ObserverType.Computed
           ? (dep as Computed<any>).observedValueId
           : dep.id
-        return this.getTargets(sourceId)
+        return this.getIndirectTargets(sourceId)
       })
     )
     return targets.filter(unique)
   }
 
-  private getDirectDependencies({op, path}: Operation): IObserver[] {
-    return this.state.observerGraph.nodes.filter(isDependent({op, path}))
+  private getIndirectTargets(sourceId: string): IObserver[] {
+    // Get direct dependencies
+    const directDependencies: IObserver[] = []
+    directDependencies.push(...this.state.observerGraph.nodes.filter(node => hasPath(node, sourceId)))
+
+    const targets = directDependencies.concat(
+      ...directDependencies.map(dep => {
+        // If the dep is a derivation, we retrieve its id (for boxed value, the computed if, otherwise the value id)
+        const id = dep.type === ObserverType.Computed
+          ? (dep as Computed<any>).observedValueId
+          : dep.id
+        return this.getIndirectTargets(id)
+      })
+    )
+    return targets.filter(unique)
+  }
+
+  private getDirectDependencies(operation: Operation): IObserver[] {
+    return this.state.observerGraph.nodes.filter(isDependent(operation))
   }
 
   private getCurrentSpiedReactionId(): string {
@@ -406,7 +420,7 @@ export class CrafterContainer implements IContainer {
       // TODO tracker is not really an observable. Should be store somewhere else.
       // Tracker
       if (updatedObservable instanceof Tracker) {
-        const observers = this.getTargets(updatedObservable.$id)      
+        const observers = this.getIndirectTargets(updatedObservable.$id)      
         // TODO
         // Send changes to the observers to let them decide if they are stale or not.
         observers.forEach(o => o.notifyChangeFor())
@@ -414,9 +428,12 @@ export class CrafterContainer implements IContainer {
         staleObservers.push(...observers)
       } else {
       // Node observable with patch
-        updatedObservable.$patch.forward.forEach(({op, path}: Operation) => {
+        updatedObservable.$patch.forward.forEach((operation: Operation) => {
           const rootId = getRoot(updatedObservable).$id
-          const observers = this.getTargets(rootId + path, op)
+          const observers = this.getTargets({
+            ...operation,
+            path: rootId + operation.path,
+          })
           // Remove duplicate. An observer can be present because it is dependent of a previous observable.
           .filter(o => staleObservers.indexOf(o) === -1)
         

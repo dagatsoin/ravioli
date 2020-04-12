@@ -21,7 +21,7 @@ import {
   RepresentationPredicate,
   IActionCacheReset
 } from '../api'
-import { getContext, IInstance, IObservable, toNode, clone, toInstance, CrafterContainer, Migration, IContainer, getGlobal, createTransformer, ITransformer } from '@warfog/crafter'
+import { getContext, IInstance, IObservable, toNode, clone, toInstance, CrafterContainer, Migration, IContainer, getGlobal, createTransformer, ITransformer, observable } from '@warfog/crafter'
 import { createNAPProposalBuffer, IProposalBuffer } from './NAPProposalBuffer'
 
 export type TransformationPackage<TYPE, MUTATIONS extends Mutation<any, any>, CONTROL_STATES extends string> = {
@@ -118,7 +118,7 @@ export class ComponentInstance<
     toNode(this.data).$addTransactionPatchListener(
       (migration: Migration) => (this.stepMigration = migration)
     )
-    const controlStates = getControlStates<
+    const controlStates = observable(getControlStates<
       CONTROL_STATES
     >({
       instanceControlStatePredicates: this.controlStatePredicates,
@@ -126,7 +126,7 @@ export class ComponentInstance<
       previousControlStates: [],
       model: this.data,
       acceptedMutations: [],
-    })
+    }))
 
     const initialTransformationPackage = getTransformationPackage<CONTROL_STATES>({
       controlStates,
@@ -252,7 +252,7 @@ export class ComponentInstance<
     const acceptedMutations = this.present(proposal)
 
     // Preserve previous control state for later
-    const previousControlStates = this.state.controlStates
+    const previousControlStates = this.state.controlStates.slice()
 
     /* 2 */
     const controlStates = getControlStates<CONTROL_STATES>(
@@ -260,7 +260,7 @@ export class ComponentInstance<
         instanceControlStatePredicates: this.controlStatePredicates,
         factoryControlStatePredicates: this.factory.controlStatePredicates,
         model: this.data,
-        previousControlStates: this.state.controlStates,
+        previousControlStates,
         acceptedMutations
       },
       {
@@ -271,7 +271,7 @@ export class ComponentInstance<
     /* 3 */
     const transformationPackage = getTransformationPackage({
       controlStates,
-      previousControlStates: this.state.controlStates,
+      previousControlStates,
       instanceTransformations: this.transformations,
       factoryTransformations: this.factory.transformations,
       model: this.data,
@@ -322,8 +322,6 @@ export class ComponentInstance<
     }
 
     /* 4 */
-    this.state.controlStates = controlStates
-
     // Reset the NAP proposal buffer
     this.NAPproposalBuffer.clear()
     this.NAPproposalBuffer.stepId = this.state.stepId
@@ -333,7 +331,13 @@ export class ComponentInstance<
     
     // Defer public context notification if there is some extra proposal to handle.
     if (!this.options?.debounceReaction ?? true) {
-      this.notifyPublicContext()
+      // Notify control states changes
+      console.log(controlStates)
+      this.publicContext.transaction(() => {
+        this.state.controlStates.splice(0, this.state.controlStates.length, ...controlStates)
+      })
+      // Notify representation changes
+      this.notifyRepresentationChanges()
     }
 
     runNAPs({
@@ -356,7 +360,7 @@ export class ComponentInstance<
     }
     // No more NAP to handle. Spread the world to the public context.
     if (this.options?.debounceReaction) {
-      this.notifyPublicContext()
+      this.notifyRepresentationChanges()
     }
   }
 
@@ -502,7 +506,7 @@ export class ComponentInstance<
     return this
   }
 
-  private notifyPublicContext() {
+  private notifyRepresentationChanges() {
     // This is not the default transformation
     if (this.currentTransformation !== undefined) {
       this.publicContext.presentPatch(this.stepMigration.forward.map(operation => ({
