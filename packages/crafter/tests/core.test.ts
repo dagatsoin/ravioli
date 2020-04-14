@@ -29,7 +29,11 @@ test("Crafter tracks leaf access not node access", function() {
     model.stats
     model.stats.health
     const paths  = Array.from(context.snapshot.observedPaths.values())[0]
-    expect(paths.map(p => p.substring(p.indexOf('/')))).toEqual([ '/name', '/stats/health' ])
+    expect(paths.map(p => {
+      const segments = p.split('/').filter(s => !!s.length)
+      segments.shift()
+      return '/' + segments.join('/')
+    })).toEqual([ '/name', '/stats/health' ])
   })
 
   // Test with array
@@ -38,7 +42,11 @@ test("Crafter tracks leaf access not node access", function() {
     model.inventory[0].id
     model.titles[1]
     const paths  = Array.from(context.snapshot.observedPaths.values())[0]
-    expect(paths.map(p => p.substring(p.indexOf('/')))).toEqual([ '/inventory/0/id', '/titles/1' ])
+    expect(paths.map(p => {
+      const segments = p.split('/').filter(s => !!s.length)
+      segments.shift()
+      return '/' + segments.join('/')
+    })).toEqual([ '/inventory/0/id', '/titles/1' ])
   })
 
   // Test nested object access
@@ -47,6 +55,10 @@ test("Crafter tracks leaf access not node access", function() {
     model.tokens.get('000')
     model.tokens.get('001')
     const paths  = Array.from(context.snapshot.observedPaths.values())[0]
-    expect(paths.map(p => p.substring(p.indexOf('/')))).toEqual([ '/achievements/firstBlood/title', '/tokens/000', '/tokens/001' ])
+    expect(paths.map(p => {
+      const segments = p.split('/').filter(s => !!s.length)
+      segments.shift()
+      return '/' + segments.join('/')
+    })).toEqual([ '/achievements/firstBlood/title', '/tokens/000', '/tokens/001' ])
   })
 })

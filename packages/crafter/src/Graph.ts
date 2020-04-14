@@ -90,3 +90,173 @@ export function removeNodeEdges({
     edge => edge.source === nodeId || edge.target === nodeId
   )
 }
+
+/**
+ * A depth first traversal implementation.
+ * 
+ * onNode(nodeId: string): void
+ * Called on each step
+ * 
+ * onFork(): void
+ * Called each time the crawler reaches a fork.
+ * 
+ * onLeaf(): void
+ * Called each time the crawler reaches a leaf. 
+ */
+function crawlDepthFirst({
+  sourceId,
+  graph,
+  onNode,
+  onFork,
+  onLeaf
+}: {
+  sourceId: string
+  graph: Graph<any>
+  onNode(nodeId: string): void
+  onFork(): void
+  onLeaf(): void
+}): void {
+  function step(currentNodeId: string): void {
+      const nodeIds = getTargetIds({sourceId: currentNodeId, graph})
+
+      onNode(currentNodeId)
+
+      // Found a fork
+      if (nodeIds.length > 1) {
+        onFork()
+      }
+
+      // Found a leaf
+      if (!nodeIds.length) {
+        onLeaf()
+      }
+
+      // Crawl through each fork
+      for (const nodeId of nodeIds) {
+        step(nodeId);
+      }
+  }
+  step(sourceId);
+}
+
+export function getAllPaths<T>({
+  sourceId,
+  graph
+}: {
+  sourceId: string
+  graph: Graph<T>
+}): string[][] {
+  const crawlerState: string[][] = [[]]
+  const completePaths: string[][] = []
+
+  crawlDepthFirst({
+    sourceId,
+    graph,
+    onNode(nodeId) {
+      crawlerState[crawlerState.length - 1].push(nodeId)
+    },
+    onFork() {
+      // The crawler has reached a fork.
+      // Backup the current path state at this point.
+      // Copy it to create a new path and keep digging.
+      const currentPath = crawlerState[crawlerState.length - 1]
+      crawlerState.push([...currentPath])
+    },
+    onLeaf() {
+      // The crawler has reached the end of the path.
+      // Pop the queue and step back to the previous fork
+      completePaths.push(crawlerState.pop()!)
+    }
+  })
+
+  return completePaths
+}
+
+/**
+ * Return targets of a source
+ */
+function getTargetIds({
+  sourceId,
+  graph
+}: {
+  sourceId: string
+  graph: Graph<any>
+}): string[] {
+  return graph.edges.filter(
+    edge => edge.source === sourceId
+  ).map(({target}) => target)
+}
+
+/**
+ * @typedef {Object} Callbacks
+ *
+ * @property {function(vertices: Object): boolean} [allowTraversal] -
+ *   Determines whether DFS should traverse from the vertex to its neighbor
+ *   (along the edge). By default prohibits visiting the same vertex again.
+ *
+ * @property {function(vertices: Object)} [enterVertex] - Called when BFS enters the vertex.
+ *
+ * @property {function(vertices: Object)} [leaveVertex] - Called when BFS leaves the vertex.
+ */
+
+/**
+ * @param {Callbacks} [callbacks]
+ * @returns {Callbacks}
+ */
+function initCallbacks(callbacks = {}) {
+  const initiatedCallback = callbacks;
+
+  const stubCallback = () => {};
+
+  const allowTraversalCallback = (
+    () => {
+      const seen = {};
+      return ({ nextVertex }) => {
+        if (!seen[nextVertex.getKey()]) {
+          seen[nextVertex.getKey()] = true;
+          return true;
+        }
+        return false;
+      };
+    }
+  )();
+
+  initiatedCallback.allowTraversal = callbacks.allowTraversal || allowTraversalCallback;
+  initiatedCallback.enterVertex = callbacks.enterVertex || stubCallback;
+  initiatedCallback.leaveVertex = callbacks.leaveVertex || stubCallback;
+
+  return initiatedCallback;
+}
+
+/**
+ * @param {Graph} graph
+ * @param {GraphVertex} startVertex
+ * @param {Callbacks} [originalCallbacks]
+ */
+export default function breadthFirstSearch(graph, startVertex, originalCallbacks) {
+  const callbacks = initCallbacks(originalCallbacks);
+  const vertexQueue = new Queue();
+
+  // Do initial queue setup.
+  vertexQueue.enqueue(startVertex);
+
+  let previousVertex = null;
+
+  // Traverse all vertices from the queue.
+  while (!vertexQueue.isEmpty()) {
+    const currentVertex = vertexQueue.dequeue();
+    callbacks.enterVertex({ currentVertex, previousVertex });
+
+    // Add all neighbors to the queue for future traversals.
+    graph.getNeighbors(currentVertex).forEach((nextVertex) => {
+      if (callbacks.allowTraversal({ previousVertex, currentVertex, nextVertex })) {
+        vertexQueue.enqueue(nextVertex);
+      }
+    });
+
+    callbacks.leaveVertex({ currentVertex, previousVertex });
+
+    // Memorize current vertex before next loop.
+    previousVertex = currentVertex;
+  }
+}

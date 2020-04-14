@@ -1,8 +1,8 @@
-import { toNode, getRoot, getSnapshot, unique } from './helpers'
+import { toNode, getRoot, getSnapshot, unique, path } from './helpers'
 import { IObservable } from './IObservable'
 import { BasicOperation, Operation, isDependent, hasPath } from './lib/JSONPatch'
 import { IObserver, ObserverType } from './observer/Observer'
-import { Graph, removeNode, removeNodeEdges, getTreeEdges, Edge } from './Graph'
+import { Graph, removeNode, removeNodeEdges, getTreeEdges, Edge, getAllPaths } from './Graph'
 import { INodeInstance } from './lib/INodeInstance'
 import { Tracker } from './lib/Tracker'
 import { State, IContainer, ContextListener } from './IContainer'
@@ -308,8 +308,8 @@ export class CrafterContainer implements IContainer {
 
   public presentPatch<O extends Operation>(patch: O[]): void {
     const staleObservers: IObserver[] = []
-    patch.forEach(({op, path}) => {
-      const observers = this.getTargets(path, op)
+    patch.forEach(({op, path: _path}) => {
+      const observers = this.getTargets(path(_path), op)
       // Remove duplicate. An observer can be present because it is dependent of a previous observable.
       .filter(o => staleObservers.indexOf(o) === -1)
     
@@ -340,13 +340,13 @@ export class CrafterContainer implements IContainer {
   /**
    * Return a list of observers which depends directly or indirectly on the given observable
    */
-  private getTargets(path: string, op?: Operation['op']): IObserver[] {
+  private getTargets(_path: string, op?: Operation['op']): IObserver[] {
     // Get direct dependencies
     const directDependencies: IObserver[] = []
     if (op) {
-      directDependencies.push(...this.getDirectDependencies({path, op}))
+      directDependencies.push(...this.getDirectDependencies({path: _path, op}))
     } else {
-      directDependencies.push(...this.state.observerGraph.nodes.filter(node => hasPath(node, path)))
+      directDependencies.push(...this.state.observerGraph.nodes.filter(node => hasPath(node, _path)))
     }
     const targets = directDependencies.concat(
       ...directDependencies.map(dep => {
@@ -354,14 +354,14 @@ export class CrafterContainer implements IContainer {
         const sourceId = dep.type === ObserverType.Computed
           ? (dep as Computed<any>).observedValueId
           : dep.id
-        return this.getTargets(sourceId)
+        return this.getTargets(path(sourceId))
       })
     )
     return targets.filter(unique)
   }
 
-  private getDirectDependencies({op, path}: Operation): IObserver[] {
-    return this.state.observerGraph.nodes.filter(isDependent({op, path}))
+  private getDirectDependencies({op, path: _path}: Operation): IObserver[] {
+    return this.state.observerGraph.nodes.filter(isDependent({op, path: _path}))
   }
 
   private getCurrentSpiedReactionId(): string {
@@ -394,6 +394,16 @@ export class CrafterContainer implements IContainer {
   }
 
   /**
+   * Breadth first crawl the graph of observable to update it.
+   * It will end by update the reactions.
+   * It returns the ran observer ids. 
+   * @param observable 
+   */
+  private updateBranchesOf(observable: IObservable<any>): string[] {
+    
+  }
+
+  /**
    * The observable (the model) has been updated.
    * It is time to notify the derivation that something has changed.
    * We stale all the derivations which depends of the model.
@@ -413,26 +423,11 @@ export class CrafterContainer implements IContainer {
         // Add stale observers
         staleObservers.push(...observers)
       } else {
-      // Node observable with patch
-        updatedObservable.$patch.forward.forEach(({op, path}: Operation) => {
-          const rootId = getRoot(updatedObservable).$id
-          const observers = this.getTargets(rootId + path, op)
-          // Remove duplicate. An observer can be present because it is dependent of a previous observable.
-          .filter(o => staleObservers.indexOf(o) === -1)
-        
-          // Send changes to the observers to let them decide if they are stale or not.
-          observers.forEach(o => o.notifyChangeFor())
-
-          // Add stale observers
-
-          // If it is a top level observer, keep it to re run it.
-          // It is not necessary to run the non top level computed. If you run a top observer,
-          // all dependent children will run.
-          staleObservers.push(
-            ...observers
-            .filter(({isStale}) => isStale)
-            .filter(isTopLevelObserver)
-          )
+        // Node observable with patch
+        // Model is now mutated.
+        // For this observable, crawl the graph and stale all its branches.
+        updatedObservable.$patch.forward.forEach(({op, path: _path}: Operation) => {
+          staleObserversOf(updatedObservable)
         })
       }
     })
@@ -446,7 +441,7 @@ export class CrafterContainer implements IContainer {
 
     // All computed values affected by the last observables mutation are now flagged as stale.
     // Let's run the reaction which uses those computed values.
-    this.runReactions(staleObservers)
+    this.runReactions()
   }
 
   /**
