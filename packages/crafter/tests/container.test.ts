@@ -18,7 +18,7 @@ test('array/map methods are not enumerable', function() {
   })
   const instance = model.create({
     array: ['Fraktar'],
-    map: [[0, 'Fraktar']],
+    map: [['0', 'Fraktar']],
   })
   expect(Object.keys(instance.array)).toEqual(['0'])
   expect(Object.keys(instance.map)).toEqual([])

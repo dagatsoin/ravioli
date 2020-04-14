@@ -51,7 +51,7 @@ test('Create map of objects', function() {
   )
   const players = Players.create([
     [
-      0,
+      '0',
       {
         name: 'Fraktar',
         level: 1,
@@ -225,7 +225,7 @@ describe('Basic JSON operation', function() {
         path: '/entities/3',
       })
     })
-    expect(world.entities.has(3)).toBeFalsy()
+    expect(world.entities.has('3')).toBeFalsy()
     expect(removedNode.$parent).toBeUndefined()
     expect(world.entities.size).toBe(3)
   })
@@ -312,7 +312,7 @@ describe('Map methods', function() {
   beforeEach(() => {
     players = Players.create([
       [
-        0,
+        '0',
         {
           name: 'Fraktar',
           level: 1,
@@ -320,7 +320,7 @@ describe('Map methods', function() {
         },
       ],
       [
-        1,
+        '1',
         {
           name: 'Elwein',
           level: 2,
@@ -328,7 +328,7 @@ describe('Map methods', function() {
         },
       ],
       [
-        2,
+        '2',
         {
           name: 'Dreadbond',
           level: 2,
@@ -360,7 +360,7 @@ describe('Map methods', function() {
   })
   test('set', function() {
     getContext(toInstance(players)).transaction(() => {
-      players.set(3, { name: 'Ghost', level: 4, hp: 8 })
+      players.set('3', { name: 'Ghost', level: 4, hp: 8 })
     })
     expect(players.get('3')!.name).toBe('Ghost')
   })

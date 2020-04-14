@@ -101,15 +101,43 @@ export function unique(value: any, index: number, self: any[]): boolean {
 }
 
 /**
- * Return the key of the node children within a path
+ * Return the key of the node children within a path.
+ * eg: for a node with the path "/player/stats" and a path "/player/stats/base/health", it will return "base"
+ * @param nodePath
+ * @param path 
  */
-export function getChildKey(nodePath: string, path: string): number | string {
-  const nodePathSegmentsLength = nodePath.split('/').length
-  const pathSegments = path.split('/')
-  const stringKey = pathSegments[nodePathSegmentsLength]
-  return !isNaN(stringKey as any /* prevent unecesary cast */)
-    ? Number(stringKey)
-    : stringKey
+export function getTargetKey(path: string): string {
+  return path.split('/').filter(s => !!s.length).pop() || '/'
+}
+
+/**
+ * Return the key of the node children within a path.
+ * eg: for a node with the path "/player/stats" and a path "/player/stats/base/health", it will return "base"
+ * @param nodePath
+ * @param path 
+ */
+export function getChildKey(nodePath: string, path: string): string | undefined{
+  const nodePathDepth = nodePath.split('/').filter(s => !!s.length).length
+  return path.split('/').filter(s => !!s.length)[nodePathDepth]
+}
+
+/**
+ * Return a string by assembling the different parts.
+ * Help to prevent double // issue when dealing with node paths.
+ * @param segments
+ */
+export function path(...segments: string[]): string {
+  return segments.reduce(function(p, s) {
+    // It is the root path
+    if (s === '/') {
+      return p
+    }
+    // Remove / at start and end
+    const safeSegment = s.replace(/^(\/*)(.*)\b(\/*)$/g, "$2")
+    return safeSegment
+      ? p + '/' + safeSegment
+      : p
+  }, '')
 }
 
 export function sync<T extends IObservable<any>>(observable: T): T {
@@ -122,7 +150,7 @@ export function sync<T extends IObservable<any>>(observable: T): T {
  * Return true if the path target a key of a node.
  */
 export function isOwnLeafPath(nodePath: string, path: string): boolean {
-  return nodePath === path.substr(0, path.lastIndexOf('/'))
+  return getChildKey(nodePath, path) === getTargetKey(path)
 }
 
 /**

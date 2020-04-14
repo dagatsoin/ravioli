@@ -1,8 +1,8 @@
 import { array } from '../src/array'
 import { object } from '../src/object'
-import { string } from '../src/Primitive'
+import { string, number } from '../src/Primitive'
 import { observable } from '../src/lib/observable'
-import { getContext, toInstance } from '../src/helpers'
+import { getContext, toInstance, toNode } from '../src/helpers'
 import { getGlobal } from '../src/utils/utils'
 
 const context = getGlobal().$$crafterContext
@@ -74,6 +74,20 @@ test('each node of the branch should detach on parent removal', function() {
   expect(context.snapshot.referencableNodeInstances.size).toBe(3)
   context.transaction(() => obj.pop())
   expect(context.snapshot.referencableNodeInstances.size).toBe(2)
+})
+
+test("path", function() {
+  const value = object({
+    stats:object({
+      base: object({
+        health: number()
+      })
+    })
+  }).create()
+
+  expect(toNode(value).$path).toBe("/")
+  expect(toNode(value.stats).$path).toBe("/stats")
+  expect(toNode(value.stats.base).$path).toBe("/stats/base")
 })
 
 test.todo(

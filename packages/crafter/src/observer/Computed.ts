@@ -3,7 +3,7 @@ import { observable, isObservable } from '../lib/observable'
 import { ObserverType, Observer } from './Observer'
 import { LeafInstance } from '../lib/LeafInstance'
 import { isPrimitive } from '../Primitive'
-import { toNode } from '../helpers'
+import { toNode, path } from '../helpers'
 import { IContainer } from '../IContainer'
 import { isInstance } from '../lib'
 
@@ -70,7 +70,7 @@ export class Computed<T> extends Observer implements IComputed<T> {
     // - an observable node but the user wants a boxed value
     // The observers will track the Computed ID.
     if (!isObservable(this.value) || this.isBoxed) {
-      this.valueContext.addObservedPath(this.id)
+      this.valueContext.addObservedPath(path(this.id))
     }
     return this.value
   }

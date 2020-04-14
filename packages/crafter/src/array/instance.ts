@@ -10,10 +10,11 @@ import {
   isOwnLeafPath,
   unbox,
   getRoot,
+  path,
 } from '../helpers'
 import { computeNextState } from '../lib/computeNextState'
 import { IInstance } from '../lib/IInstance'
-import { DataArray, INodeInstance, RemoveChanges } from '../lib/INodeInstance'
+import { DataArray, INodeInstance, RemoveChanges, ReplaceChanges } from '../lib/INodeInstance'
 import { isInstance } from '../lib/Instance'
 import {
   ArrayOperation,
@@ -40,8 +41,7 @@ import {
   addRemovePatch,
   addReplacePatch,
   copy,
-  move,
-  replace,
+  move
 } from '../lib/mutators'
 import { NodeInstance } from '../lib/NodeInstance'
 import { isNode } from "../lib/isNode"
@@ -525,7 +525,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
       get() {
         const instance = this.$data[index]
         if (!isNode(instance)) {
-          this.$$container.addObservedPath(getRoot(this).$id +  this.$path + '/' + index)
+          this.$$container.addObservedPath(path(getRoot(this).$id, this.$path, index.toString()))
         }
         return instance
           ? // Prevent throwing if index does not exist
@@ -535,7 +535,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
       },
       set(value: any) {
         present(this, [
-          { op: 'replace', value, path: this.$path + '/' + index },
+          { op: 'replace', value, path: path(this.$path, index.toString()) },
         ])
       },
       enumerable: true,
@@ -579,6 +579,29 @@ type SortCommand<T = any> = {
 }
 
 type Proposal<T = any> = ArrayOperation<T> | SortCommand<T>
+
+function replace(
+  model: INodeInstance<unknown>,
+  value: any,
+  index: string | number
+): ReplaceChanges {
+  // Some index may have been deleted by previous operation
+  if (model[index] === undefined) {
+    model.$addInterceptor(index)
+  }
+
+  const replaced = getSnapshot(model.$data[index])
+  const instance = toInstance(model.$data[index])
+  instance.$setValue(value)
+
+  // Attach
+  if (isNode(instance)) {
+    instance.$attach(model, index)
+  }
+  return {
+    replaced,
+  }
+}
 
 /**
  * Accept the value if the model is writtable
@@ -1311,5 +1334,5 @@ function isValidArrayIndex(
 }
 
 function addObservedLength(arrayInstance: ArrayInstance<any>): void {
-  arrayInstance.$$container.addObservedPath(getRoot(arrayInstance).$id + arrayInstance.$path + '/length')
+  arrayInstance.$$container.addObservedPath(path(getRoot(arrayInstance).$id, arrayInstance.$path, 'length'))
 }

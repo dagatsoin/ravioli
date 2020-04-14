@@ -6,12 +6,14 @@ import {
   isOwnLeafPath,
   unbox,
   getRoot,
+  getTargetKey,
+  path,
 } from '../helpers'
 import { computeNextState } from '../lib/computeNextState'
 import { IInstance } from '../lib/IInstance'
 import { DataObject, INodeInstance } from '../lib/INodeInstance'
 import { isInstance } from '../lib/Instance'
-import { BasicOperation, Operation } from '../lib/JSONPatch'
+import { BasicOperation, Operation, ReplaceOperation } from '../lib/JSONPatch'
 import {
   add,
   addAddPatch,
@@ -21,13 +23,12 @@ import {
   addReplacePatch,
   copy,
   move,
-  remove,
-  replace,
+  remove
 } from '../lib/mutators'
 import { NodeInstance } from '../lib/NodeInstance'
 import { setNonEnumerable } from '../utils/utils'
 
-import { ObjectFactoryInput, ObjectFactoryOutput } from './factory'
+import { ObjectFactoryInput, ObjectFactoryOutput, object } from './factory'
 import { Props } from './Props'
 import { ObjectType } from './type'
 import { ReferenceValue, isReferenceType } from '../lib/reference'
@@ -36,6 +37,8 @@ import { isIdentifierType } from '../identifier'
 import { Computed } from '../observer'
 import { getTypeFromValue } from '../lib/getTypeFromValue'
 import { isNode } from '../lib/isNode'
+import { MapInstance } from '../map/instance'
+import { ArrayInstance } from '../array/instance'
 
 export class ObjectInstance<
   TYPE extends {},
@@ -157,15 +160,17 @@ export class ObjectInstance<
 
   public $applyOperation = <O extends Operation>(
     operation: O & BasicOperation,
-    willEmitPatch: boolean = false
+    shouldEmitPatch: boolean = false
   ): void => {
     const childKey = getChildKey(this.$path, operation.path)
     // Apply operation on this object
     if (
       isOwnLeafPath(this.$path, operation.path) &&
-      operation.op === 'replace'
+      operation.op === 'replace' &&
+      childKey
     ) {
       let backup
+      const willEmitPatch = shouldEmitPatch && canEmitReplacePatch(this, operation)
       if (willEmitPatch) {
          backup = this.$data[childKey].$value
       }
@@ -179,11 +184,11 @@ export class ObjectInstance<
       }
     }
     // Or delegate to children
-    else if (operation.path.includes(this.$path)) {
+    else if (operation.path.includes(this.$path) && childKey) {
       // Get the concerned child key
       toNode(
         toInstance(this.$data[childKey])
-      ).$applyOperation(operation, willEmitPatch)
+      ).$applyOperation(operation, shouldEmitPatch)
     }
   }
   public $addInterceptor(index: string | number): void {
@@ -232,22 +237,22 @@ function generateValue<T>(data: DataObject<T>): T {
   return value
 }
 
-function build(object: ObjectInstance<any, any, any, any>, value = {}): void {
-  object.$$container.transaction(function() {
-    Object.keys(object.$type.properties).forEach(function(key) {
+function build(obj: ObjectInstance<any, any, any, any>, value = {}): void {
+  obj.$$container.transaction(function() {
+    Object.keys(obj.$type.properties).forEach(function(key) {
       // Computed value: bind it to the object
-      if (object.$type.properties[key] instanceof Computed) {
-        Object.defineProperty(object, key, {
+      if (obj.$type.properties[key] instanceof Computed) {
+        Object.defineProperty(obj, key, {
           get() {
-            return object.$type.properties[key].get(object)
+            return obj.$type.properties[key].get(obj)
           },
           enumerable: true,
           configurable: true,
         })
       }
       else {
-        present(object, [
-          { op: 'add', path: object.$path + '/' + key, value: value[key] },
+        present(obj, [
+          { op: 'add', path: path(obj.$path, key), value: value[key] },
         ])
       }
     })
@@ -282,7 +287,7 @@ function addPropGetSet(
         // This check is required in case the object has moving shape (case of Computed)
         if (instance) {
           if (!isNode(instance)) {
-            obj.$$container.addObservedPath(getRoot(obj).$id + obj.$path + '/' + propName)
+            obj.$$container.addObservedPath(path(getRoot(obj).$id, obj.$path, propName.toString()))
           }
           // return the instance if it is a node or the value if it is a leaf
           return unbox(instance, obj.$$container)
@@ -291,9 +296,14 @@ function addPropGetSet(
         }
       },
       set(value: any) {
-        present(obj, [
-          { op: 'replace', value, path: obj.$path + '/' + propName },
-        ])
+        // If the value is an object, cut it down in atomic JSON operation
+        const needToCutDown = isObject(value)
+        if (needToCutDown) {
+          const proposal = cutDownUpdateOperation(value, path(propName.toString()) )
+          present(obj, proposal)
+        } else {
+          present(obj, [{ op: 'replace', value: value instanceof Map ? Array.from(value.entries()) : value, path: path(obj.$path, propName.toString()) }])
+        }
       },
       enumerable: true,
       configurable: true,
@@ -301,15 +311,49 @@ function addPropGetSet(
   }
 }
 
-type Proposal = BasicOperation
+function isObject(thing: any): thing is object {
+  return !(thing instanceof Map) && !Array.isArray(thing) && typeof thing === "object"
+}
+
+export function cutDownUpdateOperation(value: object, opPath: string): Proposal {
+  return Object.keys(value)
+    .flatMap(function(key) {
+      if (isObject(value[key])) {
+        return cutDownUpdateOperation(value[key], path(opPath, key))
+      } else {
+        return {
+          op: "replace",
+          path: path(opPath, key),
+          value: value[key]
+        }
+      }
+    })
+}
+
+type Proposal = BasicOperation[]
+
+/**
+ * Business rule predicate.
+ * Only a leaf, the replacement of a leaf value, an array value or a map value can emit an update patch
+ * @param model 
+ * @param command 
+ */
+function canEmitReplacePatch(model: ObjectInstance<any, any, any, any>, command: BasicOperation) {
+  const target = model.$data[getObjectKey(model, command)]
+  const isLeaf = !isNode(target)
+
+  return isLeaf ||
+    !isLeaf && target instanceof ArrayInstance ||
+    !isLeaf && target instanceof MapInstance
+}
 
 /**
  * Accept the value if the model is writtable
  */
-function present<T>(
-  model: INodeInstance<T>,
-  proposal: Proposal[],
-  willEmitPatch: boolean = true
+function present(
+  model: ObjectInstance<any, any, any, any>,
+  proposal: Proposal,
+  shouldEmitPatch: boolean = true
 ): void {
   // No direct manipulation. Mutations must occure only during a transaction.
   if (!model.$$container.isWrittable) {
@@ -319,40 +363,34 @@ function present<T>(
   }
   proposal.forEach(command => {
     if (command.op === 'replace') {
-      const changes = replace(
-        model,
-        command.value,
-        getObjectKey(model, command)
-      )
-      if (willEmitPatch) {
-        addReplacePatch(model, command, changes)
-      }
+      model.$applyOperation(command, shouldEmitPatch)
     } else if (command.op === 'remove') {
       const changes = remove(model, getObjectKey(model, command))
-      if (willEmitPatch) {
-        addRemovePatch(model, command, changes)
-      }
+      addRemovePatch(model, command, changes)
     } else if (command.op === 'add') {
       const index = getObjectKey(model, command)
       // Is an alias of replace
       if (model.$data[index] !== undefined) {
-        present(model, [{ ...command, op: 'replace' }])
+        throw new Error('not implemented yet')
+//        present(model, [{ ...command, op: 'replace' }])
       } else {
         add(model, command.value, index)
-        if (willEmitPatch) {
+     /*    if (willEmitPatch) {
           addAddPatch(model, command)
-        }
+        } */
       }
     } else if (command.op === 'copy') {
-      const changes = copy(model, command)
+      throw new Error('not implemented yet')
+      /* const changes = copy(model, command)
       if (willEmitPatch) {
         addCopyPatch(model, command, changes)
-      }
+      } */
     } else if (command.op === 'move') {
-      const changes = move(model, command)
+      throw new Error('not implemented yet')
+      /* const changes = move(model, command)
       if (willEmitPatch) {
         addMovePatch(model, command, changes)
-      }
+      } */
     } else {
       throw new Error(`Crafter Array.$applyOperation: ${
         (proposal as any).op
@@ -364,9 +402,9 @@ function present<T>(
   computeNextState(model)
 }
 
-function getObjectKey(model: INodeInstance<any>, proposal: Proposal): string {
-  const index = String(getChildKey(model.$path, proposal.path))
-  if (!isValidObjectIndex(model, index, proposal)) {
+function getObjectKey(model: INodeInstance<any>, op: BasicOperation): string {
+  const index = String(getChildKey(model.$path, op.path))
+  if (!isValidObjectIndex(model, index, op)) {
     throw new Error(`Crafter ${index} is not a valid array index.`)
   }
   return index

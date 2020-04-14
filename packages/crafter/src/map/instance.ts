@@ -8,6 +8,7 @@ import {
   isOwnLeafPath,
   unbox,
   getRoot,
+  path,
 } from '../helpers'
 import { computeNextState } from '../lib/computeNextState'
 import { IInstance } from '../lib/IInstance'
@@ -62,7 +63,7 @@ const methodKeys = [
 ]
 
 export class MapInstance<TYPE>
-  extends NodeInstance<Map<string, TYPE>, Map<any, TYPE> | [any, TYPE][]>
+  extends NodeInstance<Map<string, TYPE>, Map<string, TYPE> | [string, TYPE][]>
   implements Map<string, TYPE> {
   public get size(): number {
     this.addObservedLength()
@@ -92,8 +93,8 @@ export class MapInstance<TYPE>
     this.$computeSnapshot()
   }
 
-  public toJSON(): [any, TYPE][] {
-    return this.$snapshot as [any, TYPE][]
+  public toJSON(): [string, TYPE][] {
+    return this.$snapshot as [string, TYPE][]
   }
   public $getMethodKeys(): string[] {
     throw new Error('Method not implemented.')
@@ -196,12 +197,12 @@ export class MapInstance<TYPE>
   public get = (key: string): TYPE | undefined => {
     const instance = this.$data.get(key) // case where JSON path is serialized
     if (!isNode(instance)) {
-      this.$$container.addObservedPath(getRoot(this).$id + this.$path + '/' + key)
+      this.$$container.addObservedPath(path(getRoot(this).$id, this.$path, key))
     }
     return instance ? unbox(instance, this.$$container) : undefined
   }
   public has = (key: string): boolean => {
-    this.$$container.addObservedPath(getRoot(this).$id + this.$path + '/' + key)
+    this.$$container.addObservedPath(path(getRoot(this).$id, this.$path, key))
     return this.$data.has(key)
   }
   public set = (key: string, value: TYPE | IInstance<TYPE>): this => {
@@ -209,7 +210,7 @@ export class MapInstance<TYPE>
       {
         op: this.has(key) ? 'replace' : 'add',
         value,
-        path: this.$path + '/' + key,
+        path: path(this.$path, key),
       },
     ])
     this.refineTypeIfNeeded(value)
@@ -251,27 +252,27 @@ export class MapInstance<TYPE>
     }
   }
   private addObservedLength = (): void => {
-    this.$$container.addObservedPath(getRoot(this).$id + this.$path + '/size')
+    this.$$container.addObservedPath(path(getRoot(this).$id, this.$path, 'size'))
   }
   private $attachChildren = (): void => {
     this.$data.forEach((instance, k) => {
       if (isNode(instance)) {
-        instance.$attach(this, toKey(k))
+        instance.$attach(this, k)
       }
     })
   }
 }
 
-function generateSnapshot<T>(data: DataMap<T>): [any, T][] {
-  const value: [any, T][] = []
+function generateSnapshot<T>(data: DataMap<T>): [string, T][] {
+  const value: [string, T][] = []
   data.forEach((item, key) => {
     value.push([key, item.$snapshot])
   })
   return value
 }
 
-function generateValue<T>(data: DataMap<T>): Map<any, T> {
-  const value: Map<any, T> = new Map()
+function generateValue<T>(data: DataMap<T>): Map<string, T> {
+  const value: Map<string, T> = new Map()
   data.forEach((item, key) => {
     value.set(key, item.$value)
   })
@@ -294,13 +295,6 @@ function build(
       })
     }
   })
-}
-
-/**
- * Convenience function to convert any type into a string
- */
-function toKey(k: any): string {
-  return typeof k === 'object' || Array.isArray(k) ? JSON.stringify(k) : k
 }
 
 type Proposal<T = any> = MapOperation<T>
@@ -376,7 +370,10 @@ function add(
   model: MapInstance<any>,
   command: AddOperation | ReplaceOperation
 ): void {
-  const key = getKey(model, command.path)
+  const key = getChildKey(model.$path, command.path)
+  if (!key) {
+    throw new Error (`[CRAFTER] MapInstance.add command. Path is not valid: ${command.path}`)
+  }
   const item = toInstance(model.$type.itemType.create(command.value, { context: model.$$container }))
 
   model.$data.set(key, item)
@@ -390,7 +387,10 @@ function replace(
   model: MapInstance<any>,
   command: AddOperation | ReplaceOperation
 ): ReplaceChanges {
-  const key = getKey(model, command.path)
+  const key = getChildKey(model.$path, command.path)
+  if (!key) {
+    throw new Error (`[CRAFTER] MapInstance.replace command. Path is not valid: ${command.path}`)
+  }
   const itemToReplace = model.get(key)
   itemToReplace.$kill()
   const changes = {
@@ -408,7 +408,10 @@ function deleteInMap(
   model: MapInstance<any>,
   command: RemoveOperation
 ): RemoveChanges {
-  const key = getKey(model, command.path)
+  const key = getChildKey(model.$path, command.path)
+  if (!key) {
+    throw new Error (`[CRAFTER] MapInstance.delete command. Path is not valid: ${command.path}`)
+  }
   const itemToRemove = model.get(key)
   itemToRemove.$kill()
 
@@ -426,8 +429,11 @@ function copy(
   model: MapInstance<any>,
   command: CopyOperation
 ): CopyChanges | undefined {
-  const fromKey = getKey(model, command.from)
-  const destinationKey = getKey(model, command.path)
+  const fromKey = getChildKey(model.$path, command.from)
+  const destinationKey = getChildKey(model.$path, command.path)
+  if (!fromKey || !destinationKey) {
+    throw new Error (`[CRAFTER] MapInstance.copy command. Path is not valid: ${command.from}, ${command.path}`)
+  }
   const from = model.get(fromKey)
   const to = model.get(destinationKey)
 
@@ -451,8 +457,11 @@ function move(
   model: MapInstance<any>,
   command: MoveOperation
 ): MoveChanges {
-  const from = getKey(model, command.from)
-  const to = getKey(model, command.path)
+  const from = getChildKey(model.$path, command.from)
+  const to = getChildKey(model.$path, command.path)
+  if (!from || !to) {
+    throw new Error (`[CRAFTER] MapInstance.move command. Path is not valid: ${command.from}, ${command.path}`)
+  }
   const movedItem = model.get(from)
   const changes = {
     moved: getSnapshot(movedItem),
@@ -507,13 +516,4 @@ function addClearPatch(
       },
     ],
   })
-}
-
-function getKey(
-  model: MapInstance<any>,
-  path: string
-): string {
-  const nodePathSegmentsLength = model.$path.split('/').length
-  const pathSegments = path.split('/')
-  return pathSegments[nodePathSegmentsLength]
 }

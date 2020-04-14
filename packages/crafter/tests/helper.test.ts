@@ -1,7 +1,32 @@
 import { observable } from '../src/lib/observable'
 import { getTypeFromValue } from "../src/lib/getTypeFromValue"
-import { toInstance, getSnapshot, sync } from '../src/helpers'
+import { toInstance, getSnapshot, sync, getChildKey, getTargetKey, isOwnLeafPath, path } from '../src/helpers'
 import { getGlobal } from '../src'
+
+test("format path", function() {
+  expect(path("/", "/player", "stats")).toBe("/player/stats")
+  expect(path("/", "/", "player")).toBe("/player")
+  expect(path("/player", "/stats")).toBe("/player/stats")
+  expect(path("/player", "/stats/")).toBe("/player/stats")
+})
+
+test("getTargetKey", function(){
+  expect(getTargetKey("/")).toBe("/")
+  expect(getTargetKey("/player")).toBe("player")
+  expect(getTargetKey("/player/stats")).toBe("stats")
+})
+
+test("getChildKey", function(){
+  expect(getChildKey("/", "/player/stats/health")).toBe("player")
+  expect(getChildKey("/player/", "/player/stats/health")).toBe("stats")
+  expect(getChildKey("/player/stats/", "/player/stats/health")).toBe("health")
+})
+
+test("isOwnLeafPath", function(){
+  expect(isOwnLeafPath("/", "/player")).toBeTruthy()
+  expect(isOwnLeafPath("/player", "/player/stats")).toBeTruthy()
+  expect(isOwnLeafPath("/player", "/player/stats/health")).toBeFalsy()
+})
 
 test('get type from value', function() {
   const type = getTypeFromValue({
@@ -52,8 +77,8 @@ test('get type from an instance', function() {
 
 it('should clone an observable and sync its value on each change', function() {
   const titles = new Map()
-  titles.set(0, 'Noob')
-  titles.set(1, 'Not so bad')
+  titles.set('0', 'Noob')
+  titles.set('1', 'Not so bad')
   const source = observable({
     name: 'Fraktar',
     inventory: [

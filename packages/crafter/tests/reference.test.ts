@@ -30,7 +30,7 @@ test('references', function() {
         price: 10,
       },
     ],
-    questLog: [[0, { id: '5' }]],
+    questLog: [['0', { id: '5' }]],
     equipedItem: '42',
   })
 

@@ -89,7 +89,7 @@ it('should remove an identifier from the manager when a node is removed from a m
     object({
       id: identifier(),
     })
-  ).create([[0, { id: '157' }]])
+  ).create([['0', { id: '157' }]])
   getContext(toInstance(model)).transaction(model.clear)
   expect(getContext(toInstance(model)).snapshot.uids.includes('157')).toBeFalsy()
 })

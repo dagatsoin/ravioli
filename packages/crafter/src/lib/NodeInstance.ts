@@ -1,4 +1,4 @@
-import { getRoot } from '../helpers'
+import { getRoot, path } from '../helpers'
 import { IInstance } from './IInstance'
 import {
   DataNode,
@@ -77,7 +77,7 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
 
   public get $path(): string {
     // TODO cache this
-    return this.$parent ? this.$parent.$path + '/' + this.$parentKey : ''
+    return this.$parent ? path(this.$parent.$path, this.$parentKey?.toString() ?? '') : '/'
   }
 
   public get $patch(): Migration {

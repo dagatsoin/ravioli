@@ -15,29 +15,6 @@ import {
 } from '../JSONPatch'
 import { isNode } from "../isNode"
 
-export function replace(
-  model: INodeInstance<unknown>,
-  value: any,
-  index: string | number
-): ReplaceChanges {
-  // Some index may have been deleted by previous operation
-  if (model[index] === undefined) {
-    model.$addInterceptor(index)
-  }
-
-  const replaced = getSnapshot(model.$data[index])
-  const instance = toInstance(model.$data[index])
-  instance.$setValue(value)
-
-  // Attach
-  if (isNode(instance)) {
-    instance.$attach(model, index)
-  }
-  return {
-    replaced,
-  }
-}
-
 export function addReplacePatch<T>(
   model: INodeInstance<unknown>,
   proposal: ReplaceOperation<T>,
