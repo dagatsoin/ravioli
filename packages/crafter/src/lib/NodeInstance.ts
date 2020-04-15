@@ -1,13 +1,12 @@
-import { getRoot } from '../helpers'
+import { isRoot } from '../helpers'
 import { IInstance } from './IInstance'
 import {
   DataNode,
   INodeInstance,
-  OperationListener,
   PatchListener,
 } from './INodeInstance'
 import { Instance } from './Instance'
-import { Migration, Operation } from './JSONPatch'
+import { Operation } from './JSONPatch'
 import { IContainer } from '../IContainer'
 
 /**
@@ -39,11 +38,9 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   public $parent: INodeInstance<any> | undefined = undefined  
   
   private $hasStaleSnapshot = true
-  private $$patch: Migration = { forward: [], backward: [] }
   private $$nativeTypeKeys: string[]
   private $snapshotComputation: (data: DataNode) => SNAPSHOT
   private $valueComputation: (data: DataNode) => TYPE
-  private $operationListeners: OperationListener[] = []
   private $transactionPatchListeners: PatchListener[] = []
   private $prevValue: TYPE = (undefined as unknown) as TYPE
   private $prevSnapshot: SNAPSHOT = (undefined as unknown) as SNAPSHOT
@@ -77,18 +74,6 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
     return this.$$nativeTypeKeys
   }
 
-  public get $patch(): Migration {
-    return isRoot(this) ? this.$$patch : getRoot(this).$patch
-  }
-
-  public set $patch(patch: Migration) {
-    if (isRoot(this)) {
-      this.$$patch = patch
-    } else {
-      getRoot(this).$patch = patch
-    }
-  }
-
   public get $value(): TYPE {
     if (!this.$$container.isTransaction) {
       // TODO use a computed instead
@@ -107,18 +92,6 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   public get $id(): string {
     return this.$$id
   }
-
-  public $kill(): void {
-    super.$kill()
-    this.$detach()
-    this.$$container.unregisterAsReferencable(this.$$id)
-  }
-
-  /**
-   * Interface IWithParent is implemented in commont.ts and assigned in constructor
-   */
-  public $attach(_parent: INodeInstance<any>, _key: number | string): void {} 
-  public $detach(): void {}
 
   public $computeSnapshot(): void {
     this.$prevSnapshot = this.$snapshotComputation(this.$data)
@@ -142,37 +115,10 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
     this.$transactionPatchListeners.push(patchListener)
   }
 
-  public $addPatch<O extends Operation>(migration: Migration<O>): void {
-    const { forward, backward } = migration
-    if (this.$$container.isTransaction) {
-      if (isRoot(this)) {
-        this.$$patch.forward.push(...forward)
-        this.$$patch.backward.push(...backward)
-        this.$operationListeners.forEach(listener => forward.forEach(listener))
-      } else if (this.$parent) {
-        this.$parent.$addPatch(migration)
-      }
-    }
-  }
-
   public $invalidateSnapshot(): void {
     this.$hasStaleSnapshot = true
   }
 
-  public $addOperationListener(operationListener: OperationListener): void {
-    if (isRoot(this)) {
-      this.$operationListeners.push(operationListener)
-    } else if (this.$parent) {
-      this.$parent.$addOperationListener(operationListener)
-    }
-  }
-
-  public $removeOperationListener(operationListener: OperationListener): void {
-    this.$operationListeners.splice(
-      this.$operationListeners.indexOf(operationListener),
-      1
-    )
-  }
 
   private $computeValue(): void {
     this.$prevValue = this.$valueComputation(this.$data)
@@ -182,8 +128,3 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   public abstract $addInterceptor(index: number | string): void
   public abstract $createChildInstance<I>(item: I, index: any): IInstance<I>
 }
-
-export function isRoot(node: INodeInstance<any>): boolean {
-  return node.$parent === undefined
-}
-

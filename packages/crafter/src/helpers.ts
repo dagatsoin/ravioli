@@ -173,8 +173,12 @@ export function isChildPath(nodePath: string, _path: string): boolean {
   return nodePath.indexOf(_path) === 0 && nodePath.length !== _path.length
 }
 
-export function getRoot<I extends INodeInstance<any> | ILeafInstance<any>>(node: I): I extends INodeInstance<any> ? INodeInstance<any> :ILeafInstance<any> {
+export function getRoot<I extends IInstance<any>>(node: I): I extends INodeInstance<any> ? INodeInstance<any> :ILeafInstance<any> {
   return node.$parent ? getRoot(toNode(node.$parent)) : node as any
+}
+
+export function isRoot(node: IInstance<any>): boolean {
+  return node.$parent === undefined
 }
 
 export function getContext(instance: IInstance<any>): IContainer {

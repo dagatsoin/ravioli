@@ -1,8 +1,10 @@
 import { IType } from './IType'
 import { IContainer } from '../IContainer'
 import { IWithParent } from './IWithParent'
+import { IObservable } from '../IObservable'
+import { Migration, Operation } from './JSONPatch'
 
-export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent{
+export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent, IObservable{
   $id: string
   $$container: IContainer
   $isInstance: true
@@ -10,7 +12,13 @@ export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent{
   $data: any
   $snapshot: SNAPSHOT
   $value: TYPE
+  $patch: Migration
+  $addPatch(patch: Migration): void
   $applySnapshot(snapshot: SNAPSHOT): void
   $setValue(value: SNAPSHOT): void
   $kill(): void
+  $addOperationListener(operationListener: OperationListener): void
+  $removeOperationListener(operationListener: OperationListener): void
 }
+
+export type OperationListener = (operation: Operation) => void
