@@ -1,6 +1,6 @@
 import { Migration } from './lib/JSONPatch'
 
-export type IObservable<T> = T & {
+export type IObservable = {
   $id: string
   $isObservable: true
   $patch: Migration

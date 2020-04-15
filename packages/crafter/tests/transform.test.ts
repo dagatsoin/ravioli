@@ -420,7 +420,7 @@ describe("Set id to the transformed view", function() {
     context.clearContainer()
     const transform = createTransformer((m) => m, {computedId: "customId"})
     const dispose = autorun(() => transform('foo'))
-    expect(context.snapshot.observerGraph.nodes.find(n => n.type === ObserverType.Computed)!.id).toBe("customId")
+    expect(context.snapshot.dependencyGraph.nodes.find(n => n.type === ObserverType.Computed)!.id).toBe("customId")
     dispose()
   })
   test("observable value", function(){
@@ -429,7 +429,7 @@ describe("Set id to the transformed view", function() {
     let value: IInstance<any>
     const dispose = autorun(() => value = toInstance(transform('foo')))
     expect(value!.$id).toBe("valueId")
-    expect(context.snapshot.observerGraph.nodes.find(n => n.type === ObserverType.Computed)!.id).toBe("customId")
+    expect(context.snapshot.dependencyGraph.nodes.find(n => n.type === ObserverType.Computed)!.id).toBe("customId")
     dispose()
   })
 })

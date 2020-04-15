@@ -49,15 +49,15 @@ test('When a autorun is created, all lazy computed value are awake and added to 
       stats: model.isAlive ? statsRepresentation.get() : undefined,
     }
   })
-  expect(context.snapshot.observerGraph.nodes.length).toBe(0)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
 
   const dispose = autorun(() => {
     autoRunCount++
     appRepresentation.get()
   })
 
-  expect(context.snapshot.observerGraph.nodes.length).toBe(3)
-  expect(context.snapshot.observerGraph.edges.length).toBe(2)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(3)
+  expect(context.snapshot.dependencyGraph.edges.length).toBe(2)
 
   expect(statsRepRunCount).toBe(1)
   expect(appRepRunCount).toBe(1)
@@ -83,17 +83,17 @@ test('manager perfom tree shaking when a reaction is disposed', function() {
     stats: model.stats,
   }))
 
-  expect(context.snapshot.observerGraph.nodes.length).toBe(0)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
 
   const disposer = autorun(() => {
     appRepresentation.get()
   })
 
-  expect(context.snapshot.observerGraph.nodes.length).toBe(2)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(2)
 
   disposer()
 
-  expect(context.snapshot.observerGraph.nodes.length).toBe(0)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
 })
 
 test('State restauration after an exception during transaction', function() {
@@ -243,7 +243,7 @@ test("Reaction between two contexts on the same node process", function() {
   context0.transaction(() => model.name = 'Fraktar')
 
   // Both computed and autorun from context 1 are still valid.
-  expect(context1.snapshot.observerGraph.nodes.every(node => !node.isStale)).toBeTruthy()
+  expect(context1.snapshot.dependencyGraph.nodes.every(node => !node.isStale)).toBeTruthy()
   expect(nickName).toBe('Fraktos')
 
   // Present the patch to the other context.

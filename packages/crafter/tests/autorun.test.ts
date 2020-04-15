@@ -85,7 +85,7 @@ test('Autorun with computed', function() {
   })
   expect(derivation.health).toEqual(11)
   dispose()
-  expect(context.snapshot.observerGraph.nodes.length).toBe(0)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
 })
 
 test('Autorun is called as creation and register in the manager', function() {
@@ -100,7 +100,7 @@ test('Autorun is called as creation and register in the manager', function() {
 
   let autoRunCount = 0
 
-  expect(context.snapshot.observerGraph.nodes.length).toBe(0)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
 
   const dispose = autorun(() => {
     autoRunCount++
@@ -108,10 +108,10 @@ test('Autorun is called as creation and register in the manager', function() {
     model.isAlive
   })
 
-  expect(context.snapshot.observerGraph.nodes.length).toBe(1)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(1)
   expect(autoRunCount).toBe(1)
   dispose()
-  expect(context.snapshot.observerGraph.nodes.length).toBe(0)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
 })
 
 test('Nested autorun execution. Trigger an autorun while another autorun is running.', function() {
@@ -161,14 +161,14 @@ test('Nested autorun execution. Trigger an autorun while another autorun is runn
   expect(rendering).toEqual(2)
   dispose0()
   dispose1()
-  expect(context.snapshot.observerGraph.nodes.length).toBe(0)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
 })
 
 test('Throwing during first run will dispose the autorun', function() {
   expect(() => autorun(() => {
     throw new Error('BOOT ERROR!')
   })).toThrow()
-  expect(context.snapshot.observerGraph.nodes.length).toBe(0)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
 })
 
 test('Throwing during an autorun will dispose the autorun', function() {

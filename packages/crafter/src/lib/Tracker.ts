@@ -2,14 +2,14 @@ import { IObservable } from '../IObservable'
 import { Migration } from './JSONPatch'
 import { IContainer } from '../IContainer'
 import { getGlobal } from '../utils/utils'
-import { path } from '../helpers'
+import { makePath } from '../helpers'
 
 export interface ITracker {
   reportObserved(): void
   reportChanged(): void
 }
 
-export class Tracker implements IObservable<unknown>, ITracker {
+export class Tracker implements IObservable, ITracker {
   public $isObservable: true = true
   public $patch: Migration<any, any> = {
     forward: [],
@@ -31,7 +31,7 @@ export class Tracker implements IObservable<unknown>, ITracker {
   public $transactionDidEnd(): void {}
 
   public reportObserved(): void {
-    this.context.addObservedPath(path(this.id))
+    this.context.addObservedPath(makePath(this.id))
   }
 
   public reportChanged(): void {

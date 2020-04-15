@@ -3,7 +3,7 @@ import { observable, isObservable } from '../lib/observable'
 import { ObserverType, Observer } from './Observer'
 import { LeafInstance } from '../lib/LeafInstance'
 import { isPrimitive } from '../Primitive'
-import { toNode, path } from '../helpers'
+import { toNode, makePath } from '../helpers'
 import { IContainer } from '../IContainer'
 import { isInstance } from '../lib'
 
@@ -30,8 +30,8 @@ export class Computed<T> extends Observer implements IComputed<T> {
   }
   public type = type
   public dependencyPaths: string[] = []
-  public readonly fun: (isInitialRun?: true) => T
-  private value!: T | IObservable<T>
+  public readonly fun: (boundThis?: IObservable) => T
+  private value!: T
   private isAlive: boolean = false
   private isIinitialized = false
   private valueContext: IContainer
@@ -39,7 +39,7 @@ export class Computed<T> extends Observer implements IComputed<T> {
   private readonly isBoxed: boolean
   private readonly isStrict: boolean
 
-  constructor(fun: (boundThis?: IObservable<any>) => T, options?: ComputedOptions) {
+  constructor(fun: (boundThis?: IObservable) => T, options?: ComputedOptions) {
     super({
       type,
       id: options?.computedId,
@@ -54,7 +54,7 @@ export class Computed<T> extends Observer implements IComputed<T> {
       : true
   }
 
-  public get(target?: IObservable<any>): T | IObservable<T> {    
+  public get(target?: IObservable): T {    
 
     // Bypass if no reaction is running. That means that the user force the update.
     if (this.valueContext.isRunningReaction) {
@@ -70,7 +70,7 @@ export class Computed<T> extends Observer implements IComputed<T> {
     // - an observable node but the user wants a boxed value
     // The observers will track the Computed ID.
     if (!isObservable(this.value) || this.isBoxed) {
-      this.valueContext.addObservedPath(path(this.id))
+      this.valueContext.addObservedPath(makePath(this.id))
     }
     return this.value
   }
@@ -89,7 +89,7 @@ export class Computed<T> extends Observer implements IComputed<T> {
     }
   }
 
-  public runAndUpdateDeps(target?: IObservable<any>): void {
+  public runAndUpdateDeps(target?: IObservable): void {
     // The observer runs for the first time or is re employed by an other observer
     if (!this.isAlive) {
       this.isAlive = true
@@ -170,6 +170,6 @@ export type ComputedOptions = {
   contexts?: {output?: IContainer, source?: IContainer}
 }
 
-export function computed<T>(fun: (boundThis?: IObservable<any>) => T, options?: ComputedOptions): IComputed<T> {
+export function computed<T>(fun: (boundThis?: IObservable) => T, options?: ComputedOptions): IComputed<T> {
   return new Computed(fun, options)
 }

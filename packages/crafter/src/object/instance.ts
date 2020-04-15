@@ -7,7 +7,7 @@ import {
   unbox,
   getRoot,
   getTargetKey,
-  path,
+  makePath,
 } from '../helpers'
 import { computeNextState } from '../lib/computeNextState'
 import { IInstance } from '../lib/IInstance'
@@ -252,7 +252,7 @@ function build(obj: ObjectInstance<any, any, any, any>, value = {}): void {
       }
       else {
         present(obj, [
-          { op: 'add', path: path(obj.$path, key), value: value[key] },
+          { op: 'add', path: makePath(obj.$path, key), value: value[key] },
         ])
       }
     })
@@ -287,7 +287,7 @@ function addPropGetSet(
         // This check is required in case the object has moving shape (case of Computed)
         if (instance) {
           if (!isNode(instance)) {
-            obj.$$container.addObservedPath(path(getRoot(obj).$id, obj.$path, propName.toString()))
+            obj.$$container.addObservedPath(makePath(getRoot(obj).$id, obj.$path, propName.toString()))
           }
           // return the instance if it is a node or the value if it is a leaf
           return unbox(instance, obj.$$container)
@@ -299,10 +299,10 @@ function addPropGetSet(
         // If the value is an object, cut it down in atomic JSON operation
         const needToCutDown = isObject(value)
         if (needToCutDown) {
-          const proposal = cutDownUpdateOperation(value, path(propName.toString()) )
+          const proposal = cutDownUpdateOperation(value, makePath(propName.toString()) )
           present(obj, proposal)
         } else {
-          present(obj, [{ op: 'replace', value: value instanceof Map ? Array.from(value.entries()) : value, path: path(obj.$path, propName.toString()) }])
+          present(obj, [{ op: 'replace', value: value instanceof Map ? Array.from(value.entries()) : value, path: makePath(obj.$path, propName.toString()) }])
         }
       },
       enumerable: true,
@@ -319,11 +319,11 @@ export function cutDownUpdateOperation(value: object, opPath: string): Proposal 
   return Object.keys(value)
     .flatMap(function(key) {
       if (isObject(value[key])) {
-        return cutDownUpdateOperation(value[key], path(opPath, key))
+        return cutDownUpdateOperation(value[key], makePath(opPath, key))
       } else {
         return {
           op: "replace",
-          path: path(opPath, key),
+          path: makePath(opPath, key),
           value: value[key]
         }
       }

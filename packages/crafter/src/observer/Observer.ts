@@ -61,9 +61,10 @@ export abstract class Observer implements IObserver {
 /**
  * Return true if the ovserver is a root:
  * - autorun
+ * - reaction
  */
-export function isRootObserver(observer: IObserver): boolean {
-  return observer.type === ObserverType.Autorun
+export function isReaction(observer: IObserver): boolean {
+  return observer.type === ObserverType.Autorun || observer.type === ObserverType.Reaction
 }
 
 function toString(type: ObserverType): string {

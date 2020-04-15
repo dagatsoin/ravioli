@@ -106,8 +106,8 @@ export function unique(value: any, index: number, self: any[]): boolean {
  * @param nodePath
  * @param path 
  */
-export function getTargetKey(path: string): string {
-  return path.split('/').filter(s => !!s.length).pop() || '/'
+export function getTargetKey(_path: string): string {
+  return _path.split('/').filter(s => !!s.length).pop() || '/'
 }
 
 /**
@@ -116,9 +116,9 @@ export function getTargetKey(path: string): string {
  * @param nodePath
  * @param path 
  */
-export function getChildKey(nodePath: string, path: string): string | undefined{
+export function getChildKey(nodePath: string, _path: string): string | undefined{
   const nodePathDepth = nodePath.split('/').filter(s => !!s.length).length
-  return path.split('/').filter(s => !!s.length)[nodePathDepth]
+  return _path.split('/').filter(s => !!s.length)[nodePathDepth]
 }
 
 /**
@@ -126,7 +126,7 @@ export function getChildKey(nodePath: string, path: string): string | undefined{
  * Help to prevent double // issue when dealing with node paths.
  * @param segments
  */
-export function path(...segments: string[]): string {
+export function makePath(...segments: string[]): string {
   return segments.reduce(function(p, s) {
     // It is the root path
     if (s === '/') {
@@ -149,19 +149,19 @@ export function sync<T extends IObservable<any>>(observable: T): T {
 /**
  * Return true if the path target a key of a node.
  */
-export function isOwnLeafPath(nodePath: string, path: string): boolean {
-  return getChildKey(nodePath, path) === getTargetKey(path)
+export function isOwnLeafPath(nodePath: string, _path: string): boolean {
+  return getChildKey(nodePath, _path) === getTargetKey(_path)
 }
 
 /**
  * Return true if it is the node path
  */
-export function isNodePath(nodePath: string, path: string): boolean {
-  return nodePath === path
+export function isNodePath(nodePath: string, _path: string): boolean {
+  return nodePath === _path
 }
 
-export function isChildPath(nodePath: string, path: string): boolean {
-  return nodePath.indexOf(path) === 0 && nodePath.length !== path.length
+export function isChildPath(nodePath: string, _path: string): boolean {
+  return nodePath.indexOf(_path) === 0 && nodePath.length !== _path.length
 }
 
 export function getRoot(node: INodeInstance<any>): INodeInstance<any> {
@@ -174,4 +174,8 @@ export function getContext(instance: IInstance<any>): IContainer {
   } else {
    throw new Error(`No context found on object ${instance}`) 
   }
+}
+
+export function isUnique<T>(value: T, index: number, array: T[]) {
+  return array.indexOf(value) === index;
 }

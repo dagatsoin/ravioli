@@ -55,13 +55,13 @@ export type State = {
   isSpyingDisable: boolean
 
   // The graph of the observers running in this container.
-  observerGraph: Graph<IObserver>
+  dependencyGraph: Graph<IObserver>
 
   // A list of observables use during a transaction.
   // Once the transaction is complete, the manager will
   // alert all the concerned observers that their dependencies
   // have a new state
-  updatedObservables: Map<string, IObservable<any>>
+  updatedObservables: Map<string, IObservable>
 }
 
 export interface IContainer {
@@ -126,7 +126,7 @@ export interface IContainer {
    * Add an updated observable reference to the liste of updated observables
    * during the current transaction.
    */
-  addUpdatedObservable(observable: IObservable<any>): void
+  addUpdatedObservable(observable: IObservable): void
 
   /**
    * Start to collect all observables paths and derivations

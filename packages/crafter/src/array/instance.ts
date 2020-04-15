@@ -10,7 +10,7 @@ import {
   isOwnLeafPath,
   unbox,
   getRoot,
-  path,
+  makePath,
 } from '../helpers'
 import { computeNextState } from '../lib/computeNextState'
 import { IInstance } from '../lib/IInstance'
@@ -525,7 +525,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
       get() {
         const instance = this.$data[index]
         if (!isNode(instance)) {
-          this.$$container.addObservedPath(path(getRoot(this).$id, this.$path, index.toString()))
+          this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path, index.toString()))
         }
         return instance
           ? // Prevent throwing if index does not exist
@@ -535,7 +535,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
       },
       set(value: any) {
         present(this, [
-          { op: 'replace', value, path: path(this.$path, index.toString()) },
+          { op: 'replace', value, path: makePath(this.$path, index.toString()) },
         ])
       },
       enumerable: true,
@@ -1320,7 +1320,7 @@ function getArrayIndex(model: ArrayInstance<any>, proposal: Proposal): number {
  * Return true if the string is a valid Array index.
  */
 function isValidArrayIndex(
-  model: INodeInstance<any>,
+  model: ArrayInstance<any>,
   index: number,
   proposal: Proposal<any>
 ): boolean {
@@ -1334,5 +1334,5 @@ function isValidArrayIndex(
 }
 
 function addObservedLength(arrayInstance: ArrayInstance<any>): void {
-  arrayInstance.$$container.addObservedPath(path(getRoot(arrayInstance).$id, arrayInstance.$path, 'length'))
+  arrayInstance.$$container.addObservedPath(makePath(getRoot(arrayInstance).$id, arrayInstance.$path, 'length'))
 }

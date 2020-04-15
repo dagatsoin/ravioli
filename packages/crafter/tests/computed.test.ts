@@ -40,13 +40,13 @@ test('Computed is evaluated and register in the manager lazily, when triggered f
     }
   })
 
-  expect(context.snapshot.observerGraph.nodes.length).toBe(0)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
   const dispose = autorun(() => {
     autoRunCount++
     appRepresentation.get()
   })
 
-  expect(context.snapshot.observerGraph.nodes.length).toBe(2)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(2)
 
   expect(statsRepRunCount).toBe(0)
   expect(appRepRunCount).toBe(1)
@@ -56,7 +56,7 @@ test('Computed is evaluated and register in the manager lazily, when triggered f
     model.isAlive = true
   })
 
-  expect(context.snapshot.observerGraph.nodes.length).toBe(3)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(3)
   expect(statsRepRunCount).toBe(1)
   expect(appRepRunCount).toBe(2)
   expect(autoRunCount).toBe(2)

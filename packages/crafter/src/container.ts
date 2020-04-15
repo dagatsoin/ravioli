@@ -1,12 +1,13 @@
-import { toNode, getRoot, getSnapshot, unique, path } from './helpers'
+import { toNode, getRoot, getSnapshot, unique, makePath } from './helpers'
 import { IObservable } from './IObservable'
-import { BasicOperation, Operation, isDependent, hasPath } from './lib/JSONPatch'
+import { Operation, isDependent, hasPath, Migration } from './lib/JSONPatch'
 import { IObserver, ObserverType } from './observer/Observer'
-import { Graph, removeNode, removeNodeEdges, getTreeEdges, Edge, getAllPaths } from './Graph'
+import { Graph, removeNode, removeNodeEdges, getTreeEdges, Edge } from './Graph'
 import { INodeInstance } from './lib/INodeInstance'
 import { Tracker } from './lib/Tracker'
 import { State, IContainer, ContextListener } from './IContainer'
 import { Computed } from './observer/Computed'
+import { isNode } from './lib/isNode'
 
 function getInitState(): State {
   return {
@@ -22,7 +23,7 @@ function getInitState(): State {
     activeDerivations: new Map(),
     rootTransactionId: undefined,
     isSpyingDisable: false,
-    observerGraph: {
+    dependencyGraph: {
       nodes: [],
       edges: [],
     },
@@ -45,9 +46,9 @@ export class CrafterContainer implements IContainer {
       isComputingNextState: this.state.isComputingNextState,
       rootTransactionId: this.state.rootTransactionId,
       isSpyingDisable: this.state.isSpyingDisable,
-      observerGraph: {
-        nodes: [...this.state.observerGraph.nodes],
-        edges: [...this.state.observerGraph.edges],
+      dependencyGraph: {
+        nodes: [...this.state.dependencyGraph.nodes],
+        edges: [...this.state.dependencyGraph.edges],
       },
       updatedObservables: new Map(this.state.updatedObservables)
     }
@@ -82,6 +83,16 @@ export class CrafterContainer implements IContainer {
    */
   public registerComputedSource(computed: IObserver): void {
     this.registerObserver(computed)
+  }
+
+  public addObservedPath(path: string): void {
+    if (this.state.isSpyingDisable) {
+      return
+    }
+    const paths = this.state.observedPaths.get(this.getCurrentSpiedDerivationId())
+    if (!!paths && !paths.includes(path)) {
+      paths.push(path)
+    }
   }
 
   /**
@@ -135,12 +146,13 @@ export class CrafterContainer implements IContainer {
       this.state.rootTransactionId = undefined
       // Invalidate snapshot.
       // Their next computation will be triggered lazily.
-      this.state.updatedObservables.forEach((o: IObservable<any>) => {
+      this.state.updatedObservables.forEach((o: IObservable) => {
         // It is a tracker
-        if (!o.$isNode) {
+        if (isNode(o)) {
           return
+        } else if (isNode(o)) {
+          invalidateSnapshot(o)
         }
-        invalidateSnapshot(o)
       })
       
       this.nextState(this.state) 
@@ -199,7 +211,7 @@ export class CrafterContainer implements IContainer {
    * Add an updated observable reference to the liste of updated observables
    * during the current transaction.
    */
-  public addUpdatedObservable(observable: IObservable<any>): void {
+  public addUpdatedObservable(observable: IObservable): void {
     // This is why we need a map for updatedObservables list.
     // It is quicker to look up with Map.has instead of Array.find
     if (!this.state.updatedObservables.has(observable.$id) && this.state.isTransaction) {
@@ -255,7 +267,7 @@ export class CrafterContainer implements IContainer {
     this.state.isSpyingDisable = false
   }
 
-  public addObservedPath(path: string): void {
+  public addObservedmakePath(path: string): void {
     if (this.state.isSpyingDisable) {
       return
     }
@@ -309,7 +321,7 @@ export class CrafterContainer implements IContainer {
   public presentPatch<O extends Operation>(patch: O[]): void {
     const staleObservers: IObserver[] = []
     patch.forEach(({op, path: _path}) => {
-      const observers = this.getTargets(path(_path), op)
+      const observers = this.getTargets(makePath(_path), op)
       // Remove duplicate. An observer can be present because it is dependent of a previous observable.
       .filter(o => staleObservers.indexOf(o) === -1)
     
@@ -334,7 +346,7 @@ export class CrafterContainer implements IContainer {
    * Remove an observer and its dependencies from the state
    */
   public onObserverError(observerId: string): void {
-    removeObserver({observerId, observerGraph: this.state.observerGraph})
+    removeObserver({observerId, observerGraph: this.state.dependencyGraph})
   }
 
   /**
@@ -346,7 +358,7 @@ export class CrafterContainer implements IContainer {
     if (op) {
       directDependencies.push(...this.getDirectDependencies({path: _path, op}))
     } else {
-      directDependencies.push(...this.state.observerGraph.nodes.filter(node => hasPath(node, _path)))
+      directDependencies.push(...this.state.dependencyGraph.nodes.filter(node => hasPath(node, _path)))
     }
     const targets = directDependencies.concat(
       ...directDependencies.map(dep => {
@@ -354,14 +366,14 @@ export class CrafterContainer implements IContainer {
         const sourceId = dep.type === ObserverType.Computed
           ? (dep as Computed<any>).observedValueId
           : dep.id
-        return this.getTargets(path(sourceId))
+        return this.getTargets(makePath(sourceId))
       })
     )
     return targets.filter(unique)
   }
 
   private getDirectDependencies({op, path: _path}: Operation): IObserver[] {
-    return this.state.observerGraph.nodes.filter(isDependent({op, path: _path}))
+    return this.state.dependencyGraph.nodes.filter(isDependent({op, path: _path}))
   }
 
   private getCurrentSpiedReactionId(): string {
@@ -378,29 +390,19 @@ export class CrafterContainer implements IContainer {
    */
   private registerObserver(observer: IObserver): void {
     // Node is already registered, quit.
-    if (this.state.observerGraph.nodes.includes(observer)) {
+    if (this.state.dependencyGraph.nodes.includes(observer)) {
       return
     }
     // The current spied is empty. This is because we are registring
     // the root reaction. Do not add edge, but add the node.
     const target = this.getCurrentSpiedDerivationId()
     if (target) {
-      this.state.observerGraph.edges.push({
+      this.state.dependencyGraph.edges.push({
         target,
         source: observer.id
       })
     }
-    this.state.observerGraph.nodes.push(observer)
-  }
-
-  /**
-   * Breadth first crawl the graph of observable to update it.
-   * It will end by update the reactions.
-   * It returns the ran observer ids. 
-   * @param observable 
-   */
-  private updateBranchesOf(observable: IObservable<any>): string[] {
-    
+    this.state.dependencyGraph.nodes.push(observer)
   }
 
   /**
@@ -422,12 +424,27 @@ export class CrafterContainer implements IContainer {
         observers.forEach(o => o.notifyChangeFor())
         // Add stale observers
         staleObservers.push(...observers)
-      } else {
+      } else if (isNode(updatedObservable)){
         // Node observable with patch
-        // Model is now mutated.
-        // For this observable, crawl the graph and stale all its branches.
-        updatedObservable.$patch.forward.forEach(({op, path: _path}: Operation) => {
-          staleObserversOf(updatedObservable)
+        updatedObservable.$patch.forward.forEach(({op, path}: Operation) => {
+          const rootId = getRoot(updatedObservable).$id
+          const observers = this.getTargets(rootId + path, op)
+          // Remove duplicate. An observer can be present because it is dependent of a previous observable.
+          .filter(o => staleObservers.indexOf(o) === -1)
+        
+          // Send changes to the observers to let them decide if they are stale or not.
+          observers.forEach(o => o.notifyChangeFor())
+
+          // Add stale observers
+
+          // If it is a top level observer, keep it to re run it.
+          // It is not necessary to run the non top level computed. If you run a top observer,
+          // all dependent children will run.
+          staleObservers.push(
+            ...observers
+            .filter(({isStale}) => isStale)
+            .filter(isTopLevelObserver)
+          )
         })
       }
     })
@@ -441,7 +458,7 @@ export class CrafterContainer implements IContainer {
 
     // All computed values affected by the last observables mutation are now flagged as stale.
     // Let's run the reaction which uses those computed values.
-    this.runReactions()
+    this.runReactions(staleObservers)
   }
 
   /**
@@ -459,7 +476,7 @@ export class CrafterContainer implements IContainer {
   private rollback(managerStateBackup: State | undefined): void {
     const rootIds: string[] = []
     this.state.updatedObservables.forEach(function (o) {
-      if (!o.$isNode) {
+      if (!isNode(o)) {
         return
       }
       else {
@@ -556,12 +573,12 @@ function onDisposeObserver(targetId: string, state: State): void {
   // An observer wich is also a dependeny on other top level observer will stay untouched.
   const tree = getObserverTree({
     targetId,
-    graph: state.observerGraph,
+    graph: state.dependencyGraph,
   })
   // Remove caller from the graph
   removeObserver({
     observerId: targetId,
-    observerGraph: state.observerGraph
+    observerGraph: state.dependencyGraph
   })
 
   // Dispose observer and remove it from the graph
@@ -572,20 +589,20 @@ function onDisposeObserver(targetId: string, state: State): void {
       disposeComputation(node)
       removeObserver({
         observerId: node.id,
-        observerGraph: state.observerGraph
+        observerGraph: state.dependencyGraph
       })
     })
   // Remove edges from the graph
-  state.observerGraph.edges = state.observerGraph.edges.filter(edge => !tree.edges.some(isSameEdge(edge))) 
+  state.dependencyGraph.edges = state.dependencyGraph.edges.filter(edge => !tree.edges.some(isSameEdge(edge))) 
 }
 
 const isSameEdge = (edge: Edge): (value: Edge) => boolean =>
 (e: Edge): boolean => e.source === edge.source && e.target === edge.target
 
 function collectTransactionPatches(
-  updatedObservables: Map<string, IObservable<any>>
-): [string, BasicOperation[]][] {
-  const transactionPatches: [string, BasicOperation[]][] = []
+  updatedObservables: Map<string, IObservable>
+): [string, Migration][] {
+  const transactionPatches: [string, Migration][] = []
   updatedObservables.forEach(observable => {
     if (observable.$patch.forward.length) {
       transactionPatches.push([observable.$id, observable.$patch])

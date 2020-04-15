@@ -28,7 +28,7 @@ export type ReplaceChanges = {
 }
 export interface INodeInstance<TYPE, SNAPSHOT = TYPE>
   extends IInstance<TYPE, SNAPSHOT>,
-    IObservable<any> {
+    IObservable {
   $path: string
   $patch: Migration
   $parentKey: string | number | undefined

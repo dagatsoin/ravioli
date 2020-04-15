@@ -4,6 +4,7 @@ import { map } from '../src/map/factory'
 import { object } from '../src/object/factory'
 import { string } from '../src/Primitive'
 import { getContext } from '../src/helpers'
+import { observable } from '../src'
 
 test('wrap a leaf type', function() {
   const model = object({ name: container(string()) })

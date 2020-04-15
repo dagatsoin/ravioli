@@ -17,7 +17,7 @@ it("should trigger side effect", function(){
   expect(runs).toBe(2)
   reaction.dispose()
   expect(runs).toBe(2)
-  expect(context.snapshot.observerGraph.nodes.length).toBe(0)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
 })
 
 it("should dispose when an error occurs during the reaction", function(){
@@ -30,7 +30,7 @@ it("should dispose when an error occurs during the reaction", function(){
     reaction.observe(() => model.count)
     context.transaction(() => model.count++)
   }).toThrow()
-  expect(context.snapshot.observerGraph.nodes.length).toBe(0)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
 })
 
 it("should abort initialisation when an error occurs during the tracking", function(){
@@ -45,5 +45,5 @@ it("should abort initialisation when an error occurs during the tracking", funct
     throw new Error()
   })).toThrow()
   expect(ran).toBeFalsy()
-  expect(context.snapshot.observerGraph.nodes.length).toBe(0)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
 })

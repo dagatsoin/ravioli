@@ -1,13 +1,13 @@
 import { observable } from '../src/lib/observable'
 import { getTypeFromValue } from "../src/lib/getTypeFromValue"
-import { toInstance, getSnapshot, sync, getChildKey, getTargetKey, isOwnLeafPath, path } from '../src/helpers'
+import { toInstance, getSnapshot, sync, getChildKey, getTargetKey, isOwnLeafPath, makePath } from '../src/helpers'
 import { getGlobal } from '../src'
 
 test("format path", function() {
-  expect(path("/", "/player", "stats")).toBe("/player/stats")
-  expect(path("/", "/", "player")).toBe("/player")
-  expect(path("/player", "/stats")).toBe("/player/stats")
-  expect(path("/player", "/stats/")).toBe("/player/stats")
+  expect(makePath("/", "/player", "stats")).toBe("/player/stats")
+  expect(makePath("/", "/", "player")).toBe("/player")
+  expect(makePath("/player", "/stats")).toBe("/player/stats")
+  expect(makePath("/player", "/stats/")).toBe("/player/stats")
 })
 
 test("getTargetKey", function(){

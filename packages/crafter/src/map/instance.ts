@@ -8,7 +8,7 @@ import {
   isOwnLeafPath,
   unbox,
   getRoot,
-  path,
+  makePath,
 } from '../helpers'
 import { computeNextState } from '../lib/computeNextState'
 import { IInstance } from '../lib/IInstance'
@@ -197,12 +197,12 @@ export class MapInstance<TYPE>
   public get = (key: string): TYPE | undefined => {
     const instance = this.$data.get(key) // case where JSON path is serialized
     if (!isNode(instance)) {
-      this.$$container.addObservedPath(path(getRoot(this).$id, this.$path, key))
+      this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path, key))
     }
     return instance ? unbox(instance, this.$$container) : undefined
   }
   public has = (key: string): boolean => {
-    this.$$container.addObservedPath(path(getRoot(this).$id, this.$path, key))
+    this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path, key))
     return this.$data.has(key)
   }
   public set = (key: string, value: TYPE | IInstance<TYPE>): this => {
@@ -210,7 +210,7 @@ export class MapInstance<TYPE>
       {
         op: this.has(key) ? 'replace' : 'add',
         value,
-        path: path(this.$path, key),
+        path: makePath(this.$path, key),
       },
     ])
     this.refineTypeIfNeeded(value)
@@ -252,7 +252,7 @@ export class MapInstance<TYPE>
     }
   }
   private addObservedLength = (): void => {
-    this.$$container.addObservedPath(path(getRoot(this).$id, this.$path, 'size'))
+    this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path, 'size'))
   }
   private $attachChildren = (): void => {
     this.$data.forEach((instance, k) => {
