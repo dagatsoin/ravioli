@@ -1,4 +1,4 @@
-import { observable, autorun, getGlobal } from "../src"
+import { observable, autorun, getGlobal, string, toInstance, Reaction, noop } from "../src"
 
 test("Crafter tracks leaf access not node access", function() {
   const context = getGlobal().$$crafterContext
@@ -62,3 +62,39 @@ test("Crafter tracks leaf access not node access", function() {
     })).toEqual([ '/achievements/firstBlood/title', '/tokens/000', '/tokens/001' ])
   })
 })
+
+
+test("leaf un/registers as observable in the container graph when start/finish to be observed", function() {
+  const context = getGlobal().$$crafterContext
+  context.clearContainer()
+  const s = string().create('Fraktar')
+  const reaction = new Reaction(noop)
+  reaction.observe(() => toInstance(s).$value)
+  // Has registered
+  expect(context.snapshot.dependencyGraph).toBe({
+    edges: [{ target: reaction.id, source: toInstance(s).$id }],
+    nodes: [s]
+  })
+  reaction.dispose()
+  // Has unregistered
+  expect(context.snapshot.dependencyGraph).toBe({
+    edges: [],
+    nodes: []
+  })
+})
+
+/* test("graph", function() {
+  const context = getGlobal().$$crafterContext
+  test("simple graph", function(){
+    const model = observable({
+      name: "Fraktar",
+      health: 1
+    })
+    const reaction = new Reaction(() => {})
+    reaction.observe(() => model.name)
+    expect(context.snapshot.observerGraph).toEqual({
+      edges: [{target: reaction.id, source: toInstance(model).$data.name.$id}],
+      nodes: [toInstance(model).$data.name]
+    })
+  })
+}) */

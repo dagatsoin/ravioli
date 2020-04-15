@@ -13,7 +13,6 @@ import {
   RemoveOperation,
   ReplaceOperation,
 } from '../JSONPatch'
-import { isNode } from "../isNode"
 
 export function addReplacePatch<T>(
   model: INodeInstance<unknown>,
@@ -40,9 +39,7 @@ export function add(model: INodeInstance<unknown>, value: any, index: string): v
   const instance = model.$createChildInstance(value, index)
   model.$data[index] = instance
   model.$addInterceptor(index)
-  if (isNode(instance)) {
-    instance.$attach(model, index)
-  }
+  instance.$attach(model, index)
 }
 
 export function addAddPatch<T>(
@@ -95,6 +92,8 @@ export function copy<T>(
 ): CopyChanges {
   const from = getChildKey(model.$path, proposal.from)
   const to = getChildKey(model.$path, proposal.path)
+  if(from === undefined) throw new Error('[CRAFTER] copy operation, operation.from is undefined')
+  if(to === undefined) throw new Error('[CRAFTER] copy operation, operation.to is undefined')
   const replaced = getSnapshot(model[from])
 
   const instance = model.$createChildInstance(
@@ -102,9 +101,8 @@ export function copy<T>(
     from.toString()
   )
   model.$data[to] = instance
-  if (isNode(instance)) {
-    instance.$attach(model, to)
-  }
+  instance.$attach(model, to)
+  
   return {
     replaced,
   }
@@ -133,6 +131,8 @@ export function move(
 ): MoveChanges {
   const from = getChildKey(model.$path, proposal.from)
   const to = getChildKey(model.$path, proposal.path)
+  if(from === undefined) throw new Error('[CRAFTER] move operation, operation.from is undefined')
+  if(to === undefined) throw new Error('[CRAFTER] move operation, operation.to is undefined')
   const replaced = getSnapshot(model[to])
   const moved = getSnapshot(model[from])
 
@@ -143,11 +143,9 @@ export function move(
   delete model[from]
   delete model.$data[from]
 
-  // Re attach the node
+  // Re attach the instance
   const movedInstance = toInstance(model.$data[to])
-  if (isNode(movedInstance)) {
-    movedInstance.$attach(model, to)
-  }
+  movedInstance.$attach(model, to)
 
   return {
     moved,

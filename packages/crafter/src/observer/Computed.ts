@@ -3,7 +3,7 @@ import { observable, isObservable } from '../lib/observable'
 import { ObserverType, Observer } from './Observer'
 import { LeafInstance } from '../lib/LeafInstance'
 import { isPrimitive } from '../Primitive'
-import { toNode, makePath } from '../helpers'
+import {  makePath, toInstance } from '../helpers'
 import { IContainer } from '../IContainer'
 import { isInstance } from '../lib'
 
@@ -141,8 +141,8 @@ export class Computed<T> extends Observer implements IComputed<T> {
     // The observer has already ran. We update the observable value.
     // Note this $setValue won't emit any patch, because it only happens during the learning phase.
     else {
-      if (isObservable(this.value)) {
-        this.valueContext.transaction(() => toNode(this.value).$setValue(value))
+      if (isInstance(this.value)) {
+        this.valueContext.transaction(() => toInstance(this.value).$setValue(value))
       } else {
         this.value = value
       }

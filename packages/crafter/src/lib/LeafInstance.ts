@@ -1,10 +1,10 @@
 import { setNonEnumerable } from '../utils/utils'
-
 import { ILeafType } from './ILeafType'
 import { Instance, isInstance } from './Instance'
 import { InputValidator } from './TypeChecker'
 import { TypeFlag } from './TypeFlag'
 import { IContainer } from '../IContainer'
+import { ILeafInstance } from './ILeafInstance'
 
 export type Options = {
   id?: string,
@@ -13,9 +13,11 @@ export type Options = {
   isCheckingEnabled?: boolean
 }
 
-export class LeafInstance<T> extends Instance<T, T> {
+export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> {
   public $data: any
+  public $isLeaf: true = true
   public $type: ILeafType<T>
+
   constructor({
     type,
     value,
@@ -29,6 +31,7 @@ export class LeafInstance<T> extends Instance<T, T> {
     this.$data = value
     this.$type = type
     this.$$id = options?.id || this.$$container.getUID('LeafInstance#')
+
     Object.keys(this).forEach(key => setNonEnumerable(this, key))
 
     // Rather having unused condition in the setter, the constructor
@@ -58,6 +61,7 @@ export class LeafInstance<T> extends Instance<T, T> {
     return this.$data
   }
   public get $value(): T {
+    this.$$container.addObservedPath(this.$path)
     return this.$data
   }
   public get $id(): string {

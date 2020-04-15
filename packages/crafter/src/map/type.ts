@@ -3,7 +3,7 @@ import { isLeafType } from '../lib/LeafType'
 import { NodeType } from '../lib/NodeType'
 import { MapInstance } from './instance'
 import { IContainer } from '../IContainer'
-import { isInstance } from '../lib'
+import { isInstance } from '../lib/Instance'
 
 export class MapType<TYPE> extends NodeType<
   Map<string, TYPE>,

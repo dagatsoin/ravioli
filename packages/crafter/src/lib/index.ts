@@ -1,6 +1,7 @@
 export * from './container'
 export * from './Instance'
 export * from './IInstance'
+export * from './ILeafInstance'
 export * from './ILeafType'
 export * from './INodeInstance'
 export * from './INodeType'

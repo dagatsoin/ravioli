@@ -1,7 +1,8 @@
 import { IType } from './IType'
 import { IContainer } from '../IContainer'
+import { IWithParent } from './IWithParent'
 
-export interface IInstance<TYPE, SNAPSHOT = TYPE> {
+export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent{
   $id: string
   $$container: IContainer
   $isInstance: true

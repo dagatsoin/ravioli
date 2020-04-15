@@ -1,4 +1,4 @@
-import { getRoot, makePath } from '../helpers'
+import { getRoot } from '../helpers'
 import { IInstance } from './IInstance'
 import {
   DataNode,
@@ -30,9 +30,14 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   public $isObservable: true = true
   public $isRefreshingDependencies: boolean = false
   public $isNode: true = true
-  public $parentKey: string | number | undefined = undefined
-  public $parent: INodeInstance<any> | undefined = undefined
 
+  /**
+   * Interface IWithParent is implemented in commont.ts and assigned in constructor
+   */
+  public $path!: string
+  public $parentKey: string | number | undefined = undefined
+  public $parent: INodeInstance<any> | undefined = undefined  
+  
   private $hasStaleSnapshot = true
   private $$patch: Migration = { forward: [], backward: [] }
   private $$nativeTypeKeys: string[]
@@ -55,6 +60,7 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
     this.$$nativeTypeKeys = methodKeys
     this.$snapshotComputation = snapshotComputation
     this.$valueComputation = valueComputation
+
     if (options?.id) {
       if (!this.$$container.isUID(options.id)) {
         throw new Error(`UID ${options.id} is already in use`)
@@ -69,15 +75,6 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
 
   public get $nativeTypeKeys(): string[] {
     return this.$$nativeTypeKeys
-  }
-  public $attach(parent: INodeInstance<any>, key: number | string): void {
-    this.$parent = parent
-    this.$parentKey = key
-  }
-
-  public get $path(): string {
-    // TODO cache this
-    return this.$parent ? makePath(this.$parent.$path, this.$parentKey?.toString() ?? '') : '/'
   }
 
   public get $patch(): Migration {
@@ -111,16 +108,17 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
     return this.$$id
   }
 
-  public $detach(): void {
-    this.$parent = undefined
-    this.$parentKey = ''
-  }
-
   public $kill(): void {
     super.$kill()
     this.$detach()
     this.$$container.unregisterAsReferencable(this.$$id)
   }
+
+  /**
+   * Interface IWithParent is implemented in commont.ts and assigned in constructor
+   */
+  public $attach(_parent: INodeInstance<any>, _key: number | string): void {} 
+  public $detach(): void {}
 
   public $computeSnapshot(): void {
     this.$prevSnapshot = this.$snapshotComputation(this.$data)

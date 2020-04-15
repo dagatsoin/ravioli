@@ -1,17 +1,26 @@
 import { IType } from './lib/IType'
 import { IInstance } from './lib/IInstance'
-import { INodeInstance } from './lib/INodeInstance'
 import { isInstance } from './lib/Instance'
 import { isNode } from "./lib/isNode"
 import { FactoryOutput } from './lib/IFactory'
 import { IObservable } from './IObservable'
 import { IContainer } from './IContainer'
 import { InstanceFromValue } from './InstanceFromValue'
+import { ILeafInstance, INodeInstance } from './lib'
 
-export function toNode<T>(data: any): InstanceFromValue<T> {
+export function toNode<T>(data: T): InstanceFromValue<T> {
   if (!isNode<T>(data)) {
     throw new Error(
       `Invalid argument. Expecting a INode<T>. Got ${typeof data}`
+    )
+  }
+  return data
+}
+
+export function toLeaf<T>(data: T & any): ILeafInstance<T> {
+  if (!data.$isLeaf) {
+    throw new Error(
+      `Invalid argument. Expecting a ILeafInstance<T>. Got ${typeof data}`
     )
   }
   return data
@@ -84,7 +93,7 @@ export function clone<T>(instance: T, options?: {id?: string, context?: IContain
   const node = toNode(instance)
   const snapshot = getSnapshot(node)
   if (isInstance(instance) && node.$type.isValidSnapshot(snapshot)) {
-    return node.$type.create(snapshot, { id: options?.id, context: options?.context || instance.$$container }) as T
+    return node.$type.create(snapshot as any, { id: options?.id, context: options?.context || instance.$$container }) as T
   }
   throw new Error('Trying to clone other than an IInstance')
 }
@@ -140,7 +149,7 @@ export function makePath(...segments: string[]): string {
   }, '')
 }
 
-export function sync<T extends IObservable<any>>(observable: T): T {
+export function sync<T extends IObservable>(observable: T): T {
   const target = clone(observable)
   toNode(observable).$addOperationListener(o => toNode(target).$applyOperation(o, true))
   return target
@@ -164,8 +173,8 @@ export function isChildPath(nodePath: string, _path: string): boolean {
   return nodePath.indexOf(_path) === 0 && nodePath.length !== _path.length
 }
 
-export function getRoot(node: INodeInstance<any>): INodeInstance<any> {
-  return node.$parent ? getRoot(node.$parent) : node
+export function getRoot<I extends INodeInstance<any> | ILeafInstance<any>>(node: I): I extends INodeInstance<any> ? INodeInstance<any> :ILeafInstance<any> {
+  return node.$parent ? getRoot(toNode(node.$parent)) : node as any
 }
 
 export function getContext(instance: IInstance<any>): IContainer {
