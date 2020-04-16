@@ -196,10 +196,14 @@ export class MapInstance<TYPE>
   }
   public get = (key: string): TYPE | undefined => {
     const instance = this.$data.get(key) // case where JSON path is serialized
-    if (!isNode(instance)) {
-      this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path, key))
+    if (instance) {
+      // Notify the read of the child node
+      if (isNode(instance)) {
+        this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path, key))
+      }
+      // return the instance if it is a node or the value if it is a leaf
+      return unbox(instance, this.$$container)
     }
-    return instance ? unbox(instance, this.$$container) : undefined
   }
   public has = (key: string): boolean => {
     this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path, key))
@@ -375,12 +379,8 @@ function add(
     throw new Error (`[CRAFTER] MapInstance.add command. Path is not valid: ${command.path}`)
   }
   const item = toInstance(model.$type.itemType.create(command.value, { context: model.$$container }))
-
   model.$data.set(key, item)
-
-  if (isNode(item)) {
-    item.$attach(model, key)
-  }
+  item.$attach(model, key)
 }
 
 function replace(

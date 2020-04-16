@@ -12,9 +12,9 @@ export function getTypeFromValue<T extends string | number | object | any[] | Ma
     return value.$type;
   }
   if (value instanceof Map) {
-    const hasValue = getTypeFromValue(value.size);
+    const hasValue = getTypeFromValue(value.size, isStrict);
     return hasValue
-      ? map(getTypeFromValue(value.values().next().value))
+      ? map(getTypeFromValue(value.values().next().value, isStrict))
       : map(unknown());
   }
   if (typeof value === 'undefined') {
@@ -34,7 +34,7 @@ export function getTypeFromValue<T extends string | number | object | any[] | Ma
   }
   if (Array.isArray(value)) {
     const hasValue = !!value.length;
-    return hasValue ? array(getTypeFromValue(value[0])) : array(unknown());
+    return hasValue ? array(getTypeFromValue(value[0], isStrict)) : array(unknown());
   }
   // Else it is an object
   else {

@@ -159,6 +159,23 @@ describe("Node is attached at instantiation", function() {
     expect(childInstance.$path === makePath(modelInstance.$path, 'stats/health'))
   })
 
+  test("with observable", function() {
+    const model = observable({
+      inventory: [
+        {id: "sword", quantity: 1},
+        {id: "shield", quantity: 1}
+      ]
+    })
+    // check array structure
+    const modelInstance = toInstance(model)
+    const inventoryInstance = toInstance(modelInstance.$data.inventory)
+    const swordInstance = toInstance(model.inventory[0])
+    const leafInstance = toLeaf(swordInstance.$data.id.$targetInstance)
+    expect(inventoryInstance.$parent).toBe(modelInstance)
+    expect(swordInstance.$parent).toBe(inventoryInstance)
+    expect(leafInstance.$parent).toBe(swordInstance)
+  })
+
   test("with optional", function() {
     const model = observable([{health: 10}], {isStrict: false})
     const modelInstance = toNode(model)

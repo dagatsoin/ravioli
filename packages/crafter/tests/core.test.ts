@@ -1,4 +1,4 @@
-import { observable, autorun, getGlobal, string, toInstance, Reaction, noop } from "../src"
+import { observable, autorun, getGlobal, string, toInstance, Reaction, noop, toLeaf } from "../src"
 
 test("Crafter tracks leaf accesses", function() {
   const context = getGlobal().$$crafterContext
@@ -22,6 +22,21 @@ test("Crafter tracks leaf accesses", function() {
       ['001', "logout"]
     ])
   })
+
+  // Check array structure
+  const modelInstance = toInstance(model)
+  const inventoryInstance = toInstance(modelInstance.$data.inventory)
+  const swordInstance = toInstance(model.inventory[0])
+  const leafInstance = toLeaf(swordInstance.$data.id)
+  expect(inventoryInstance.$parent).toBe(modelInstance)
+  expect(swordInstance.$parent).toBe(inventoryInstance)
+  expect(leafInstance.$parent).toBe(swordInstance)
+
+  // Check map structure
+  const tokensMapInstance = toInstance(modelInstance.$data.tokens)
+  const tokenInstance = toLeaf((tokensMapInstance as any).$data.get('000'))
+  expect(tokensMapInstance.$parent).toBe(modelInstance)
+  expect(tokenInstance.$parent).toBe(tokensMapInstance)
 
   // Test nested object access
   autorun(() => {
