@@ -1,7 +1,7 @@
 import { INodeInstance } from "./lib/INodeInstance"
 import { IObserver } from "./observer/Observer"
 import { Graph } from "./Graph"
-import { IObservable } from "./IObservable"
+import { IObservable as IInstance } from "./IObservable"
 import { Operation, BasicOperation } from "./lib/JSONPatch"
 
 export type ContextListener = (patch: [string, BasicOperation[]][]) => void
@@ -61,7 +61,7 @@ export type State = {
   // Once the transaction is complete, the manager will
   // alert all the concerned observers that their dependencies
   // have a new state
-  updatedObservables: Map<string, IObservable>
+  updatedObservables: Map<string, IInstance>
 }
 
 export interface IContainer {
@@ -126,7 +126,7 @@ export interface IContainer {
    * Add an updated observable reference to the liste of updated observables
    * during the current transaction.
    */
-  addUpdatedObservable(observable: IObservable): void
+  addUpdatedObservable(observable: IInstance): void
 
   /**
    * Start to collect all observables paths and derivations
@@ -154,14 +154,16 @@ export interface IContainer {
   pauseSpies(): void
   resumeSpies(): void
   /**
-   * Add a path to the list of paths read by the current observer.
+   * Register a newly observed observable to the container.
+   * It will register the path and its ID will be store in the dependency graph.
    * Only deepest path will be retain. That means that the function will replace previous path
    * if it is a parent of the current path.
    * Eg1. if an observer tracks the value of /parent/childString
    * the path list will be ['/parent/childString'] and not ['/', '/parent', '/parent/childString']
-   * @param path 
+   * @param observable 
+   * @param path optional path. If you want to override the path of the observable.
    */
-  addObservedPath(path: string): void
+  addObservedInstance(observable: IInstance, path?: string): void
   blockTransaction<T>(fn: () => T): T
   getReferenceTarget<T, S = T>(id: string): INodeInstance<T, S>
   registerAsReferencable(

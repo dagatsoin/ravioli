@@ -5,7 +5,6 @@ import { InputValidator } from './TypeChecker'
 import { TypeFlag } from './TypeFlag'
 import { IContainer } from '../IContainer'
 import { ILeafInstance } from './ILeafInstance'
-import { makePath, getRoot } from '../helpers'
 
 export type Options = {
   id?: string,
@@ -62,7 +61,7 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
     return this.$data
   }
   public get $value(): T {
-    this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path))
+    this.$$container.addObservedInstance(this)
     return this.$data
   }
   public get $id(): string {

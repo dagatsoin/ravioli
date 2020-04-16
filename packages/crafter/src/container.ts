@@ -8,6 +8,7 @@ import { Tracker } from './lib/Tracker'
 import { State, IContainer, ContextListener } from './IContainer'
 import { Computed } from './observer/Computed'
 import { isNode } from './lib/isNode'
+import { IInstance } from './lib'
 
 function getInitState(): State {
   return {
@@ -85,28 +86,42 @@ export class CrafterContainer implements IContainer {
     this.registerObserver(computed)
   }
 
-  public addObservedPath(path: string): void {
+  public addObservedInstance(instance: IInstance<any>, path?: string): void {
+    // Store path
+    const observedPath = path ?? makePath(getRoot(instance).$id, instance.$path)
     if (this.state.isSpyingDisable) {
       return
     }
     const paths = this.state.observedPaths.get(this.getCurrentSpiedDerivationId())
     // Path is not present, add it.
-    if (!!paths && !paths.includes(path)) {
+    if (!!paths && !paths.includes(observedPath)) {
       // The previous added path is a parent of this path.
       // That means that an observer is reading a nested observable property.
       // As observer must track final node or leaf read, we
       // replace the previous place.
       const previousPath = paths[paths.length - 1]
-      const isChildOfPreviousPath = path.includes(previousPath)
+      const isChildOfPreviousPath = observedPath.includes(previousPath)
       if (isChildOfPreviousPath) {
-        paths[paths.length - 1] = path
+        paths[paths.length - 1] = observedPath
       }
       // This path is not a child of the previous path.
       // The observer is reading a new path.
       else {
-        paths.push(path)
+        paths.push(observedPath)
       }
     }
+
+    // Add to the graph
+    const target = this.getCurrentSpiedDerivationId()
+    if (!target) {
+      throw new Error('[CRAFTER] IContainer.addObservedInstance no observer is currently running.')
+    }
+  
+    this.state.dependencyGraph.edges.push({
+      target,
+      source: instance.$id
+    })
+    
   }
 
   /**
@@ -279,16 +294,6 @@ export class CrafterContainer implements IContainer {
   
   public resumeSpies(): void {
     this.state.isSpyingDisable = false
-  }
-
-  public addObservedmakePath(path: string): void {
-    if (this.state.isSpyingDisable) {
-      return
-    }
-    const paths = this.state.observedPaths.get(this.getCurrentSpiedDerivationId())
-    if (!!paths && !paths.includes(path)) {
-      paths.push(path)
-    }
   }
 
   public blockTransaction<T>(fn: () => T): T {

@@ -199,15 +199,19 @@ export class MapInstance<TYPE>
     if (instance) {
       // Notify the read of the child node
       if (isNode(instance)) {
-        this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path, key))
+        this.$$container.addObservedInstance(instance)
       }
       // return the instance if it is a node or the value if it is a leaf
       return unbox(instance, this.$$container)
     }
   }
   public has = (key: string): boolean => {
-    this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path, key))
-    return this.$data.has(key)
+    const instance = this.$data.get(key)
+    if (instance) {
+      this.$$container.addObservedInstance(instance)
+      return true
+    }
+    return false
   }
   public set = (key: string, value: TYPE | IInstance<TYPE>): this => {
     present(this, [
@@ -256,7 +260,7 @@ export class MapInstance<TYPE>
     }
   }
   private addObservedLength = (): void => {
-    this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path, 'size'))
+    this.$$container.addObservedInstance(this, makePath(getRoot(this).$id, this.$path, 'size'))
   }
   private $attachChildren = (): void => {
     this.$data.forEach((instance, k) => {

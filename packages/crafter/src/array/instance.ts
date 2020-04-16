@@ -1333,5 +1333,5 @@ function isValidArrayIndex(
 }
 
 function addObservedLength(arrayInstance: ArrayInstance<any>): void {
-  arrayInstance.$$container.addObservedPath(makePath(getRoot(arrayInstance).$id, arrayInstance.$path, 'length'))
+  arrayInstance.$$container.addObservedInstance(arrayInstance, makePath(getRoot(arrayInstance).$id, arrayInstance.$path, 'length'))
 }

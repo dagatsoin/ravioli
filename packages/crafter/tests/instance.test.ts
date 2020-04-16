@@ -170,7 +170,7 @@ describe("Node is attached at instantiation", function() {
     const modelInstance = toInstance(model)
     const inventoryInstance = toInstance(modelInstance.$data.inventory)
     const swordInstance = toInstance(model.inventory[0])
-    const leafInstance = toLeaf(swordInstance.$data.id.$targetInstance)
+    const leafInstance = toLeaf(swordInstance.$data.id)
     expect(inventoryInstance.$parent).toBe(modelInstance)
     expect(swordInstance.$parent).toBe(inventoryInstance)
     expect(leafInstance.$parent).toBe(swordInstance)

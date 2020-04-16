@@ -1,8 +1,8 @@
 import { Migration } from './lib/JSONPatch'
 
 export type IObservable = {
-  $id: string
-  $isObservable: true
+  readonly $id: string
+  readonly $isObservable: true
   $patch: Migration
   $transactionDidEnd(): void
 }
