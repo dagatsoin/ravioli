@@ -39,49 +39,50 @@ export class ContainerInstance<TYPE> extends NodeInstance<TYPE, any>
   }
   public $attach(parent: INodeInstance<any>, key: string): void {
     super.$attach(parent, key)
-    if (isNode(this.$targetInstance)) {
-      this.$targetInstance.$parent = this.$parent
-      this.$targetInstance.$parentKey = this.$parentKey
-      this.$targetInstance.$addOperationListener((log: Operation) => {
-        if (this.$targetInstance instanceof MapInstance) {
-          // Map does not need to sync its first level keys. All data is stored in entries.
-          return
+    this.$targetInstance.$attach(parent, key)
+    this.$targetInstance.$addOperationListener((log: Operation) => {
+      if (this.$targetInstance instanceof MapInstance) {
+        // Map does not need to sync its first level keys. All data is stored in entries.
+        return
+      }
+      if (log.op === 'add') {
+        // Check if the mutation concerns the node itself (not a children)
+        if (isOwnLeafPath(this.$path, log.path)) {
+          const childKey = getChildKey(this.$path, log.path)
+          if(childKey === undefined) throw new Error('[CRAFTER] add operation, operation.from is undefined')
+          addGetterSetter(this, childKey)
         }
-        if (log.op === 'add') {
-          // Check if the mutation concerns the node itself (not a children)
-          if (isOwnLeafPath(this.$path, log.path)) {
-            const childKey = getChildKey(this.$path, log.path)
-            addGetterSetter(this, childKey)
-          }
-        } else if (log.op === 'remove') {
-          if (isOwnLeafPath(this.$path, log.path)) {
-            const childKey = getChildKey(this.$path, log.path)
+      } else if (log.op === 'remove') {
+        if (isOwnLeafPath(this.$path, log.path)) {
+          const childKey = getChildKey(this.$path, log.path)
+          if (childKey) {
             delete this[childKey]
           }
-        } else if (isAdditiveOperationWithoutKey(log) || isRemovalOperationWithoutKey(log)) {
-          // Depending on the type, we reflect the key index changes
-          if (this.$targetInstance instanceof ArrayInstance) {
-            const thisLength = Object.keys(this).filter(k => !isNaN(Number(k))).length
-            const lengthDiff = thisLength - Object.keys(this.$targetInstance).filter(k => !isNaN(Number(k))).length
-            if (lengthDiff < 0) {
-              for(let i = thisLength; i < thisLength - lengthDiff; i++) {
-                addGetterSetter(this, i)
-              }
-            } else if (lengthDiff > 0) {
-              for(let i = this.$targetInstance.length; i < this.$targetInstance.length + lengthDiff; i++) {
-                delete this[i]
-              }
-            }
-          } else  if (this.$targetInstance instanceof MapInstance) {
-            const isSync = Object.keys(this).length - Object.keys(this.$targetInstance).length
-            if (!isSync) {
-              Object.keys(this).forEach(k => delete this[k])
-              build(this)
-            }  
-          }
         }
-      })
-    }
+      } else if (isAdditiveOperationWithoutKey(log) || isRemovalOperationWithoutKey(log)) {
+        // Depending on the type, we reflect the key index changes
+        if (this.$targetInstance instanceof ArrayInstance) {
+          const thisLength = Object.keys(this).filter(k => !isNaN(Number(k))).length
+          const lengthDiff = thisLength - Object.keys(this.$targetInstance).filter(k => !isNaN(Number(k))).length
+          if (lengthDiff < 0) {
+            for(let i = thisLength; i < thisLength - lengthDiff; i++) {
+              addGetterSetter(this, i)
+            }
+          } else if (lengthDiff > 0) {
+            for(let i = this.$targetInstance.length; i < this.$targetInstance.length + lengthDiff; i++) {
+              delete this[i]
+            }
+          }
+        } else  if (this.$targetInstance instanceof MapInstance) {
+          const isSync = Object.keys(this).length - Object.keys(this.$targetInstance).length
+          if (!isSync) {
+            Object.keys(this).forEach(k => delete this[k])
+            build(this)
+          }  
+        }
+      }
+    })
+    
     // Listen to mutation.
     // If a add or remove is detected, reflect the changes in the container
   }

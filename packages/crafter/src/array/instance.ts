@@ -753,9 +753,7 @@ function push<T>(
     model.$addInterceptor(i)
     // Attach new node items
     const instance = toInstance(model.$data[i])
-    if (isNode(instance)) {
-      instance.$attach(model, i)
-    }
+    instance.$attach(model, i)
   }
   return {
     prevLength: model.length - items.length,

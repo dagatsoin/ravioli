@@ -129,7 +129,9 @@ describe("Node is attached at instantiation", function() {
     expect(leafInstance.$path === makePath(childInstance.$path, 'health'))
   })
   test("with map parent", function(){
-    const model = map(string()).create([['0', 'Fraktar']])
+    const model = map(object({
+      health: number()
+    })).create([['0', {health: 10}]])
     const modelInstance = toNode(model)
     const childInstance = modelInstance.$data.get('0')
     const leafInstance = toLeaf(childInstance.$data.health)
