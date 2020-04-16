@@ -153,6 +153,14 @@ export interface IContainer {
   
   pauseSpies(): void
   resumeSpies(): void
+  /**
+   * Add a path to the list of paths read by the current observer.
+   * Only deepest path will be retain. That means that the function will replace previous path
+   * if it is a parent of the current path.
+   * Eg1. if an observer tracks the value of /parent/childString
+   * the path list will be ['/parent/childString'] and not ['/', '/parent', '/parent/childString']
+   * @param path 
+   */
   addObservedPath(path: string): void
   blockTransaction<T>(fn: () => T): T
   getReferenceTarget<T, S = T>(id: string): INodeInstance<T, S>

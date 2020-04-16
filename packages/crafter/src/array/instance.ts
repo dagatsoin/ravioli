@@ -524,14 +524,15 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     Object.defineProperty(this, index, {
       get() {
         const instance = this.$data[index]
-        if (!isNode(instance)) {
-          this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path, index.toString()))
+        // Prevent throwing if index does not exist
+        if (instance) {
+          // Notify the read of the child node
+          if (isNode(instance)) {
+            this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path, index.toString()))
+          }
+          // return the instance if it is a node or the value if it is a leaf
+          return unbox(instance, this.$$container)
         }
-        return instance
-          ? // Prevent throwing if index does not exist
-            // Return undefined instead
-            unbox(instance, this)
-          : undefined
       },
       set(value: any) {
         present(this, [

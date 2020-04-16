@@ -1,6 +1,6 @@
 import { observable, autorun, getGlobal, string, toInstance, Reaction, noop } from "../src"
 
-test("Crafter tracks leaf access not node access", function() {
+test("Crafter tracks leaf accesses", function() {
   const context = getGlobal().$$crafterContext
   context.clearContainer()
   const model = observable({
@@ -35,7 +35,7 @@ test("Crafter tracks leaf access not node access", function() {
       return '/' + segments.join('/')
     })).toEqual([ '/name', '/stats/health' ])
   })
-
+  
   // Test with array
   autorun(() => {
     model.inventory
@@ -63,6 +63,64 @@ test("Crafter tracks leaf access not node access", function() {
   })
 })
 
+test("Crafter tracks node accesses", function() {
+  const context = getGlobal().$$crafterContext
+  context.clearContainer()
+  const model = observable({
+    name: "Fraktar",
+    stats: {
+      health: 10
+    },
+    inventory: [
+      {id: "sword", quantity: 1},
+      {id: "shield", quantity: 1}
+    ],
+    titles: ["Lord of the Pump", "Black cat"],
+    achievements: new Map([
+      ['firstBlood', {title: "First blood"}],
+      ['firstQuest', {title: "First quest"}],
+    ]),
+    tokens: new Map([
+      ['000', "login"],
+      ['001', "logout"]
+    ])
+  })
+
+  // Test nested object access
+  autorun(() => {
+    model.stats
+    model.name
+    const paths  = Array.from(context.snapshot.observedPaths.values())[0]
+    expect(paths.map(p => {
+      const segments = p.split('/').filter(s => !!s.length)
+      segments.shift()
+      return '/' + segments.join('/')
+    })).toEqual([ '/stats', '/name' ])
+  })
+  
+  // Test with array
+  autorun(() => {
+    model.inventory
+    const paths  = Array.from(context.snapshot.observedPaths.values())[0]
+    expect(paths.map(p => {
+      const segments = p.split('/').filter(s => !!s.length)
+      segments.shift()
+      return '/' + segments.join('/')
+    })).toEqual([ '/inventory' ])
+  })
+
+  // Test nested object access
+  autorun(() => {
+    model.achievements
+    const paths  = Array.from(context.snapshot.observedPaths.values())[0]
+    expect(paths.map(p => {
+      const segments = p.split('/').filter(s => !!s.length)
+      segments.shift()
+      return '/' + segments.join('/')
+    })).toEqual([ '/achievements' ])
+  })
+})
+
 
 test("leaf un/registers as observable in the container graph when start/finish to be observed", function() {
   const context = getGlobal().$$crafterContext
@@ -83,7 +141,7 @@ test("leaf un/registers as observable in the container graph when start/finish t
   })
 })
 
-/* test("graph", function() {
+test("graph", function() {
   const context = getGlobal().$$crafterContext
   test("simple graph", function(){
     const model = observable({
@@ -92,9 +150,9 @@ test("leaf un/registers as observable in the container graph when start/finish t
     })
     const reaction = new Reaction(() => {})
     reaction.observe(() => model.name)
-    expect(context.snapshot.observerGraph).toEqual({
+    expect(context.snapshot.dependencyGraph).toEqual({
       edges: [{target: reaction.id, source: toInstance(model).$data.name.$id}],
       nodes: [toInstance(model).$data.name]
     })
   })
-}) */
+})

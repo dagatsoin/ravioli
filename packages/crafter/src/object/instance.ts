@@ -97,6 +97,7 @@ export class ObjectInstance<
 
   public $attach(parent: INodeInstance<any>, key: string): void {
     super.$attach(parent, key)
+    this.$attachChildren()
   }
 
   public $kill(): void {
@@ -191,7 +192,7 @@ export class ObjectInstance<
       ).$applyOperation(operation, shouldEmitPatch)
     }
   }
-  public $addInterceptor(index: string | number): void {
+  public $addInterceptor(index: string): void {
     addPropGetSet(this, index)
   }
 
@@ -218,6 +219,13 @@ export class ObjectInstance<
       value,
       { context: this.$$container }
     ) as any
+  }
+
+  private $attachChildren() {
+    const keys = Object.keys(this.$type.properties)
+    for (const key of keys) {
+      toInstance(this.$data[key]).$attach(this, key)
+    }
   }
 }
 
@@ -261,7 +269,7 @@ function build(obj: ObjectInstance<any, any, any, any>, value = {}): void {
 
 function addPropGetSet(
   obj: ObjectInstance<any, any, any, any>,
-  propName: string | number
+  propName: string
 ): void {
   if (isReferenceType(obj.$type.properties[propName])) {
     Object.defineProperty(obj, propName, {
@@ -286,13 +294,12 @@ function addPropGetSet(
         const instance = obj.$data[propName]
         // This check is required in case the object has moving shape (case of Computed)
         if (instance) {
-          if (!isNode(instance)) {
-            obj.$$container.addObservedPath(makePath(getRoot(obj).$id, obj.$path, propName.toString()))
+          // Notify the read of the child node
+          if (isNode(instance)) {
+            obj.$$container.addObservedPath(makePath(getRoot(obj).$id, obj.$path, propName))
           }
           // return the instance if it is a node or the value if it is a leaf
           return unbox(instance, obj.$$container)
-        } else {
-          return undefined
         }
       },
       set(value: any) {
@@ -302,7 +309,7 @@ function addPropGetSet(
           const proposal = cutDownUpdateOperation(value, makePath(propName.toString()) )
           present(obj, proposal)
         } else {
-          present(obj, [{ op: 'replace', value: value instanceof Map ? Array.from(value.entries()) : value, path: makePath(obj.$path, propName.toString()) }])
+          present(obj, [{ op: 'replace', value: value instanceof Map ? Array.from(value.entries()) : value, path: makePath(obj.$path, propName) }])
         }
       },
       enumerable: true,

@@ -90,8 +90,22 @@ export class CrafterContainer implements IContainer {
       return
     }
     const paths = this.state.observedPaths.get(this.getCurrentSpiedDerivationId())
+    // Path is not present, add it.
     if (!!paths && !paths.includes(path)) {
-      paths.push(path)
+      // The previous added path is a parent of this path.
+      // That means that an observer is reading a nested observable property.
+      // As observer must track final node or leaf read, we
+      // replace the previous place.
+      const previousPath = paths[paths.length - 1]
+      const isChildOfPreviousPath = path.includes(previousPath)
+      if (isChildOfPreviousPath) {
+        paths[paths.length - 1] = path
+      }
+      // This path is not a child of the previous path.
+      // The observer is reading a new path.
+      else {
+        paths.push(path)
+      }
     }
   }
 
