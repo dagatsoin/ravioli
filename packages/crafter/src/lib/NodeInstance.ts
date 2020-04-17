@@ -39,14 +39,14 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   
   private $hasStaleSnapshot = true
   private $$nativeTypeKeys: string[]
-  private $snapshotComputation: (data: DataNode) => SNAPSHOT
-  private $valueComputation: (data: DataNode) => TYPE
+  private $snapshotComputation: (data: DataNode, context: IContainer) => SNAPSHOT
+  private $valueComputation: (data: DataNode, context: IContainer) => TYPE
   private $transactionPatchListeners: PatchListener[] = []
   private $prevValue: TYPE = (undefined as unknown) as TYPE
   private $prevSnapshot: SNAPSHOT = (undefined as unknown) as SNAPSHOT
   constructor(
-    snapshotComputation: (data: any) => SNAPSHOT,
-    valueComputation: (data: any) => TYPE,
+    snapshotComputation: (data: any, context: IContainer) => SNAPSHOT,
+    valueComputation: (data: any, context: IContainer) => TYPE,
     methodKeys: string[] = [],
     options?: {
       id?: string,
@@ -94,12 +94,12 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   }
 
   public $computeSnapshot(): void {
-    this.$prevSnapshot = this.$snapshotComputation(this.$data)
+    this.$prevSnapshot = this.$snapshotComputation(this.$data, this.$$container)
     this.$hasStaleSnapshot = false
   }
 
   public $createNewSnapshot(): void {
-    this.$prevSnapshot = this.$snapshotComputation(this.$data)
+    this.$prevSnapshot = this.$snapshotComputation(this.$data, this.$$container)
   }
 
   public $transactionDidEnd(): void {
@@ -121,7 +121,7 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
 
 
   private $computeValue(): void {
-    this.$prevValue = this.$valueComputation(this.$data)
+    this.$prevValue = this.$valueComputation(this.$data, this.$$container)
   }
   
   public abstract $applyOperation<O extends Operation>(operation: O): void

@@ -202,7 +202,7 @@ export class MapInstance<TYPE>
         this.$$container.notifyRead(instance, makePath(getRoot(this).$id, instance.$path))
       }
       // return the instance if it is a node or the value if it is a leaf
-      return unbox(instance, this.$$container)
+      return unbox(instance)
     }
   }
   public has = (key: string): boolean => {
@@ -231,7 +231,7 @@ export class MapInstance<TYPE>
     const newMap = new Map<string, TYPE>()
 
     this.$data.forEach((value, key) => {
-      newMap.set(key, unbox(value, this.$$container))
+      newMap.set(key, unbox(value))
     })
     return newMap.entries()
   }
@@ -244,7 +244,7 @@ export class MapInstance<TYPE>
     const newMap = new Map<string, TYPE>()
 
     this.$data.forEach((value, key) => {
-      newMap.set(key, unbox(value, this.$$container))
+      newMap.set(key, unbox(value))
     })
     return newMap.values()
   }

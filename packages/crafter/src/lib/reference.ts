@@ -3,10 +3,12 @@ import { LeafType } from './LeafType'
 import { TypeFlag } from './TypeFlag'
 import { ILeafType } from './ILeafType'
 
+export type ReferenceType<T extends INodeType<any, any>> = INodeType<ReturnType<T['create']>, string>
+
 export function reference<T extends INodeType<any, any>>(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _type: T
-): INodeType<ReturnType<T['create']>, string> {
+): ReferenceType<T> {
   return new LeafType<string>({
     defaultValue: '',
     typeFlag: TypeFlag.reference,

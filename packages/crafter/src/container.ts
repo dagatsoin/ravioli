@@ -179,10 +179,10 @@ export class CrafterContainer implements IContainer {
       // Their next computation will be triggered lazily.
       this.state.updatedObservables.forEach((o: IObservable) => {
         // It is a tracker
-        if (isNode(o)) {
+        if ((o as any).isTracker) {
           return
-        } else if (isNode(o)) {
-          invalidateSnapshot(o)
+        } else {
+          invalidateSnapshot(toNode(o))
         }
       })
       

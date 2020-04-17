@@ -11,6 +11,7 @@ export interface ITracker {
 
 export class Tracker implements IObservable, ITracker {
   public $isObservable: true = true
+  public isTracker: true = true
   public $patch: Migration<any, any> = {
     forward: [],
     backward: [],

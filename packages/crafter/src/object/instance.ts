@@ -299,7 +299,7 @@ function addPropGetSet(
             obj.$$container.notifyRead(instance, makePath(obj.$id, instance.$path))
           }
           // return the instance if it is a node or the value if it is a leaf
-          return unbox(instance, obj.$$container)
+          return unbox(instance)
         }
       },
       set(value: any) {

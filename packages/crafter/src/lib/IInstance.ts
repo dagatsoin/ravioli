@@ -5,7 +5,7 @@ import { IObservable } from '../IObservable'
 import { Migration, Operation } from './JSONPatch'
 
 export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent, IObservable{
-  $id: string
+  readonly $id: string
   $$container: IContainer
   $isInstance: true
   $type: IType<TYPE, SNAPSHOT>

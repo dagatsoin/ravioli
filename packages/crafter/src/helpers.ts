@@ -72,11 +72,9 @@ export function toInstance<T>(data: any): IInstance<T> {
  * If it is a primitive leaf return the value
  * If it is a reference return the referenced instance or value
  */
-export function unbox<T>(instance: IInstance<T> | string, context: IContainer): T {
+export function unbox<T>(instance: IInstance<T> | IInstance<T, string>): T {
   return isNode<T>(instance)
     ? ((instance as unknown) as T)
-    : typeof instance === 'string'
-    ? ((context.getReferenceTarget(instance) as unknown) as T)
     : instance.$value
 }
 

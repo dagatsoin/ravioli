@@ -1958,7 +1958,7 @@ describe('Array methods', function() {
         'Ghost',
       ])
     })
-    test('with oject array', function() {
+    test('with object array', function() {
       getContext(toInstance(world)).transaction(() => {
         world.players.unshift(
           {

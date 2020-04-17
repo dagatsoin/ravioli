@@ -5,7 +5,7 @@ import { Snapshot } from './Snapshot'
 import { IWithParent } from './IWithParent'
 
 export type DataObject<T> = { [key in keyof T]: IInstance<any> }
-export type DataArray<T> = IInstance<T>[]
+export type DataArray<T> = (IInstance<T> | IInstance<T, string>)[]
 export type DataMap<T> = Map<string, IInstance<T>>
 
 export type DataNode = DataArray<any> | DataObject<any> | DataMap<any>

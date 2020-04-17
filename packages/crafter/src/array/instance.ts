@@ -48,8 +48,11 @@ import { isNode } from "../lib/isNode"
 import { Snapshot } from '../lib/Snapshot'
 import { setNonEnumerable } from '../utils/utils'
 import { IContainer } from '../IContainer'
-import { isUnknownType } from '../Primitive'
+import { isUnknownType, isPrimitive } from '../Primitive'
 import { getTypeFromValue } from "../lib/getTypeFromValue"
+import { ReferenceType, reference, isReferenceType } from '../lib/reference'
+import { INodeType } from '../lib/INodeType'
+import { isNodeType } from '../lib'
 
 /**
  * Code review
@@ -116,6 +119,8 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
 
   public $type: ArrayType<SUBTYPE>
   public $data: DataArray<SUBTYPE> = []
+  public $refFactory: ReferenceType<INodeType<SUBTYPE, SUBTYPE>> | undefined = undefined
+  public $isPrimitiveArray: 'unknown' | boolean = 'unknown'
   
   constructor(
     type: ArrayType<SUBTYPE>,
@@ -128,6 +133,11 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     // Initialize the array
     super(generateSnapshot, generateValue, methodKeys, options)
     this.$type = type
+    // The item type is known. If not, those operations will be done in refineTypeIfNeeded
+    if (!isUnknownType(type.itemType)) {
+      this.$refFactory = (isNodeType(type.itemType) ? reference(type.itemType) : undefined) as any
+      this.$isPrimitiveArray = !isNodeType(type.itemType)
+    }
     // Make all class properties non enumerable
     Object.keys(this).forEach(key => setNonEnumerable(this, key))
     build(this, items)
@@ -234,7 +244,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   public $kill(): void {
     super.$kill()
     this.$data.forEach(child => {
-      child.$kill()
+      kill(child, this)
     })
   }
 
@@ -413,7 +423,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   public shift = (): SUBTYPE | undefined => {
     const item = this.$data[0]
     present(this, [{ op: 'shift', path: this.$path }])
-    return item ? unbox(item, this.$$container) : undefined
+    return item ? unbox(item) : undefined
   }
 
   public some = (
@@ -452,7 +462,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     ])
     return this.$data
       .slice(start, start + (deleteCount || this.length))
-      .map(item => unbox(item, this.$$container))
+      .map(item => unbox(item))
   }
 
   public slice = (
@@ -521,27 +531,46 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   }
 
   public $addInterceptor(index: number | string): void {
-    Object.defineProperty(this, index, {
-      get() {
-        const instance = this.$data[index]
-        // Prevent throwing if index does not exist
-        if (instance) {
-          // Notify the read of the child node
-          if (isNode(instance)) {
-            this.$$container.notifyRead(instance, makePath(getRoot(this).$id, this.$path, index.toString()))
-          }
+    if (isReferenceType(this.$type.itemType)) {
+      Object.defineProperty(this, index, {
+        get() {
+          const instance = this.$$container.getReferenceTarget(
+            this.$data[index].$value
+          )
           // return the instance if it is a node or the value if it is a leaf
-          return unbox(instance, this.$$container)
-        }
-      },
-      set(value: any) {
-        present(this, [
-          { op: 'replace', value, path: makePath(this.$path, index.toString()) },
-        ])
-      },
-      enumerable: true,
-      configurable: true,
-    })
+          return instance
+        },
+        set(value: any) {
+          this.$$container.getReferenceTarget(this.$data[index].$value).$setValue(
+            value
+          )
+        },
+        enumerable: true,
+        configurable: true,
+      })
+    } else {
+      Object.defineProperty(this, index, {
+        get() {
+          const instance = this.$data[index]
+          // Prevent throwing if index does not exist
+          if (instance) {
+            // Notify the read of the child node
+            if (isNode(instance)) {
+              this.$$container.notifyRead(instance, makePath(getRoot(this).$id, this.$path, index.toString()))
+            }
+            // return the instance if it is a node or the value if it is a leaf
+            return unbox(instance)
+          }
+        },
+        set(value: any) {
+          present(this, [
+            { op: 'replace', value, path: makePath(this.$path, index.toString()) },
+          ])
+        },
+        enumerable: true,
+        configurable: true,
+      })
+    }
   }
 
   public $createChildInstance = <I = SUBTYPE>(item: I): I & IInstance<I> => 
@@ -557,14 +586,14 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
       this.$type.itemType = isInstance(value)
       ? value.$type
       : getTypeFromValue(value as any)
+      // If the type is a primitive, set the flag to true
+      // This will speed up the iteration by not trying to take the string a reference id.
+      this.$isPrimitiveArray = isPrimitive(value)
     }
   }
-  
   private $attachChildren = (): void => {
-    this.$data.forEach((instance, index) => {
-      if (isNode(instance)) {
-        instance.$attach(this, index)
-      }
+    this.$data.forEach((child, index) => {
+      attach(child, index, this)
     })
   }
 }
@@ -582,7 +611,7 @@ type SortCommand<T = any> = {
 type Proposal<T = any> = ArrayOperation<T> | SortCommand<T>
 
 function replace(
-  model: INodeInstance<unknown>,
+  model: ArrayInstance<unknown>,
   value: any,
   index: string | number
 ): ReplaceChanges {
@@ -596,9 +625,7 @@ function replace(
   instance.$setValue(value)
 
   // Attach
-  if (isNode(instance)) {
-    instance.$attach(model, index)
-  }
+  attach(instance, Number(index), model)
   return {
     replaced,
   }
@@ -635,8 +662,8 @@ function present(
       }
     } else if (command.op === 'add') {
       try {
-        const index = getArrayIndex(model, command)
         model.refineTypeIfNeeded(command.value)
+        const index = getArrayIndex(model, command)
         add(model, command.value, index.toString())
         if (willEmitPatch) {
           addAddPatch(model, command)
@@ -680,8 +707,8 @@ function present(
         }
       }
     } else if (command.op === 'fill') {
-      const changes = fill(model, command)
       model.refineTypeIfNeeded(command.value)
+      const changes = fill(model, command)
       if (willEmitPatch) {
         addFillPatch(model, command, changes)
       }
@@ -701,8 +728,8 @@ function present(
         addPopPatch(model, command, changes)
       }
     } else if (command.op === 'push') {
-      push(model, command)
       model.refineTypeIfNeeded(command.value)
+      push(model, command)
       if (willEmitPatch) {
         addPushPatch(model, command)
       }
@@ -727,12 +754,18 @@ function present(
   computeNextState(model)
 }
 
-function generateSnapshot<T>(data: DataArray<T>): T[] {
-  return data.map(item => item.$snapshot)
+function generateSnapshot<T>(data: DataArray<T>, context: IContainer): T[] {
+  return data.map(item => typeof item === 'string'
+    ? context.getReferenceTarget<T>(item).$snapshot
+    : item.$snapshot  
+  ) as any
 }
 
-function generateValue<T>(data: DataArray<T>): T[] {
-  return data.map(item => item.$value)
+function generateValue<T>(data: DataArray<T>, context: IContainer): T[] {
+  return data.map(item => typeof item === 'string'
+    ? context.getReferenceTarget<T>(item).$value
+    : item.$value  
+  )
 }
 
 function build(array: ArrayInstance<any>, items: any[]): void {
@@ -752,8 +785,7 @@ function push<T>(
     // Observe the new slots
     model.$addInterceptor(i)
     // Attach new node items
-    const instance = toInstance(model.$data[i])
-    instance.$attach(model, i)
+    attach(model.$data[i], i, model)
   }
   return {
     prevLength: model.length - items.length,
@@ -794,7 +826,7 @@ function setLength<T>(
   if (length < prevLength) {
     for (let i = prevLength - 1; i > length - 1; i--) {
       const excendentItem = model.$data[i]
-      excendentItem.$kill()
+      kill(excendentItem, model)
       delete model[i]
     }
   }
@@ -832,6 +864,20 @@ function addSetLengthPatch<T>(
   model.$addPatch(patch)
 }
 
+function kill(item: IInstance<any>, model: ArrayInstance<any>) {
+  if(!model.$isPrimitiveArray && typeof item === 'string') {
+    model.$$container.getReferenceTarget(item).$kill()
+  } else toInstance(item).$kill()
+}
+
+function attach(item: IInstance<any>, index: number, model: ArrayInstance<any>) {
+  if(!model.$isPrimitiveArray && typeof item === 'string') {
+    model.$$container.getReferenceTarget(item).$attach(model, index)
+  } else {
+    toInstance(item).$attach(model, index)
+  }
+}
+
 function removeFromArray<T>(
   model: ArrayInstance<T>,
   proposal: RemoveOperation
@@ -841,7 +887,7 @@ function removeFromArray<T>(
   const removedItem = model.$data[index]
 
   // Detach and free UID
-  removedItem.$kill()
+  kill(removedItem, model)
   
   // Delete data
   model.$data.splice(index, 1)
@@ -871,7 +917,7 @@ function splice<T>(
 
   // Detach removed nodes
   removedItems.forEach(function(item) {
-    item.$kill()
+    kill(item, model)
   })
 
   // Update interceptors
@@ -883,10 +929,7 @@ function splice<T>(
 
   // Attach new nodes
   for (let i = start; i < model.$data.length; i++) {
-    const instance = model[i]
-    if (isNode(instance)) {
-      instance.$attach(model, i)
-    }
+    attach(model.$data[i], i, model)
   }
 
   // Delete excedent items accessors
@@ -945,10 +988,10 @@ function copyWithin<T>(
   for (let i = target; i < (end || model.length) - start; i++) {
     const item = model.$data[i]
     replaced.push(getSnapshot(item))
-    item.$kill()
+    kill(item, model)
   }
 
-  // FIXME: if we use copywithing it will create a reference between two instances.
+  // FIXME: if we use copywithin it will create a reference between two instances.
   // The problem is that also synchronise the parent/key attachement.
   // The workaround for now is to deep clone the copied items.
   // It should be possile to use a reference Type to make a reference on the $data
@@ -956,10 +999,7 @@ function copyWithin<T>(
   for (let i = targetIndex; i < targetIndex + chunckSize; i++) {
     model.$data[i] = model.$createChildInstance(model[startIndex + i])
     // Attach new node
-    const newNode = model[i]
-    if (isNode(newNode)) {
-      newNode.$attach(model, i)
-    }
+    attach(model.$data[i], i, model)
   }
   return {
     replaced,
@@ -1007,23 +1047,32 @@ function fill<T>(
         : model.length + end
       : model.length
 
-  // FIXME: if we use fill it will create a reference between two instances.
-  // The problem is that also synchronise the parent/key attachement.
-  // The workaround for now is to deep clone the copied items.
-  // It should be possile to use a reference Type to make a reference on the $data
-  // but keep their own parent/key
+  // If the item is a INodeType we create a referencable observable then fill
+  // the array of references to it.
+  // If it is a primitive, we fill the array with new instances.
+  
+  let target: INodeInstance<any> | undefined
+  if (!isPrimitive(value)) {
+    // The value is not a primitive, create an observable
+    target = toNode(model.$createChildInstance(value))
+    model.$$container.registerAsReferencable(target.$id, toNode(target))
+  }
   for (let i = startIndex; i < endIndex; i++) {
     // Detach old item
     const oldItem = model.$data[i]
-    oldItem.$kill()
-    model.$data[i] = model.$createChildInstance(value)
-    replaced.push(backup[i])
-    // Attach new nodes
-    const instance = model[i]
-    if (isNode(instance)) {
-      instance.$attach(model, i)
+    kill(oldItem, model)
+    if (model.$isPrimitiveArray) {
+      model.$data[i] = model.$createChildInstance(value)
+    } else {
+      model.$data[i] = typeof value === 'string'
+        ? model.$refFactory!.create(target!.$id) as any
+        : model.$createChildInstance(value)
     }
+    replaced.push(backup[i])
+    // Attach new instance
+    attach(model.$data[i], i, model)
   }
+
   return {
     replaced,
   }
@@ -1054,10 +1103,7 @@ function reverse<T>(model: ArrayInstance<T>): void {
   // Generate patch
   for (let i = 0; i < model.length; i++) {
     // reattach nodes
-    const instance = model[i]
-    if (isNode(instance)) {
-      instance.$attach(model, i)
-    }
+    attach(model.$data[i], i, model)
   }
 }
 
@@ -1079,14 +1125,11 @@ function shift<T>(model: ArrayInstance<T>): ShiftChanges | undefined {
     for (let i = 1; i < model.length; i++) {
       // As the first item is deleted, we need to shift all the nodes on the left
       // Aka: reattach them
-      const instance = model[i]
-      if (isNode(instance)) {
-        instance.$attach(model, i - 1)
-      }
+      attach(model.$data[i], i, model)
     }
 
     // Detach removed item and free UID
-    removedItem.$kill()
+    kill(removedItem, model)
     
     // The items are shifted, delete the last accesor which is a duplicate.
     delete model[model.length]
@@ -1118,7 +1161,7 @@ function addShiftPatch<T>(
 function pop(model: ArrayInstance<any>): PopChanges | undefined {
   const item = model.$data.pop()
   if (item) {
-    item.$kill()
+    kill(item, model)
     const removed = [getSnapshot(item)]
     return {
       removed,
@@ -1143,9 +1186,7 @@ function sort(model: ArrayInstance<any>, proposal: SortCommand): SortCommands {
     /* 3 */
 
     .forEach((instance, index) => {
-      if (isNode(instance)) {
-        instance.$attach(model, index)
-      }
+      attach(instance, index, model)
     })
   /* 4 */
   return model.$data.map(toInstance).map(({ $id: id }, to) => ({
@@ -1177,9 +1218,7 @@ function sortWithMoveOps(
   // Replace and attach the new data set
   model.$data = newData
   model.$data.forEach((instance, index) => {
-    if (isNode(instance)) {
-      instance.$attach(model, index)
-    }
+    attach(instance, index, model)
   })
   return sortCommands
 }
@@ -1223,27 +1262,18 @@ function unshift<T>(model: ArrayInstance<T>, proposal: UnshiftOperation<T>): voi
   const arrayLengthBeforeShift = model.length
 
   model.$data.unshift(
-    // Don't even validate the value, if it crash it is the dev fault
     ...items.map(model.$createChildInstance)
   )
 
   for (let i = arrayLengthBeforeShift; i < model.length; i++) {
     // Make the new indexes accesses interceptable
     model.$addInterceptor(i)
-    // Re attach moved items
-    const instance = model.$data[i]
-    if (isNode(instance)) {
-      instance.$attach(model, i)
-    }
   }
 
   // Generate patch for new items
   for (let i = 0; i < items.length; i++) {
     // Attach new items
-    const instance = model.$data[i]
-    if (isNode(instance)) {
-      instance.$attach(model, i)
-    }
+    attach(model.$data[i], i, model)
   }
 }
 
