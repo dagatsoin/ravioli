@@ -163,7 +163,7 @@ export interface IContainer {
    * @param observable 
    * @param path optional path. If you want to override the path of the observable.
    */
-  addObservedInstance(observable: IInstance, path?: string): void
+  notifyRead(observable: IInstance, path?: string): void
   blockTransaction<T>(fn: () => T): T
   getReferenceTarget<T, S = T>(id: string): INodeInstance<T, S>
   registerAsReferencable(

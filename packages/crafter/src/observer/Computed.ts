@@ -70,7 +70,7 @@ export class Computed<T> extends Observer implements IComputed<T> {
     // - an observable node but the user wants a boxed value
     // The observers will track the Computed ID.
     if (!isObservable(this.value) || this.isBoxed) {
-      this.valueContext.addObservedInstance(this as any, makePath(this.id))
+      this.valueContext.notifyRead(this as any, makePath(this.id))
     }
     return this.value
   }

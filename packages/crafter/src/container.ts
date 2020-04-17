@@ -69,6 +69,10 @@ export class CrafterContainer implements IContainer {
 
   private state: State = getInitState()
 
+  private get isSpying() {
+    return this.state.spyDerivationQueue.length > 0 || this.state.spyReactionQueue.length > 0
+  }
+
   /**
    * Called during the constructor of a reaction.
    * This will add the observer and its dependencies to the graph.
@@ -86,7 +90,10 @@ export class CrafterContainer implements IContainer {
     this.registerObserver(computed)
   }
 
-  public addObservedInstance(instance: IInstance<any>, path?: string): void {
+  public notifyRead(instance: IInstance<any>, path?: string): void {
+    if (!this.isSpying) {
+      return
+    }    
     // Store path
     const observedPath = path ?? makePath(getRoot(instance).$id, instance.$path)
     if (this.state.isSpyingDisable) {
@@ -112,11 +119,8 @@ export class CrafterContainer implements IContainer {
     }
 
     // Add to the graph
-    const target = this.getCurrentSpiedDerivationId()
-    if (!target) {
-      throw new Error('[CRAFTER] IContainer.addObservedInstance no observer is currently running.')
-    }
-  
+    const target = this.getCurrentSpiedDerivationId()! // we are spying
+    
     this.state.dependencyGraph.edges.push({
       target,
       source: instance.$id

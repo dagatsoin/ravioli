@@ -528,7 +528,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
         if (instance) {
           // Notify the read of the child node
           if (isNode(instance)) {
-            this.$$container.addObservedPath(makePath(getRoot(this).$id, this.$path, index.toString()))
+            this.$$container.notifyRead(makePath(getRoot(this).$id, this.$path, index.toString()))
           }
           // return the instance if it is a node or the value if it is a leaf
           return unbox(instance, this.$$container)
@@ -1333,5 +1333,5 @@ function isValidArrayIndex(
 }
 
 function addObservedLength(arrayInstance: ArrayInstance<any>): void {
-  arrayInstance.$$container.addObservedInstance(arrayInstance, makePath(getRoot(arrayInstance).$id, arrayInstance.$path, 'length'))
+  arrayInstance.$$container.notifyRead(arrayInstance, makePath(getRoot(arrayInstance).$id, arrayInstance.$path, 'length'))
 }

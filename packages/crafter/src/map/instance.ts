@@ -199,7 +199,7 @@ export class MapInstance<TYPE>
     if (instance) {
       // Notify the read of the child node
       if (isNode(instance)) {
-        this.$$container.addObservedInstance(instance)
+        this.$$container.notifyRead(instance)
       }
       // return the instance if it is a node or the value if it is a leaf
       return unbox(instance, this.$$container)
@@ -208,7 +208,7 @@ export class MapInstance<TYPE>
   public has = (key: string): boolean => {
     const instance = this.$data.get(key)
     if (instance) {
-      this.$$container.addObservedInstance(instance)
+      this.$$container.notifyRead(instance)
       return true
     }
     return false
@@ -260,7 +260,7 @@ export class MapInstance<TYPE>
     }
   }
   private addObservedLength = (): void => {
-    this.$$container.addObservedInstance(this, makePath(getRoot(this).$id, this.$path, 'size'))
+    this.$$container.notifyRead(this, makePath(getRoot(this).$id, this.$path, 'size'))
   }
   private $attachChildren = (): void => {
     this.$data.forEach((instance, k) => {

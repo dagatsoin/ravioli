@@ -31,7 +31,7 @@ export class Tracker implements IObservable, ITracker {
   public $transactionDidEnd(): void {}
 
   public reportObserved(): void {
-    this.context.addObservedInstance(this, makePath(this.id))
+    this.context.notifyRead(this, makePath(this.id))
   }
 
   public reportChanged(): void {
