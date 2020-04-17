@@ -50,9 +50,9 @@ test('each node of the branch should detach on parent removal', function() {
     },
   ])
 
-  expect(context.snapshot.referencableNodeInstances.size).toBe(15)
+  expect(context.snapshot.referencableNodeInstances.size).toBe(7)
   getContext(toInstance(obs)).transaction(() => obs.pop())
-  expect(context.snapshot.referencableNodeInstances.size).toBe(8)
+  expect(context.snapshot.referencableNodeInstances.size).toBe(4)
 
   // Test with factories
 

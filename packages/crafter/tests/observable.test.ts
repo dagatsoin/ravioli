@@ -54,7 +54,7 @@ test('observable value should register on creation. Strict mode true.', function
   expect(context.snapshot.referencableNodeInstances.size).toEqual(1)
 })
 
-test('observable value should unregister when disposed', function() {
+test('observable value should unregister when killed', function() {
   const obs = observable([
     {
       name: 'Fraktar',
@@ -64,10 +64,10 @@ test('observable value should unregister when disposed', function() {
     },
   ])
 
-  expect(context.snapshot.referencableNodeInstances.size).toEqual(5)
+  expect(context.snapshot.referencableNodeInstances.size).toEqual(3)
 
   context.transaction(() => obs.pop())
-  expect(context.snapshot.referencableNodeInstances.size).toEqual(3)
+  expect(context.snapshot.referencableNodeInstances.size).toEqual(2)
 })
 
 test('unknown array should refine when receive a value', function() {
@@ -79,7 +79,7 @@ test('unknown array should refine when receive a value', function() {
 
 test('unknown map should refine when receive a value', function() {
   const model = observable(new Map()) as Map<string, unknown>
-  expect(isUnknownType((toInstance(model).$type as MapType<any, any>).itemType)).toBeTruthy()
+  expect(isUnknownType((toInstance(model).$type as MapType<any>).itemType)).toBeTruthy()
   getContext(toInstance(model)).transaction(() => model.set('0', {name: 'Fraktar'}))
-  expect(isUnknownType((toInstance(model).$type as MapType<any, any>).itemType)).toBeFalsy()
+  expect(isUnknownType((toInstance(model).$type as MapType<any>).itemType)).toBeFalsy()
 })
