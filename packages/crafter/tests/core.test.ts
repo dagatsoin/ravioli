@@ -140,13 +140,13 @@ test("Crafter tracks node accesses", function() {
 test("leaf un/registers as observable in the container graph when start/finish to be observed", function() {
   const context = getGlobal().$$crafterContext
   context.clearContainer()
-  const s = string().create('Fraktar')
+  const s = toLeaf(string().create('Fraktar'))
   const reaction = new Reaction(noop)
   reaction.observe(() => toInstance(s).$value)
   // Has registered
   expect(context.snapshot.dependencyGraph).toBe({
     edges: [{ target: reaction.id, source: toInstance(s).$id }],
-    nodes: [s]
+    nodes: [reaction, s]
   })
   reaction.dispose()
   // Has unregistered

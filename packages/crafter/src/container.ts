@@ -1,7 +1,7 @@
 import { toNode, getRoot, getSnapshot, unique, makePath } from './helpers'
 import { IObservable } from './IObservable'
 import { Operation, isDependent, hasPath, Migration } from './lib/JSONPatch'
-import { IObserver, ObserverType } from './observer/Observer'
+import { IObserver, ObserverType, isObserver } from './observer/Observer'
 import { Graph, removeNode, removeNodeEdges, getTreeEdges, Edge } from './Graph'
 import { INodeInstance } from './lib/INodeInstance'
 import { Tracker } from './lib/Tracker'
@@ -23,7 +23,6 @@ function getInitState(): State {
     isComputingNextState: false,
     activeDerivations: new Map(),
     rootTransactionId: undefined,
-    isSpyingDisable: false,
     dependencyGraph: {
       nodes: [],
       edges: [],
@@ -46,7 +45,6 @@ export class CrafterContainer implements IContainer {
       activeDerivations: this.state.activeDerivations,
       isComputingNextState: this.state.isComputingNextState,
       rootTransactionId: this.state.rootTransactionId,
-      isSpyingDisable: this.state.isSpyingDisable,
       dependencyGraph: {
         nodes: [...this.state.dependencyGraph.nodes],
         edges: [...this.state.dependencyGraph.edges],
@@ -69,8 +67,9 @@ export class CrafterContainer implements IContainer {
 
   private state: State = getInitState()
 
+  private isSpyingPaused: boolean = false
   private get isSpying() {
-    return this.state.spyDerivationQueue.length > 0 || this.state.spyReactionQueue.length > 0
+    return !this.isSpyingPaused && (this.state.spyDerivationQueue.length > 0 || this.state.spyReactionQueue.length > 0)
   }
 
   /**
@@ -96,7 +95,7 @@ export class CrafterContainer implements IContainer {
     }    
     // Store path
     const observedPath = path ?? makePath(getRoot(instance).$id, instance.$path)
-    if (this.state.isSpyingDisable) {
+    if (this.isSpyingPaused) {
       return
     }
     const paths = this.state.observedPaths.get(this.getCurrentSpiedDerivationId())
@@ -125,7 +124,7 @@ export class CrafterContainer implements IContainer {
       target,
       source: instance.$id
     })
-    
+    this.state.dependencyGraph.nodes.push(instance)
   }
 
   /**
@@ -293,11 +292,11 @@ export class CrafterContainer implements IContainer {
   }
 
   public pauseSpies(): void {
-    this.state.isSpyingDisable = true
+    this.isSpyingPaused = true
   }
   
   public resumeSpies(): void {
-    this.state.isSpyingDisable = false
+    this.isSpyingPaused = false
   }
 
   public blockTransaction<T>(fn: () => T): T {
@@ -369,7 +368,7 @@ export class CrafterContainer implements IContainer {
    * Remove an observer and its dependencies from the state
    */
   public onObserverError(observerId: string): void {
-    removeObserver({observerId, observerGraph: this.state.dependencyGraph})
+    removeObserver({observerId, dependencyGraph: this.state.dependencyGraph})
   }
 
   /**
@@ -381,7 +380,12 @@ export class CrafterContainer implements IContainer {
     if (op) {
       directDependencies.push(...this.getDirectDependencies({path: _path, op}))
     } else {
-      directDependencies.push(...this.state.dependencyGraph.nodes.filter(node => hasPath(node, _path)))
+      directDependencies.push(...this.state
+        .dependencyGraph
+        .nodes
+        .filter(isObserver)
+        .filter(node => hasPath(node, _path))
+      )
     }
     const targets = directDependencies.concat(
       ...directDependencies.map(dep => {
@@ -542,10 +546,10 @@ function getGraphNode(id: string, graph: Graph<IObserver>): IObserver {
  */
 function removeObserver({
   observerId,
-  observerGraph: dependencyGraph,
+  dependencyGraph: dependencyGraph,
 }: {
   observerId: string
-  observerGraph: Graph<IObserver>
+  dependencyGraph: Graph<IObserver>
 }): void {
   const nodeIndex = dependencyGraph.nodes.findIndex(
     node => node.id === observerId
@@ -601,7 +605,7 @@ function onDisposeObserver(targetId: string, state: State): void {
   // Remove caller from the graph
   removeObserver({
     observerId: targetId,
-    observerGraph: state.dependencyGraph
+    dependencyGraph: state.dependencyGraph
   })
 
   // Dispose observer and remove it from the graph
@@ -612,7 +616,7 @@ function onDisposeObserver(targetId: string, state: State): void {
       disposeComputation(node)
       removeObserver({
         observerId: node.id,
-        observerGraph: state.dependencyGraph
+        dependencyGraph: state.dependencyGraph
       })
     })
   // Remove edges from the graph

@@ -47,15 +47,8 @@ export type State = {
   // their internal state.
   isComputingNextState: boolean
 
-  // When a Computed value update it will $setValue on its internal observable.
-  // If the new value is also an observable, it will be deep copied in the internal observable.
-  // During the copy, all observable key source will be read, triggering a bunch of
-  // new observed paths.
-  // Those paths are not wanted here, so we need to pause the spies during this transaction.
-  isSpyingDisable: boolean
-
   // The graph of the observers running in this container.
-  dependencyGraph: Graph<IObserver>
+  dependencyGraph: Graph<IObserver | IInstance>
 
   // A list of observables use during a transaction.
   // Once the transaction is complete, the manager will

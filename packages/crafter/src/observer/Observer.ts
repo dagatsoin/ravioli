@@ -5,6 +5,7 @@ export interface IObserver {
   id: string
   dependencyPaths: string[]
   readonly isStale: boolean
+  readonly isObserver: true
   type: ObserverType
   dispose: () => void
   notifyChangeFor(): void
@@ -21,7 +22,7 @@ export abstract class Observer implements IObserver {
   public get id(): string {
     return this._id
   }
-
+  public isObserver: true = true
   protected context: IContainer
   protected _isStale = true
   private _id: string  
@@ -76,4 +77,8 @@ function toString(type: ObserverType): string {
     case ObserverType.Reaction:
       return 'Reaction'
   }
+}
+
+export function isObserver(thing: any): thing is IObserver {
+  return thing.isObserver
 }
