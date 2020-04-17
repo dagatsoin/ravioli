@@ -1,4 +1,7 @@
-import { observable, autorun, getGlobal, string, toInstance, Reaction, noop, toLeaf } from "../src"
+import { getGlobal } from '../src/utils/utils'
+import { observable } from '../src/lib/observable'
+import { toInstance, toLeaf, noop } from '../src/helpers'
+import { autorun, string, Reaction } from '../src'
 
 test("Crafter tracks leaf accesses", function() {
   const context = getGlobal().$$crafterContext
@@ -144,30 +147,40 @@ test("leaf un/registers as observable in the container graph when start/finish t
   const reaction = new Reaction(noop)
   reaction.observe(() => toInstance(s).$value)
   // Has registered
-  expect(context.snapshot.dependencyGraph).toBe({
+  expect(context.snapshot.dependencyGraph).toEqual({
     edges: [{ target: reaction.id, source: toInstance(s).$id }],
     nodes: [reaction, s]
   })
   reaction.dispose()
   // Has unregistered
-  expect(context.snapshot.dependencyGraph).toBe({
+  expect(context.snapshot.dependencyGraph).toEqual({
     edges: [],
     nodes: []
   })
 })
 
-test("graph", function() {
+test("node un/registers as observable in the container graph when start/finish to be observed", function() {
   const context = getGlobal().$$crafterContext
-  test("simple graph", function(){
-    const model = observable({
-      name: "Fraktar",
-      health: 1
-    })
-    const reaction = new Reaction(() => {})
-    reaction.observe(() => model.name)
+  context.clearContainer()
+  const model = observable({
+    player: {
+      name: "Fraktar"
+    }
+  })
+  const reaction = new Reaction(noop)
+  reaction.observe(() => model.player)
+  // Has registered
+  // Jest internal tries to mutate the object, bypass the error using a transaction
+  context.transaction(() => {
     expect(context.snapshot.dependencyGraph).toEqual({
-      edges: [{target: reaction.id, source: toInstance(model).$data.name.$id}],
-      nodes: [toInstance(model).$data.name]
+      edges: [{ target: reaction.id, source: toInstance(model.player).$id }],
+      nodes: [reaction, model.player]
+    })
+    reaction.dispose()
+    // Has unregistered
+    expect(context.snapshot.dependencyGraph).toEqual({
+      edges: [],
+      nodes: []
     })
   })
 })

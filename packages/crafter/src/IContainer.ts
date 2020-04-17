@@ -88,7 +88,7 @@ export interface IContainer {
   /**
    * Callback to remove unused observer and dependencies from the state.
    */
-  onDisposeObserver(targetId: string): void
+  onDisposeObserver(observer: IObserver): void
 
   /**
    * aree UIDor this container
@@ -169,7 +169,7 @@ export interface IContainer {
   /**
    * Remove an observer and its dependencies from the state
    */
-  onObserverError(observerId: string): void
+  onObserverError(observer: IObserver): void
 
   /**
    * Present a patch to the reactions.

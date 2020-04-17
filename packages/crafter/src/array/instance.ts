@@ -528,7 +528,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
         if (instance) {
           // Notify the read of the child node
           if (isNode(instance)) {
-            this.$$container.notifyRead(this, makePath(getRoot(this).$id, this.$path, index.toString()))
+            this.$$container.notifyRead(instance, makePath(getRoot(this).$id, this.$path, index.toString()))
           }
           // return the instance if it is a node or the value if it is a leaf
           return unbox(instance, this.$$container)

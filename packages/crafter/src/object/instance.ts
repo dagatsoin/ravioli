@@ -296,7 +296,7 @@ function addPropGetSet(
         if (instance) {
           // Notify the read of the child node
           if (isNode(instance)) {
-            obj.$$container.notifyRead(this, makePath(obj.$id, instance.$path))
+            obj.$$container.notifyRead(instance, makePath(obj.$id, instance.$path))
           }
           // return the instance if it is a node or the value if it is a leaf
           return unbox(instance, obj.$$container)

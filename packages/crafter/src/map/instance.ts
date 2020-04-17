@@ -199,19 +199,15 @@ export class MapInstance<TYPE>
     if (instance) {
       // Notify the read of the child node
       if (isNode(instance)) {
-        this.$$container.notifyRead(instance)
+        this.$$container.notifyRead(instance, makePath(getRoot(this).$id, instance.$path))
       }
       // return the instance if it is a node or the value if it is a leaf
       return unbox(instance, this.$$container)
     }
   }
   public has = (key: string): boolean => {
-    const instance = this.$data.get(key)
-    if (instance) {
-      this.$$container.notifyRead(instance)
-      return true
-    }
-    return false
+    this.$$container.notifyRead(this, makePath(getRoot(this).$id, this.$path, key))
+    return this.$data.has(key)
   }
   public set = (key: string, value: TYPE | IInstance<TYPE>): this => {
     present(this, [

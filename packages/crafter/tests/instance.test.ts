@@ -4,7 +4,7 @@ import { toNode, toLeaf, makePath, toInstance, getContext } from "../src/helpers
 import { array } from "../src/array"
 import { map } from "../src/map"
 import { union } from "../src/union"
-import { observable } from "../src"
+import { observable } from "../src/lib/observable"
 
 test("Primitive instance should not have any enumerable keys", function() {
   const model = number().create(5)

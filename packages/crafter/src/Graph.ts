@@ -1,5 +1,3 @@
-import { IObserver } from "./observer";
-
 export type Graph<T> = {
   nodes: Node<T>[];
   edges: Edge[];
@@ -64,18 +62,15 @@ export function getTreeEdges<T>({
 }
 
 export function removeNode({
-  nodeId,
+  node,
   dependencyGraph,
 }: {
-  nodeId: string
-  dependencyGraph: Graph<IObserver>
+  node: any
+  dependencyGraph: Graph<any>
 }): void {
-  const nodeIndex = dependencyGraph.nodes.findIndex(node => node.id === nodeId)
-  if (nodeIndex === -1) {
-    throw new Error(
-      `ST Manager > dependency graph > removeNode. Node ${nodeId} does not exist.`
-    )
-  }
+  const nodeIndex = dependencyGraph
+    .nodes
+    .indexOf(node)
   dependencyGraph.nodes.splice(nodeIndex, 1)
 }
 

@@ -1,4 +1,4 @@
-import { toNode, getRoot, getSnapshot, unique, makePath } from './helpers'
+import { toNode, getRoot, getSnapshot, unique, makePath, isUnique } from './helpers'
 import { IObservable } from './IObservable'
 import { Operation, isDependent, hasPath, Migration } from './lib/JSONPatch'
 import { IObserver, ObserverType, isObserver } from './observer/Observer'
@@ -8,7 +8,7 @@ import { Tracker } from './lib/Tracker'
 import { State, IContainer, ContextListener } from './IContainer'
 import { Computed } from './observer/Computed'
 import { isNode } from './lib/isNode'
-import { IInstance } from './lib'
+import { isObservable } from './lib/observable'
 
 function getInitState(): State {
   return {
@@ -89,12 +89,11 @@ export class CrafterContainer implements IContainer {
     this.registerObserver(computed)
   }
 
-  public notifyRead(instance: IInstance<any>, path?: string): void {
+  public notifyRead(instance: IObservable, observedPath: string): void {
     if (!this.isSpying) {
       return
     }    
     // Store path
-    const observedPath = path ?? makePath(getRoot(instance).$id, instance.$path)
     if (this.isSpyingPaused) {
       return
     }
@@ -196,8 +195,8 @@ export class CrafterContainer implements IContainer {
   /**
    * Callback to remove unused observer and dependencies from the state.
    */
-  public onDisposeObserver(targetId: string): void {
-    onDisposeObserver(targetId, this.state)
+  public onDisposeObserver(observer: IObserver): void {
+    onDisposeObserver(observer, this.state)
   }
 
   /**
@@ -367,8 +366,8 @@ export class CrafterContainer implements IContainer {
   /**
    * Remove an observer and its dependencies from the state
    */
-  public onObserverError(observerId: string): void {
-    removeObserver({observerId, dependencyGraph: this.state.dependencyGraph})
+  public onObserverError(observer: IObserver): void {
+    removeObserver({observer, dependencyGraph: this.state.dependencyGraph})
   }
 
   /**
@@ -400,7 +399,11 @@ export class CrafterContainer implements IContainer {
   }
 
   private getDirectDependencies({op, path: _path}: Operation): IObserver[] {
-    return this.state.dependencyGraph.nodes.filter(isDependent({op, path: _path}))
+    return this.state
+      .dependencyGraph
+      .nodes
+      .filter(isObserver)
+      .filter(isDependent({op, path: _path}))
   }
 
   private getCurrentSpiedReactionId(): string {
@@ -530,8 +533,10 @@ export class CrafterContainer implements IContainer {
  * Return an observer stored in the dependencies graph.
  * Thrown if not found
  */
-function getGraphNode(id: string, graph: Graph<IObserver>): IObserver {
-  const child = graph.nodes.find(observer => observer.id === id)
+function getGraphNode(id: string, graph: Graph<IObserver | IObservable>): IObserver | IObservable {
+  const child = graph
+    .nodes
+    .find(node => getNodeId(node) === id)
   if (child) {
     return child
   } else {
@@ -545,19 +550,43 @@ function getGraphNode(id: string, graph: Graph<IObserver>): IObserver {
  * Will update the dependecy graph by removing a node and the associated edges
  */
 function removeObserver({
-  observerId,
-  dependencyGraph: dependencyGraph,
+  observer,
+  dependencyGraph,
 }: {
-  observerId: string
-  dependencyGraph: Graph<IObserver>
+  observer: IObserver
+  dependencyGraph: Graph<IObserver | IObservable>
 }): void {
-  const nodeIndex = dependencyGraph.nodes.findIndex(
-    node => node.id === observerId
-  )
-  if (nodeIndex > -1) {
-    removeNode({ nodeId: observerId, dependencyGraph })
-    removeNodeEdges({ nodeId: observerId, dependencyGraph })
+  const targetId = dependencyGraph
+    .nodes
+    .filter(isObserver)
+    .find(node => node.id === observer.id)?.id
+
+  if (targetId) {
+    // Remove all dependencies of this observer
+    getTreeEdges({
+      targetId,
+      graph: dependencyGraph
+    })
+      // Gather all nodes of the tree
+      .reduce<string[]>((ids, edge) => ids.concat([edge.source, edge.target]), [])
+      .filter(isUnique)
+      // Delete each node and their edges
+      .forEach(id => {
+        const node = getGraphNode(id, dependencyGraph)
+        removeNode({node, dependencyGraph})
+        removeNodeEdges({ nodeId: getNodeId(node), dependencyGraph })
+      })
   }
+}
+
+/**
+ * Return the id of an observable or an observer
+ * @param node
+ */
+function getNodeId(node: IObservable | IObserver): string {
+  return isObservable(node)
+    ? node.$id
+    : node.id
 }
 
 function disposeComputation(computation: IObserver): void {
@@ -568,13 +597,13 @@ function disposeComputation(computation: IObserver): void {
  * Return a tree which root is the given target id.
  * The tree contains only nodes which have one parent.
  */
-function getObserverTree({
+function getDependencyTree({
   targetId,
   graph
 }: {
   targetId: string,
-  graph: Graph<IObserver>
-}): Graph<IObserver> {
+  graph: Graph<IObserver | IObservable>
+}): Graph<IObserver | IObservable> {
   const edges = getTreeEdges({
     targetId,
     graph
@@ -595,29 +624,32 @@ function extractNodeId(edge: Edge): [string, string] {
   return [edge.target, edge.source]
 }
 
-function onDisposeObserver(targetId: string, state: State): void {
+function onDisposeObserver(observer: IObserver, state: State): void {
   // Get all the observers dependent of the caller.
   // An observer wich is also a dependeny on other top level observer will stay untouched.
-  const tree = getObserverTree({
-    targetId,
+  const tree = getDependencyTree({
+    targetId: observer.id,
     graph: state.dependencyGraph,
   })
   // Remove caller from the graph
   removeObserver({
-    observerId: targetId,
+    observer,
     dependencyGraph: state.dependencyGraph
   })
 
   // Dispose observer and remove it from the graph
   tree.nodes
     // The passed target id is already disposed. Avoid infinite loop.
-    .filter(({id: $id}) => $id !== targetId)
     .forEach(node => {
-      disposeComputation(node)
-      removeObserver({
-        observerId: node.id,
-        dependencyGraph: state.dependencyGraph
-      })
+      if (isObserver(node) && observer.id !== node.id) {  
+        disposeComputation(node)
+        removeObserver({
+          observer: node,
+          dependencyGraph: state.dependencyGraph
+        })
+      } else {
+        
+      }
     })
   // Remove edges from the graph
   state.dependencyGraph.edges = state.dependencyGraph.edges.filter(edge => !tree.edges.some(isSameEdge(edge))) 

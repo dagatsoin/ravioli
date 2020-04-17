@@ -30,7 +30,7 @@ export class Autorun extends Observer {
     // todo extract to super()
     // Maybe the autorun was running
     this.context.stopSpyDerivation(this.id)
-    this.context.onDisposeObserver(this.id)
+    this.context.onDisposeObserver(this)
   }
 
   public runAndUpdateDeps(): void {
@@ -47,7 +47,7 @@ export class Autorun extends Observer {
         if (!this.isFirstRun) {
           this.dispose()
         }
-        this.context.onObserverError(this.id)
+        this.context.onObserverError(this)
         error = e
       } finally {
         this.dependencyPaths = this.context.stopSpyReaction(this.id)

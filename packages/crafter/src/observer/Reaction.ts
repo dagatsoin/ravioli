@@ -32,7 +32,7 @@ export class Reaction extends Observer {
     // todo extract to super()
     // Maybe the autorun was running
     this.context.stopSpyDerivation(this.id)
-    this.context.onDisposeObserver(this.id)
+    this.context.onDisposeObserver(this)
   }
 
   public runAndUpdateDeps(): void {
@@ -50,7 +50,7 @@ export class Reaction extends Observer {
         }
         
     } catch (e) {
-        this.context.onObserverError(this.id)
+        this.context.onObserverError(this)
         if (isSpying) {
           this.context.stopSpyReaction(this.id)
         }
