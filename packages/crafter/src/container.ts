@@ -1,8 +1,8 @@
 import { toNode, getRoot, getSnapshot, unique, makePath, isUnique } from './helpers'
 import { IObservable } from './IObservable'
 import { Operation, isDependent, hasPath, Migration } from './lib/JSONPatch'
-import { IObserver, ObserverType, isObserver } from './observer/Observer'
-import { Graph, removeNode, removeNodeEdges, getTreeEdges, Edge } from './Graph'
+import { IObserver, ObserverType, isObserver, isReaction, isDerivation } from './observer/Observer'
+import { Graph, removeNode, removeNodeEdges, getTreeEdges, Edge, getAllPathsTo } from './Graph'
 import { INodeInstance } from './lib/INodeInstance'
 import { Tracker } from './lib/Tracker'
 import { State, IContainer, ContextListener } from './IContainer'
@@ -27,7 +27,7 @@ function getInitState(): State {
       nodes: [],
       edges: [],
     },
-    updatedObservables: new Map()
+    updatedObservables: []
   }
 }
 
@@ -49,7 +49,7 @@ export class CrafterContainer implements IContainer {
         nodes: [...this.state.dependencyGraph.nodes],
         edges: [...this.state.dependencyGraph.edges],
       },
-      updatedObservables: new Map(this.state.updatedObservables)
+      updatedObservables: [...this.state.updatedObservables]
     }
   }
 
@@ -245,8 +245,8 @@ export class CrafterContainer implements IContainer {
   public addUpdatedObservable(observable: IObservable): void {
     // This is why we need a map for updatedObservables list.
     // It is quicker to look up with Map.has instead of Array.find
-    if (!this.state.updatedObservables.has(observable.$id) && this.state.isTransaction) {
-      this.state.updatedObservables.set(observable.$id, observable)
+    if (!this.state.updatedObservables.includes(observable) && this.state.isTransaction) {
+      this.state.updatedObservables.push(observable)
     }
   }
 
@@ -341,8 +341,8 @@ export class CrafterContainer implements IContainer {
 
   public presentPatch<O extends Operation>(patch: O[]): void {
     const staleObservers: IObserver[] = []
-    patch.forEach(({op, path: _path}) => {
-      const observers = this.getTargets(makePath(_path), op)
+    patch.forEach(({op, path}) => {
+      const observers = this.getTargets(makePath(path), op)
       // Remove duplicate. An observer can be present because it is dependent of a previous observable.
       .filter(o => staleObservers.indexOf(o) === -1)
     
@@ -373,17 +373,17 @@ export class CrafterContainer implements IContainer {
   /**
    * Return a list of observers which depends directly or indirectly on the given observable
    */
-  private getTargets(_path: string, op?: Operation['op']): IObserver[] {
+  private getTargets(path: string, op?: Operation['op']): IObserver[] {
     // Get direct dependencies
     const directDependencies: IObserver[] = []
     if (op) {
-      directDependencies.push(...this.getDirectDependencies({path: _path, op}))
+      directDependencies.push(...this.getDirectDependencies({path, op}))
     } else {
       directDependencies.push(...this.state
         .dependencyGraph
         .nodes
         .filter(isObserver)
-        .filter(node => hasPath(node, _path))
+        .filter(node => hasPath(node, path))
       )
     }
     const targets = directDependencies.concat(
@@ -398,12 +398,17 @@ export class CrafterContainer implements IContainer {
     return targets.filter(unique)
   }
 
-  private getDirectDependencies({op, path: _path}: Operation): IObserver[] {
+  /**
+   * Returns a list of observers directly dependant of the observable
+   * changed by the given operation.
+   * @param param0
+   */
+  private getDirectDependencies({op, path}: Operation): IObserver[] {
     return this.state
       .dependencyGraph
       .nodes
       .filter(isObserver)
-      .filter(isDependent({op, path: _path}))
+      .filter(isDependent({op, path}))
   }
 
   private getCurrentSpiedReactionId(): string {
@@ -436,6 +441,118 @@ export class CrafterContainer implements IContainer {
   }
 
   /**
+   * Return true if this observable is an indirect dependency of the target
+   * @param target 
+   * @param obs 
+   */
+  private isIndirectTarget(target: IObserver, obs: IObservable) {
+    return getAllPathsTo({
+      targetId: target.id,
+      graph: this.state.dependencyGraph
+    }) 
+    .some(path => {
+      const obsIndex = path.indexOf(obs.$id)
+      // The observer $id is present in the path but is not a child of the target.
+      // It is an indirect dependency.
+      return obsIndex > -1 && obsIndex < path.length - 2
+    })
+  }
+
+  /**
+   * This will update the dependency graph given a set of updated observables.
+   * 1- gather all forward patch of the updated observables
+   * 2- find all the direct target of those observables affected by the changes
+   * 3- stale reactions
+   * 4- find updated observable which are indirect source of found targets.
+   *    eg. C0 -> O, C2 -> O, C2 -> C1 // C2 is both a direct and indirect target of O
+   *        C2 won't be ran until all its dependencies have been run.
+   * 5- run other direct targets and store the resulting updated observables
+   * 6- if there was some indirect derivation, add the corresponding
+   *    patch operation paths from the given updated observables passed in arguments.
+   * 7- recall the function which the new updated observables and the new staled derivations.
+   * 
+   * @param observables
+   * @returns the ids of the stale derivations
+   */
+  private updateDerivations(
+    observables: IObservable[],
+    localState?: {
+      ranDerivationIds: string[]
+      staleReactionIds: string[]
+    }): string[] {
+    /* 1 */
+    // Add the ID of the observable to the path to make them unique in the entire graph.
+    const ops = observables.flatMap(({$id, $patch: {forward}}) => forward
+      .map(patch => ({
+        ...patch,
+        path: makePath($id, patch.path)
+      }))
+    )
+     /* 2 */ 
+    const directTargets = ops.flatMap(operation => this.getDirectDependencies({
+      op: operation.op,
+      path: operation.path
+    }))
+    // Exclude already ran derivations if this is a recursive call
+    .filter(d => localState?.ranDerivationIds.includes(d.id) ?? true)
+
+    /* 3 */
+    const reactions = directTargets
+      .filter(isReaction)
+      // Eclude already included reactions if this is a recursive call
+      .filter(d => localState?.staleReactionIds.includes(d.id) ?? true)
+
+    // Stale reactions
+    reactions.forEach(r => r.notifyChangeFor())
+
+    /* 4 */
+    // The list of derivations which have some direct AND indirect dependencies to the
+    // updated observable.
+    const notReadyToRunDerivations: IObserver[] = [] 
+    const indirectSources: IObservable[] = []
+
+    for (const obs of observables) {
+      // Is this observable is used as an indirect source of a direct target.
+      for (const target of directTargets) {
+        if (isDerivation(target)) {
+          if (this.isIndirectTarget(target, obs)) {
+            indirectSources.push(obs)
+            notReadyToRunDerivations.push(target)
+          }
+        }
+      }
+    }
+
+    function isReady(derivation: IObserver) {
+      return !notReadyToRunDerivations.includes(derivation)
+    }
+      
+    const newUpdatedObservables = indirectSources
+    
+    /* 5 */
+    const readyToRunDerivation = directTargets
+      .filter(isDerivation)
+      .filter(isReady)  
+    
+    readyToRunDerivation
+      .forEach(derivation => {
+        // The derivation is stale and will update when accessed
+        /* 6 */
+        newUpdatedObservables.push(derivation.get())
+      })
+
+    /* 7 */
+    const reactionIds = reactions.map(({id}) => id)
+      
+    // Recursive call returning the reactions to run.
+    if (newUpdatedObservables.length) {
+      reactionIds.push(...this.updateDerivations(newUpdatedObservables))
+    }
+    
+    return localState?.staleReactionIds.concat(reactionIds) ?? reactionIds
+  }
+
+  /**
    * The observable (the model) has been updated.
    * It is time to notify the derivation that something has changed.
    * We stale all the derivations which depends of the model.
@@ -443,52 +560,20 @@ export class CrafterContainer implements IContainer {
   private nextState(state: State): void {
     state.isComputingNextState = true
     // List all observers which are dependant of the observale mutated during the transaction.
-    const staleObservers: IObserver[] = []
-    state.updatedObservables.forEach(updatedObservable => {
-      // TODO tracker is not really an observable. Should be store somewhere else.
-      // Tracker
-      if (updatedObservable instanceof Tracker) {
-        const observers = this.getTargets(updatedObservable.$id)      
-        // TODO
-        // Send changes to the observers to let them decide if they are stale or not.
-        observers.forEach(o => o.notifyChangeFor())
-        // Add stale observers
-        staleObservers.push(...observers)
-      } else if (isNode(updatedObservable)){
-        // Node observable with patch
-        updatedObservable.$patch.forward.forEach(({op, path}: Operation) => {
-          const rootId = getRoot(updatedObservable).$id
-          const observers = this.getTargets(rootId + path, op)
-          // Remove duplicate. An observer can be present because it is dependent of a previous observable.
-          .filter(o => staleObservers.indexOf(o) === -1)
-        
-          // Send changes to the observers to let them decide if they are stale or not.
-          observers.forEach(o => o.notifyChangeFor())
+    const staleReactions = this.updateDerivations(state.updatedObservables)
+      .map(id => getGraphNode(id, this.state.dependencyGraph) as IObserver)
 
-          // Add stale observers
-
-          // If it is a top level observer, keep it to re run it.
-          // It is not necessary to run the non top level computed. If you run a top observer,
-          // all dependent children will run.
-          staleObservers.push(
-            ...observers
-            .filter(({isStale}) => isStale)
-            .filter(isTopLevelObserver)
-          )
-        })
-      }
-    })
     // Do something with the transaction patch
     collectTransactionPatches(state.updatedObservables)
 
     // The learning phase is over. Prepare the the state for the next step.
-    state.updatedObservables.clear()  
+    state.updatedObservables = []
 
     state.isComputingNextState = false
 
     // All computed values affected by the last observables mutation are now flagged as stale.
     // Let's run the reaction which uses those computed values.
-    this.runReactions(staleObservers)
+    this.runReactions(staleReactions)
   }
 
   /**
@@ -659,7 +744,7 @@ const isSameEdge = (edge: Edge): (value: Edge) => boolean =>
 (e: Edge): boolean => e.source === edge.source && e.target === edge.target
 
 function collectTransactionPatches(
-  updatedObservables: Map<string, IObservable>
+  updatedObservables: IObservable[]
 ): [string, Migration][] {
   const transactionPatches: [string, Migration][] = []
   updatedObservables.forEach(observable => {

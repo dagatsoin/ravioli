@@ -105,7 +105,7 @@ export type ArrayOperation<T = any> =
 
 export type MapOperation<T = any> = BasicOperation<T> | ClearOperation
 
-export type Migration<O extends Operation = any, R extends Operation = any> = {
+export type Migration<O extends Operation = BasicOperation<any>, R extends Operation = BasicOperation<any>> = {
   forward: O[]
   backward: R[]
 }

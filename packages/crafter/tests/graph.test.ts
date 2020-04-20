@@ -112,14 +112,14 @@ A0 <--+ C2 <--------+
   })
 
   test("getAllPathsTo", function() {
-/*     expect(getAllPathsTo({
+    expect(getAllPathsTo({
       targetId: 'A1',
       graph: graph2
     }).sort()).toEqual([
       ['O0', 'C0', 'C2', 'C3', 'C4', 'A1'],
       ['O0', 'C4', 'A1'],
       ['O1', 'C1', 'C2', 'C3', 'C4', 'A1']
-    ].sort()) */
+    ].sort())
     expect(getAllPathsTo({
       targetId: '0',
       graph

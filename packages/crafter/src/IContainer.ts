@@ -50,11 +50,10 @@ export type State = {
   // The graph of the observers running in this container.
   dependencyGraph: Graph<IObserver | IInstance>
 
-  // A list of observables use during a transaction.
+  // A list of observables used during a transaction.
   // Once the transaction is complete, the manager will
-  // alert all the concerned observers that their dependencies
-  // have a new state
-  updatedObservables: Map<string, IInstance>
+  // update the derivations then the reactions which depends on them
+  updatedObservables: IInstance[]
 }
 
 export interface IContainer {
