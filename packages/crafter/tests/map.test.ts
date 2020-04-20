@@ -111,7 +111,7 @@ test('clone', function() {
     ['2', 'Elwein'],
   ])
 
-  const cloned = clone(toNode<typeof Players['Type']>(players))
+  const cloned = clone(players)
 
   expect(Array.from(cloned.values())).toEqual([
     'Fraktar',
@@ -143,7 +143,7 @@ describe('attach/detach', function() {
     const model = map(object({ name: string() }))
     const instance = model.create([['0', { name: 'Fraktar' }]])
     const nodeRef = instance.get('0')
-    getContext(toInstance(instance)).transaction(() => instance.delete(0))
+    getContext(toInstance(instance)).transaction(() => instance.delete('0'))
     expect(toNode(nodeRef).$parent).toBeUndefined()
     expect(toNode(nodeRef).$parentKey).toBe('')
   })
@@ -345,7 +345,7 @@ describe('Map methods', function() {
   })
   test('delete', function() {
     expect(players.size).toBe(3)
-    getContext(toInstance(players)).transaction(() => players.delete(2))
+    getContext(toInstance(players)).transaction(() => players.delete('2'))
     expect(players.size).toBe(2)
   })
   test('forEach', function() {
