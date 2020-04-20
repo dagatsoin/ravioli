@@ -97,74 +97,105 @@ export function removeNodeEdges({
  * 
  * onLeaf(): void
  * Called each time the crawler reaches a leaf. 
+ *
+ * onStepBack(): void
+ * Called when the crawler step back to the previous node.
  */
 function crawlDepthFirst({
   sourceId,
   graph,
   onNode,
   onFork,
-  onLeaf
+  onLeaf,
+  onStepBack
 }: {
   sourceId: string
   graph: Graph<any>
-  onNode(nodeId: string): void
-  onFork(): void
-  onLeaf(): void
+  onNode?: (nodeId: string) => void
+  onFork?:() => void
+  onLeaf?:() => void
+  onStepBack?:() => void
 }): void {
   function step(currentNodeId: string): void {
       const nodeIds = getTargetIds({sourceId: currentNodeId, graph})
 
-      onNode(currentNodeId)
+      onNode?.(currentNodeId)
 
       // Found a fork
       if (nodeIds.length > 1) {
-        onFork()
+        onFork?.()
       }
 
       // Found a leaf
       if (!nodeIds.length) {
-        onLeaf()
+        onLeaf?.()
       }
 
-      // Crawl through each fork
-      for (const nodeId of nodeIds) {
+      // Crawl through each fork branch
+      for (let i = 0; i < nodeIds.length; i++) {
+        const isLastBranch = i === nodeIds.length - 1
+        const nodeId = nodeIds[i]
         step(nodeId);
+
+        // This was the last branch of the fork. Step back
+        // to previous node.
+        if (isLastBranch) {
+          onStepBack?.()
+        }
       }
   }
   step(sourceId);
 }
 
-export function getAllPaths<T>({
+export function getAllPathsFrom<T>({
   sourceId,
   graph
 }: {
   sourceId: string
   graph: Graph<T>
 }): string[][] {
-  const crawlerState: string[][] = [[]]
+  const crawlerState: string[] = []
   const completePaths: string[][] = []
 
   crawlDepthFirst({
     sourceId,
     graph,
     onNode(nodeId) {
-      crawlerState[crawlerState.length - 1].push(nodeId)
-    },
-    onFork() {
-      // The crawler has reached a fork.
-      // Backup the current path state at this point.
-      // Copy it to create a new path and keep digging.
-      const currentPath = crawlerState[crawlerState.length - 1]
-      crawlerState.push([...currentPath])
+      crawlerState.push(nodeId)
     },
     onLeaf() {
       // The crawler has reached the end of the path.
-      // Pop the queue and step back to the previous fork
-      completePaths.push(crawlerState.pop()!)
+      // Copy the current path as a new complete path and
+      // pop the current path to step back to the previous fork
+      completePaths.push([...crawlerState])
+      crawlerState.pop()
+    },
+    onStepBack() {
+      crawlerState.pop()
     }
   })
 
   return completePaths
+}
+
+export function getAllPathsTo<T>({
+  targetId,
+  graph
+}: {
+  targetId: string
+  graph: Graph<T>
+}): string[][] {
+  const inversedGraph = {
+    nodes: graph.nodes,
+    edges: graph.edges.map(({target, source}) => ({
+      target: source,
+      source: target
+    }))
+  }
+  return getAllPathsFrom({
+    sourceId: targetId,
+    graph: inversedGraph
+  }).map(path => path.reverse())
 }
 
 /**
