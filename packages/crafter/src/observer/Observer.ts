@@ -68,6 +68,10 @@ export function isReaction(observer: IObserver): boolean {
   return observer.type === ObserverType.Autorun || observer.type === ObserverType.Reaction
 }
 
+export function isDerivation(observer: IObserver): boolean {
+  return observer.type === ObserverType.Computed
+}
+
 function toString(type: ObserverType): string {
   switch (type) {
     case ObserverType.Autorun:
