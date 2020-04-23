@@ -40,6 +40,14 @@ import { isNode } from '../lib/isNode'
 import { MapInstance } from '../map/instance'
 import { ArrayInstance } from '../array/instance'
 
+/**
+ * Data flow
+ * prop setter => present replace patch => $applyoperation => $setValue on each child
+ * $setValue => split in child operation replacement => present replace patch ...
+ * 
+ * For a node, $setValue won't affect anything byt will delegate each chunk of value to its children
+ */
+
 export class ObjectInstance<
   TYPE extends {},
   PROPS extends Props<TYPE>,
@@ -116,8 +124,6 @@ export class ObjectInstance<
     }
     // Special case, affecting new value to a Computed
     // may need to reshape the type.
-    // Also, as this is an internal Computed operation
-    // this won't emit patch
     if (this.$$container.isRunningReaction) {
       const valueKeys = Object.keys(value)
       const propsKeys = Object.keys(this.$type.properties)
@@ -147,15 +153,16 @@ export class ObjectInstance<
         add(this as any, value[key], key)
       })
 
-      valueKeys
-        .filter(key => !!value[key]) // exlucde undefined value field
-        .forEach(key => {
-          this.$data[key].$setValue(value[key])
-        })
+      // Rest value to replace
+      const rest: any = valueKeys
+        .filter(key => !missingKeys.includes(key)) // just added above
+        .filter(key => !!value[key]) // exclude undefined value field
+        .reduce((_rest, key) => ({...rest, [key]: value[key]}), {})
+      const proposal = cutDownUpdateOperation(rest, this.$path )
+      present(this, proposal)
     } else {
-      Object.keys(this.$data).forEach(key =>
-        this.$data[key].$setValue(value[key])
-      )
+      const proposal = cutDownUpdateOperation(value, this.$path )
+      present(this, proposal)
     }
   }
 
@@ -180,7 +187,6 @@ export class ObjectInstance<
         operation.value
       )
       if (willEmitPatch) {
-        this.$$container.addUpdatedObservable(this)
         addReplacePatch(this as any, operation, {replaced: backup})
       }
     }
@@ -296,7 +302,7 @@ function addPropGetSet(
         if (instance) {
           // Notify the read of the child node
           if (isNode(instance)) {
-            obj.$$container.notifyRead(instance, makePath(obj.$id, instance.$path))
+            instance.$$container.notifyRead(instance, makePath(getRoot(instance).$id, instance.$path))
           }
           // return the instance if it is a node or the value if it is a leaf
           return unbox(instance)

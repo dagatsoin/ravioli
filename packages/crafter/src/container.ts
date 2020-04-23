@@ -1,14 +1,16 @@
-import { toNode, getRoot, getSnapshot, unique, makePath, isUnique } from './helpers'
+import { toNode, getRoot, getSnapshot, unique, makePath, isUnique, toInstance } from './helpers'
 import { IObservable } from './IObservable'
 import { Operation, isDependent, hasPath, Migration } from './lib/JSONPatch'
 import { IObserver, ObserverType, isObserver, isReaction, isDerivation } from './observer/Observer'
-import { Graph, removeNode, removeNodeEdges, getTreeEdges, Edge, getAllPathsTo } from './Graph'
+import { Graph, removeNode, removeNodeEdges, getGraphEdgesFrom, Edge, getAllPathsTo } from './Graph'
 import { INodeInstance } from './lib/INodeInstance'
 import { Tracker } from './lib/Tracker'
 import { State, IContainer, ContextListener } from './IContainer'
 import { Computed } from './observer/Computed'
+import { IDerivation } from "./observer/IDerivation"
 import { isNode } from './lib/isNode'
 import { isObservable } from './lib/observable'
+import { isInstance } from './lib'
 
 function getInitState(): State {
   return {
@@ -82,13 +84,6 @@ export class CrafterContainer implements IContainer {
     reaction.runAndUpdateDeps() 
   }
 
-  /**
-   * Register a computed source to the container graph
-   */
-  public registerComputedSource(computed: IObserver): void {
-    this.registerObserver(computed)
-  }
-
   public notifyRead(instance: IObservable, observedPath: string): void {
     if (!this.isSpying) {
       return
@@ -97,7 +92,12 @@ export class CrafterContainer implements IContainer {
     if (this.isSpyingPaused) {
       return
     }
-    const paths = this.state.observedPaths.get(this.getCurrentSpiedDerivationId())
+    const spiedDerivationId = this.getCurrentSpiedDerivationId()
+    // Special case, the read observable is the value of the derivation itself.
+    if (observedPath.includes(spiedDerivationId)) {
+      return
+    }
+    const paths = this.state.observedPaths.get(spiedDerivationId)
     // Path is not present, add it.
     if (!!paths && !paths.includes(observedPath)) {
       // The previous added path is a parent of this path.
@@ -108,22 +108,36 @@ export class CrafterContainer implements IContainer {
       const isChildOfPreviousPath = observedPath.includes(previousPath)
       if (isChildOfPreviousPath) {
         paths[paths.length - 1] = observedPath
+        
+        // Remove the old edge
+        const parentEdge = this.state.dependencyGraph.edges.find(e => e.target === spiedDerivationId && e.source === toInstance(instance).$parent?.$id)!
+        if (parentEdge) {
+          const parentNode = getGraphNode(parentEdge.source, this.state.dependencyGraph)
+          // Other edges uses the parent node, don't delete
+          const shouldDeleteParentNode = this.state.dependencyGraph.edges.filter(e => e.source === parentEdge.source || e.target === parentEdge.source).length < 2
+          removeNodeEdges({nodeId: toInstance(parentNode).$id, dependencyGraph: this.state.dependencyGraph})
+          if(shouldDeleteParentNode) {
+            removeNode({node: parentNode, dependencyGraph: this.state.dependencyGraph})
+          }
+        }
       }
       // This path is not a child of the previous path.
       // The observer is reading a new path.
       else {
         paths.push(observedPath)
       }
+      // Add to the graph
+      if (!this.state.dependencyGraph.edges.some(e => e.target === spiedDerivationId && e.source === (isDerivation(instance)? instance.id : instance.$id))) {
+        this.state.dependencyGraph.edges.push({
+          target: spiedDerivationId,
+          source: isDerivation(instance)? instance.id : instance.$id
+        })
+      }
+      if (!this.state.dependencyGraph.nodes.includes(instance)) {
+        this.state.dependencyGraph.nodes.push(instance)
+      }
     }
 
-    // Add to the graph
-    const target = this.getCurrentSpiedDerivationId()! // we are spying
-    
-    this.state.dependencyGraph.edges.push({
-      target,
-      source: instance.$id
-    })
-    this.state.dependencyGraph.nodes.push(instance)
   }
 
   /**
@@ -173,8 +187,6 @@ export class CrafterContainer implements IContainer {
 
     // Transaction is finished, some observable may stale.
     if (this.state.rootTransactionId === id) {
-      this.state.isTransaction = false
-      this.state.rootTransactionId = undefined
       // Invalidate snapshot.
       // Their next computation will be triggered lazily.
       this.state.updatedObservables.forEach((o: IObservable) => {
@@ -187,7 +199,8 @@ export class CrafterContainer implements IContainer {
       })
       
       this.nextState(this.state) 
-      
+      this.state.isTransaction = false
+      this.state.rootTransactionId = undefined      
     }
     return result
   }
@@ -475,20 +488,23 @@ export class CrafterContainer implements IContainer {
    * @returns the ids of the stale derivations
    */
   private updateDerivations(
-    observables: IObservable[],
+    observables: (IObservable | IDerivation<any>)[],
     localState?: {
       ranDerivationIds: string[]
       staleReactionIds: string[]
     }): string[] {
     /* 1 */
     // Add the ID of the observable to the path to make them unique in the entire graph.
-    const ops = observables.flatMap(({$id, $patch: {forward}}) => forward
-      .map(patch => ({
-        ...patch,
-        path: makePath($id, patch.path)
-      }))
-    )
-     /* 2 */ 
+    const ops = observables.flatMap(obs => {
+      const {$patch: {forward}} = obs
+
+      return forward
+        .map(patch => ({
+          ...patch,
+          path: makePath(isDerivation(obs)? '' : getRoot(toInstance(obs)).$id, patch.path)
+        }))
+    })
+    /* 2 */ 
     const directTargets = ops.flatMap(operation => this.getDirectDependencies({
       op: operation.op,
       path: operation.path
@@ -536,9 +552,9 @@ export class CrafterContainer implements IContainer {
     
     readyToRunDerivation
       .forEach(derivation => {
-        // The derivation is stale and will update when accessed
+        derivation.runAndUpdateDeps()
         /* 6 */
-        newUpdatedObservables.push(derivation.get())
+        newUpdatedObservables.push(derivation)
       })
 
     /* 7 */
@@ -618,7 +634,7 @@ export class CrafterContainer implements IContainer {
  * Return an observer stored in the dependencies graph.
  * Thrown if not found
  */
-function getGraphNode(id: string, graph: Graph<IObserver | IObservable>): IObserver | IObservable {
+function getGraphNode(id: string, graph: Graph<IObservable | IObserver | IDerivation<any>>): IObserver | IObservable {
   const child = graph
     .nodes
     .find(node => getNodeId(node) === id)
@@ -648,7 +664,7 @@ function removeObserver({
 
   if (targetId) {
     // Remove all dependencies of this observer
-    getTreeEdges({
+    getGraphEdgesFrom({
       targetId,
       graph: dependencyGraph
     })
@@ -668,9 +684,11 @@ function removeObserver({
  * Return the id of an observable or an observer
  * @param node
  */
-function getNodeId(node: IObservable | IObserver): string {
+function getNodeId(node: IObservable | IObserver | IDerivation<any>): string {
   return isObservable(node)
-    ? node.$id
+    ? isDerivation(node)
+      ? node.id
+      : node.$id
     : node.id
 }
 
@@ -689,7 +707,7 @@ function getDependencyTree({
   targetId: string,
   graph: Graph<IObserver | IObservable>
 }): Graph<IObserver | IObservable> {
-  const edges = getTreeEdges({
+  const edges = getGraphEdgesFrom({
     targetId,
     graph
   })

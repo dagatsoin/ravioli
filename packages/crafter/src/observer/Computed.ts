@@ -1,15 +1,12 @@
 import { IObservable } from '../IObservable'
 import { observable, isObservable } from '../lib/observable'
 import { ObserverType, Observer } from './Observer'
-import { LeafInstance } from '../lib/LeafInstance'
-import { isPrimitive } from '../Primitive'
-import {  makePath, toInstance } from '../helpers'
+import {  makePath, toInstance, toLeaf } from '../helpers'
 import { IContainer } from '../IContainer'
-import { isInstance } from '../lib'
-
-export interface IComputed<T> {
-  get(): T
-}
+import { isInstance } from '../lib/Instance'
+import { isNode } from '../lib/isNode'
+import { Migration } from '../lib/JSONPatch'
+import { IDerivation } from './IDerivation'
 
 /**
  * A Computed is a memoized pure function which outputs either:
@@ -24,10 +21,11 @@ export interface IComputed<T> {
 
 const type = ObserverType.Computed
 
-export class Computed<T> extends Observer implements IComputed<T> {
+export class Computed<T> extends Observer implements IDerivation<T> {
   public get isStale(): boolean {
     return this._isStale
   }
+  public $isObservable: true = true
   public type = type
   public dependencyPaths: string[] = []
   public readonly fun: (boundThis?: IObservable) => T
@@ -38,6 +36,7 @@ export class Computed<T> extends Observer implements IComputed<T> {
   private valueId?: string
   private readonly isBoxed: boolean
   private readonly isStrict: boolean
+  private patch: Migration = {forward: [], backward: []}
 
   constructor(fun: (boundThis?: IObservable) => T, options?: ComputedOptions) {
     super({
@@ -54,25 +53,46 @@ export class Computed<T> extends Observer implements IComputed<T> {
       : true
   }
 
-  public get(target?: IObservable): T {    
+  public get $id(): string {
+    return this.isBoxed
+      ? this.id
+      : toInstance(this.value).$id
+  }
 
+  public $transactionDidEnd(): void {
+    if (isInstance(this.value) && !isNode(this.value)) {
+      this.patch = {backward:[], forward: []}
+    }
+  }
+
+  public get $patch(): Migration {
+    return isNode(this.value)
+      ? this.value.$patch
+      : this.patch
+  }
+
+  public get(target?: IObservable): T {    
     // Bypass if no reaction is running. That means that the user force the update.
     if (this.valueContext.isRunningReaction) {
-      this.valueContext.registerComputedSource(this)
+      this.valueContext.notifyRead(this as any, makePath(this.id))
     }
+    
     if (this._isStale) {
       this.runAndUpdateDeps(target)
     }
-    // The value is:
-    // - a primitive,
-    // - a LeafInstance
-    // - a non observable object
-    // - an observable node but the user wants a boxed value
-    // The observers will track the Computed ID.
+
     if (!isObservable(this.value) || this.isBoxed) {
-      this.valueContext.notifyRead(this as any, makePath(this.id))
+      // The value is:
+      // - a non observable object
+      // - a boxed value
+      return this.value
+    } else if (isNode(this.value)){
+      // The value is an observable node
+      return this.value
+    } else {
+      // The value is an observable leaf
+      return toLeaf<T>(this.value).$value
     }
-    return this.value
   }
 
   public get observedValueId(): string{
@@ -116,24 +136,16 @@ export class Computed<T> extends Observer implements IComputed<T> {
     this.valueContext.pauseSpies()
     // The observer run for the first. We set the observable result.
     if (!this.isIinitialized) {
-      // The computation return a leaf instance.
-      if (value instanceof LeafInstance) {
-        // A leaf instance is not a reactive source
-        this.value = value.$data
-      }
-      // The computation return a primitive
-      else if (isPrimitive(value)) {
-        // This must be an observable value
+      // This is a boxed value
+      if (this.isBoxed) {
         this.value = value
-      }
-      // The computation return an object
-      else {
-        // The user don't want a deep observable object.
-        if (this.isBoxed) {
-          this.value = value
-        } else {
-          this.value = observable(value, { context: this.valueContext, isStrict: this.isStrict, id: this.valueId })         
-        }
+      } else {
+        // The id of the observable is a path formed with this computed id as a prefix.
+        // This is a workaround to be able to recognize chain access through this observable
+        // during read notification
+        const id = this.valueContext.getUID(this.id + '/value')
+        this.valueContext.useUID(id)
+        this.value = observable(value, { context: this.valueContext, isStrict: this.isStrict,  id })
       }
 
       this.isIinitialized = true
@@ -143,6 +155,9 @@ export class Computed<T> extends Observer implements IComputed<T> {
     else {
       if (isInstance(this.value)) {
         this.valueContext.transaction(() => toInstance(this.value).$setValue(value))
+        if (!isNode(this.value)) {
+          this.patch.forward = [{op: "replace", path: makePath(this.value.$id), value: toLeaf(this.value).$value}]
+        }
       } else {
         this.value = value
       }
@@ -170,6 +185,6 @@ export type ComputedOptions = {
   contexts?: {output?: IContainer, source?: IContainer}
 }
 
-export function computed<T>(fun: (boundThis?: IObservable) => T, options?: ComputedOptions): IComputed<T> {
+export function computed<T>(fun: (boundThis?: IObservable) => T, options?: ComputedOptions): IDerivation<T> {
   return new Computed(fun, options)
 }

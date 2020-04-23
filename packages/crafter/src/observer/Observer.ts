@@ -69,7 +69,7 @@ export function isReaction(observer: IObserver): boolean {
   return observer.type === ObserverType.Autorun || observer.type === ObserverType.Reaction
 }
 
-export function isDerivation(observer: IObserver): observer is Computed<any> {
+export function isDerivation(observer: any): observer is Computed<any> {
   return observer.type === ObserverType.Computed
 }
 

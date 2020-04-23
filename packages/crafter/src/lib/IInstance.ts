@@ -12,7 +12,6 @@ export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent, IObservab
   $data: any
   $snapshot: SNAPSHOT
   $value: TYPE
-  $patch: Migration
   $addPatch(patch: Migration): void
   $applySnapshot(snapshot: SNAPSHOT): void
   $setValue(value: SNAPSHOT): void

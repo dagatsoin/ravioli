@@ -312,3 +312,27 @@ describe('apply JSON operation', function() {
     ])
   })
 })
+
+test("replace the value with $setValue", function(){
+  const model = object({
+    name: string(),
+    stats: object({
+      health: number()
+    })
+  }).create()
+  getContext(toInstance(model)).transaction(() => {
+    toInstance(model).$setValue({
+      name: "Fraktar",
+      stats: {
+        health: 10
+      }
+    })
+    console.log(toInstance(model).$patch)
+  })
+  expect(getSnapshot(model)).toEqual({
+    name: "Fraktar",
+    stats: {
+      health: 10
+    }
+  })
+})

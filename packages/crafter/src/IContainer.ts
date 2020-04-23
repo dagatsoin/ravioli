@@ -1,8 +1,9 @@
 import { INodeInstance } from "./lib/INodeInstance"
 import { IObserver } from "./observer/Observer"
 import { Graph } from "./Graph"
-import { IObservable as IInstance } from "./IObservable"
+import { IObservable as IInstance, IObservable } from "./IObservable"
 import { Operation, BasicOperation } from "./lib/JSONPatch"
+import { IDerivation } from "./observer/IDerivation"
 
 export type ContextListener = (patch: [string, BasicOperation[]][]) => void
 
@@ -48,7 +49,7 @@ export type State = {
   isComputingNextState: boolean
 
   // The graph of the observers running in this container.
-  dependencyGraph: Graph<IObserver | IInstance>
+  dependencyGraph: Graph<IObservable | IObserver | IDerivation<any>>
 
   // A list of observables used during a transaction.
   // Once the transaction is complete, the manager will
@@ -67,11 +68,6 @@ export interface IContainer {
    * This will add the observer and its dependencies to the graph.
    */
   initReaction(reaction: IObserver): void
-
-  /**
-   * Register a computed source to the container graph
-   */
-  registerComputedSource(observer: IObserver): void
 
   /**
    * A transaction is the smallest unit of work of Crafter app.

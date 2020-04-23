@@ -1,4 +1,4 @@
-import { Graph, getTreeEdges, getAllPathsFrom, getAllPathsTo } from "../src/Graph"
+import { Graph, getGraphEdgesFrom, getAllPathsFrom, getAllPathsTo } from "../src/Graph"
 
 describe("Test implementation of graph utils", function() {
 /*   
@@ -82,7 +82,7 @@ A0 <--+ C2 <--------+
   }
   
   test("getSubTreeEdges", function() {
-    expect(getTreeEdges({
+    expect(getGraphEdgesFrom({
       targetId: '0',
       graph
     })).toEqual([

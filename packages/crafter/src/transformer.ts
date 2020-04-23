@@ -1,4 +1,5 @@
-import { computed, IComputed } from "./observer/Computed"
+import { computed } from "./observer/Computed"
+import { IDerivation } from "./observer/IDerivation"
 import { addHiddenProp } from "./utils/utils"
 import { IContainer } from "./IContainer"
 
@@ -21,9 +22,9 @@ export function createTransformer<A, B>(
     }
 
     // Memoizes: object id -> reactive view that applies transformer to the object
-    const views: { [id: number]: IComputed<B> } = {}
+    const views: { [id: number]: IDerivation<B> } = {}
     const isBoxed = !!options?.isBoxed
-    function createView(sourceObject: A): IComputed<B> {
+    function createView(sourceObject: A): IDerivation<B> {
         return computed(
             () => transformer(sourceObject),
             {

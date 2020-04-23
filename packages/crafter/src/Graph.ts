@@ -31,15 +31,19 @@ function hasOneParent({
 }
 
 /**
- * Return the edges of a sub graph which starts from this target.
- * The returned graph is a tree. That means that the crawler will stop digging
- * as soon as a node has two parents.
- * Eg.  a -> b |
- *      c -> d -> e
+ * Return the edges of a sub graph which leads to this target.
+ * The returned graph is only dependant of the target.
+ * That means that the crawler will stop digging as soon as
+ * a parent of a node is dependant of another source.
+ * Eg.       a -> b -> c
+ *                |    | 
+ *                v    v
+ *      x -> y -> e <- d
  * 
- * If i want to get the sub tree from 'a', it will return 'a' and 'b' because 'e' has two parents ('d' and 'b')   
+ * If i want to get the sub tree from 'a', it will return 'a', 'b', 'c' and 'd'
+ * because 'y' is not dependant from 'a'
  */
-export function getTreeEdges<T>({
+export function getGraphEdgesFrom<T>({
   targetId,
   graph
 }: {
@@ -54,7 +58,7 @@ export function getTreeEdges<T>({
   return [
     ...firstLevelEdges, 
     ...firstLevelEdges
-    .flatMap(({source}) => getTreeEdges({
+    .flatMap(({source}) => getGraphEdgesFrom({
       targetId: source,
       graph,
     }))
@@ -82,7 +86,7 @@ export function removeNodeEdges({
   dependencyGraph: Graph<any>
 }): void {
   dependencyGraph.edges = dependencyGraph.edges.filter(
-    edge => edge.source === nodeId || edge.target === nodeId
+    edge => edge.source !== nodeId && edge.target !== nodeId
   )
 }
 

@@ -1,4 +1,4 @@
-import { toInstance, getContext } from '../src/helpers'
+import { toInstance, getContext, toLeaf } from '../src/helpers'
 import { getObservable, observable } from '../src/lib/observable'
 import { autorun } from '../src/observer/Autorun'
 import { computed } from '../src/observer/Computed'
@@ -6,9 +6,32 @@ import { number, string } from '../src/Primitive'
 import { object } from '../src/object'
 import { getGlobal } from '../src/utils/utils'
 import { isInstance } from '../src/lib/Instance'
-import { CrafterContainer } from '../src'
+import { CrafterContainer, container } from '../src'
 
 const context = getGlobal().$$crafterContext
+
+test("Computed notifies read when accessed", function() {
+  context.clearContainer()
+  const model = object({
+    stats: object({
+      health: number()
+    })
+  }).create({stats: {health: 0}})
+   
+  const observed = computed(() => model.stats.health)
+
+  let observedPaths
+  let leafId
+
+  const dispose = autorun(() => {
+    observed.get()
+    const spyId = context.snapshot.spyReactionQueue[0]
+    leafId = toLeaf(context.snapshot.dependencyGraph.nodes[4]).$id
+    observedPaths = context.snapshot.observedPaths.get(spyId)
+  })
+  expect(observedPaths).toEqual(["/" + leafId])
+  dispose()
+})
 
 test('Computed is evaluated and register in the manager lazily, when triggered from an autorun', function() {
   const model = observable({
