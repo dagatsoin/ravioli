@@ -4,8 +4,6 @@ import { computed } from '../src/observer/Computed'
 import { getContext, toInstance } from '../src/helpers'
 import { createTracker } from '../src/lib/Tracker'
 import { getGlobal } from '../src/utils/utils'
-import { object } from '../src/object'
-import { number, string } from '../src/Primitive'
 import { array } from '../src'
 
 type Transform = <M, I>(
@@ -127,7 +125,8 @@ test('Autorun is called as creation and register in the manager', function() {
 })
 
 test('Nested autorun execution. Trigger an autorun while another autorun is running.', function() {
-  getGlobal().$$crafterContext.clearContainer()
+  const context = getGlobal().$$crafterContext
+  context.clearContainer()
   const oData = observable({ x: 1 })
 
   // Mimic reactive props of crafter-react
@@ -156,7 +155,8 @@ test('Nested autorun execution. Trigger an autorun while another autorun is runn
   const dispose0 = autorun(({isFirstRun}) => {
     render(y.get())
     if (!isFirstRun) {
-      expect(isParentRunning).toBeTruthy()
+      // Since async render implementation in React, the child render is done after the parent render.
+      expect(isParentRunning).toBeFalsy()
     }
   })
 

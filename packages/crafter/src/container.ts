@@ -1,4 +1,4 @@
-import { toNode, getRoot, getSnapshot, unique, makePath, isUnique, toInstance } from './helpers'
+import { toNode, getRoot, getSnapshot, unique, makePath, isUnique, toInstance, noop } from './helpers'
 import { IObservable } from './IObservable'
 import { Operation, isDependent, hasPath, Migration } from './lib/JSONPatch'
 import { IObserver, ObserverType, isObserver, isReaction, isDerivation } from './observer/Observer'
@@ -206,9 +206,14 @@ export class CrafterContainer implements IContainer {
         }
       })
       
-      this.nextState(this.state) 
+      this.nextState(this.state)
       this.state.isTransaction = false
       this.state.rootTransactionId = undefined      
+      // During the reactions runs, other observable has been modified.
+      // Relaunch a "fake" to react to the changes
+      if (this.state.updatedObservables.length) {
+        this.transaction(noop)  
+      }  
     }
     return result
   }
@@ -509,7 +514,7 @@ export class CrafterContainer implements IContainer {
       return forward
         .map(patch => ({
           ...patch,
-          path: makePath(isDerivation(obs)? '' : getRoot(toInstance(obs)).$id, patch.path)
+          path: makePath(isDerivation(obs) || obs instanceof Tracker ? '' : getRoot(toInstance(obs)).$id, patch.path)
         }))
     })
     /* 2 */ 

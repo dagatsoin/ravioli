@@ -29,13 +29,16 @@ export class Tracker implements IObservable, ITracker {
     this.context.useUID(this.id)
   }
 
-  public $transactionDidEnd(): void {}
+  public $transactionDidEnd(): void {
+    this.$patch.forward = []
+  }
 
   public reportObserved(): void {
     this.context.notifyRead(this, makePath(this.id))
   }
 
   public reportChanged(): void {
+    this.$patch.forward = [{op: 'replace', path: makePath(this.id), value: ''}]
     this.context.transaction(() => this.context.addUpdatedObservable(this))
   }
 }

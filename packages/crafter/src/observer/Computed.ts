@@ -159,6 +159,7 @@ export class Computed<T> extends Observer implements IDerivation<T> {
           this.patch.forward = [{op: "replace", path: makePath(this.value.$id), value: toLeaf(this.value).$value}]
         }
       } else {
+        this.patch.forward = [{op: "replace", path: makePath(this.id), value: this.value}]
         this.value = value
       }
     }
