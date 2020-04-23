@@ -51,7 +51,7 @@ test('Simple autorun with a nested property dependency', function(){
 test('Autorun with computed', function() {
   getGlobal().$$crafterContext.clearContainer()
   const model = observable({
-   /*  name: 'Fraktar',
+    name: 'Fraktar',
     buffs: [
       {
         type: 'increase',
@@ -65,42 +65,42 @@ test('Autorun with computed', function() {
         quantity: 1,
       },
     ],
-     */
+    
     stats: {
       health: 10,
-      /* force: 4,
+      force: 4,
       aura: 18,
-      phase: 2, */
+      phase: 2,
     },
   })
 
   const health = computed(() => {
-  //  const healthBuff = model.buffs.find(b => b.stat === 'health')
-    return model.stats.health// + (healthBuff ? healthBuff.amount : 0)
+    const healthBuff = model.buffs.find(b => b.stat === 'health')
+    return model.stats.health + (healthBuff ? healthBuff.amount : 0)
   })
 
   const derivation: any = {}
 
   const dispose = autorun(() => {
- //   derivation.name = model.name
+    derivation.name = model.name
     derivation.health = health.get()
- //   derivation.aura = model.stats.aura
-//    derivation.phase = model.stats.phase
+    derivation.aura = model.stats.aura
+    derivation.phase = model.stats.phase
   })
   context.transaction(() => {
     model.stats.health = 5
   })
-//  expect(derivation.health).toEqual(10)
-  expect(derivation.health).toEqual(5)
-  /* context.transaction(() => {
+  expect(derivation.health).toEqual(10)
+  context.transaction(() => {
     model.stats.health = 6
   })
-  expect(derivation.health).toEqual(11) */
+  expect(derivation.health).toEqual(11)
   dispose()
   expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
 }) 
-/* 
+
 test('Autorun is called as creation and register in the manager', function() {
+  getGlobal().$$crafterContext.clearContainer()
   const model = observable({
     name: 'Fraktar',
     isAlive: true,
@@ -120,13 +120,14 @@ test('Autorun is called as creation and register in the manager', function() {
     model.isAlive
   })
 
-  expect(context.snapshot.dependencyGraph.nodes.length).toBe(1)
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(2)
   expect(autoRunCount).toBe(1)
   dispose()
   expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
 })
 
 test('Nested autorun execution. Trigger an autorun while another autorun is running.', function() {
+  getGlobal().$$crafterContext.clearContainer()
   const oData = observable({ x: 1 })
 
   // Mimic reactive props of crafter-react
@@ -177,6 +178,7 @@ test('Nested autorun execution. Trigger an autorun while another autorun is runn
 })
 
 test('Throwing during first run will dispose the autorun', function() {
+  getGlobal().$$crafterContext.clearContainer()
   expect(() => autorun(() => {
     throw new Error('BOOT ERROR!')
   })).toThrow()
@@ -184,6 +186,7 @@ test('Throwing during first run will dispose the autorun', function() {
 })
 
 test('Throwing during an autorun will dispose the autorun', function() {
+  getGlobal().$$crafterContext.clearContainer()
   const model = observable({count: 1})
   autorun(() => {
     if (model.count === 1) {
@@ -194,32 +197,11 @@ test('Throwing during an autorun will dispose the autorun', function() {
   })
 })
 
-test('Accept computed as property', function() {
-  const player = object({
-    armor: number(),
-    health: number(),
-    stat: computed((self: any) => ({
-      health: self.armor + self.health
-    }))
-  }).create({armor: 1, health: 1} as any)
-
-  let stat
-  
-  expect(player.stat.health).toBe(2)
-  
-  autorun(() => stat = {...player.stat})
-
-  expect(stat).toEqual({ health: 2 })
-
-  getContext(toInstance(player)).transaction(() => player.health = 2)
-
-  expect(stat).toEqual({ health: 3 })
-})
-
 test("array length reaction", function(){
+  getGlobal().$$crafterContext.clearContainer()
   const model = array(string()).create()
   let length
   autorun(() => length = model.length)
   getContext(toInstance(model)).transaction(() => model.push('fraktar'))
   expect(length).toBe(1)
-}) */
+})

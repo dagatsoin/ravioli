@@ -5,6 +5,8 @@ import { object, cutDownUpdateOperation } from '../src/object'
 import { number, string } from '../src/Primitive'
 import { getGlobal } from '../src/utils/utils'
 import { map } from '../src/map/factory'
+import { computed } from '../src/observer/Computed'
+import { autorun } from '../src/observer/Autorun'
 
 test('Create complexe object Type', function() {
   const Player = object({
@@ -187,6 +189,28 @@ test("Reshape an existing type", function() {
   })
 
   expect(model.stats.health).toBe(10)
+})
+
+test('Accept computed as property', function() {
+  const player = object({
+    armor: number(),
+    health: number(),
+    stat: computed((self: any) => ({
+      health: self.armor + self.health
+    }))
+  }).create({armor: 1, health: 1} as any)
+
+  let stat
+  
+  expect(player.stat.health).toBe(2)
+  
+  autorun(() => stat = {...player.stat})
+
+  expect(stat).toEqual({ health: 2 })
+
+  getContext(toInstance(player)).transaction(() => player.health = 2)
+
+  expect(stat).toEqual({ health: 3 })
 })
 
 describe('JSON migration generation', function() {

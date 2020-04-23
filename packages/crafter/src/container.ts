@@ -127,10 +127,18 @@ export class CrafterContainer implements IContainer {
         paths.push(observedPath)
       }
       // Add to the graph
-      if (!this.state.dependencyGraph.edges.some(e => e.target === spiedDerivationId && e.source === (isDerivation(instance)? instance.id : instance.$id))) {
+      if (!this.state.dependencyGraph.edges.some(e => e.target === spiedDerivationId && e.source === (
+        isObserver(instance) && // FIXME Test this first because it will access any "type" getter if this is an instance. 
+        isDerivation(instance)
+          ? instance.id
+          : instance.$id
+        ))) {
         this.state.dependencyGraph.edges.push({
           target: spiedDerivationId,
-          source: isDerivation(instance)? instance.id : instance.$id
+          source: isObserver(instance) && // FIXME Test this first because it will access any "type" getter if this is an instance. 
+            isDerivation(instance)
+              ? instance.id
+              : instance.$id
         })
       }
       if (!this.state.dependencyGraph.nodes.includes(instance)) {
@@ -664,7 +672,7 @@ function removeObserver({
 
   if (targetId) {
     // Remove all dependencies of this observer
-    getGraphEdgesFrom({
+    const deps = getGraphEdgesFrom({
       targetId,
       graph: dependencyGraph
     })
@@ -672,11 +680,15 @@ function removeObserver({
       .reduce<string[]>((ids, edge) => ids.concat([edge.source, edge.target]), [])
       .filter(isUnique)
       // Delete each node and their edges
-      .forEach(id => {
+    if (deps.length) {
+      deps.forEach(id => {
         const node = getGraphNode(id, dependencyGraph)
         removeNode({node, dependencyGraph})
         removeNodeEdges({ nodeId: getNodeId(node), dependencyGraph })
       })
+    } else {
+      removeNode({node: observer, dependencyGraph})
+    }
   }
 }
 
