@@ -6,7 +6,7 @@ import { IContainer } from '../IContainer'
 import { isInstance } from '../lib/Instance'
 import { isNode } from '../lib/isNode'
 import { Migration } from '../lib/JSONPatch'
-import { IDerivation } from './IDerivation'
+import { IComputed } from './IDerivation'
 
 /**
  * A Computed is a memoized pure function which outputs either:
@@ -21,13 +21,12 @@ import { IDerivation } from './IDerivation'
 
 const type = ObserverType.Computed
 
-export class Computed<T> extends Observer implements IDerivation<T> {
+export class Computed<T> extends Observer implements IComputed<T> {
   public get isStale(): boolean {
     return this._isStale
   }
   public $isObservable: true = true
   public type = type
-  public dependencyPaths: string[] = []
   public readonly fun: (boundThis?: IObservable) => T
   private value!: T
   private isAlive: boolean = false
@@ -36,7 +35,7 @@ export class Computed<T> extends Observer implements IDerivation<T> {
   private valueId?: string
   private readonly isBoxed: boolean
   private readonly isStrict: boolean
-  private patch: Migration = {forward: [], backward: []}
+  private migration: Migration = {forward: [], backward: []}
 
   constructor(fun: (boundThis?: IObservable) => T, options?: ComputedOptions) {
     super({
@@ -49,7 +48,7 @@ export class Computed<T> extends Observer implements IDerivation<T> {
     this.valueContext = options?.contexts?.output || this.context
     this.valueId = options?.valueId
     this.isStrict = options && options.useOptional !== undefined
-      ? options.useOptional
+      ? options.useOptional === false
       : true
   }
 
@@ -61,22 +60,17 @@ export class Computed<T> extends Observer implements IDerivation<T> {
 
   public $transactionDidEnd(): void {
     if (isInstance(this.value) && !isNode(this.value)) {
-      this.patch = {backward:[], forward: []}
+      this.migration = {backward:[], forward: []}
     }
   }
 
-  public get $patch(): Migration {
+  public get $migration(): Migration {
     return isNode(this.value)
-      ? this.value.$patch
-      : this.patch
+      ? this.value.$migration
+      : this.migration
   }
 
   public get(target?: IObservable): T {    
-    // Bypass if no reaction is running. That means that the user force the update.
-    if (this.valueContext.isRunningReaction) {
-      this.valueContext.notifyRead(this as any, makePath(this.id))
-    }
-    
     if (this._isStale) {
       this.runAndUpdateDeps(target)
     }
@@ -85,6 +79,10 @@ export class Computed<T> extends Observer implements IDerivation<T> {
       // The value is:
       // - a non observable object
       // - a boxed value
+      
+      // As the value is not observable, the computed will be used as
+      // to box it and set as the current running observer dependency.
+      this.valueContext.notifyRead(this as any, makePath(this.id))
       return this.value
     } else if (isNode(this.value)){
       // The value is an observable node
@@ -110,6 +108,9 @@ export class Computed<T> extends Observer implements IDerivation<T> {
   }
 
   public runAndUpdateDeps(target?: IObservable): void {
+    if (!this._isStale) {
+      return
+    }
     // The observer runs for the first time or is re employed by an other observer
     if (!this.isAlive) {
       this.isAlive = true
@@ -122,9 +123,9 @@ export class Computed<T> extends Observer implements IDerivation<T> {
     // In such case we need to listen to both contexts. 
 
     if (this.valueContext !== this.context) {
-      this.valueContext.startSpyDerivation(this.id)
+      this.valueContext.startSpyObserver(this)
     }
-    this.context.startSpyDerivation(this.id)
+    this.context.startSpyObserver(this)
 
     // When creating the observable value, the factory emits read signals for each property.
     // Those signals are not useful and must be bypassed by compute the value BEFORE (1) setting it
@@ -144,22 +145,21 @@ export class Computed<T> extends Observer implements IDerivation<T> {
         // This is a workaround to be able to recognize chain access through this observable
         // during read notification
         const id = this.valueContext.getUID(this.id + '/value')
-        this.valueContext.useUID(id)
         this.value = observable(value, { context: this.valueContext, isStrict: this.isStrict,  id })
       }
 
       this.isIinitialized = true
     }
     // The observer has already ran. We update the observable value.
-    // Note this $setValue won't emit any patch, because it only happens during the learning phase.
+    // Note this $setValue won't emit any migration, because it only happens during the learning phase.
     else {
       if (isInstance(this.value)) {
         this.valueContext.transaction(() => toInstance(this.value).$setValue(value))
         if (!isNode(this.value)) {
-          this.patch.forward = [{op: "replace", path: makePath(this.value.$id), value: toLeaf(this.value).$value}]
+          this.migration.forward = [{op: "replace", path: makePath(this.value.$id), value: toLeaf(this.value).$value}]
         }
       } else {
-        this.patch.forward = [{op: "replace", path: makePath(this.id), value: this.value}]
+        this.migration.forward = [{op: "replace", path: makePath(this.id), value: this.value}]
         this.value = value
       }
     }
@@ -170,11 +170,14 @@ export class Computed<T> extends Observer implements IDerivation<T> {
     if (this.context.isRunningReaction || this.valueContext.isRunningReaction) {
       this._isStale = false
     }
-    const dependencyPaths: string[] = []
+
     if (this.valueContext !== this.context) {
-      dependencyPaths.push(...this.valueContext.stopSpyDerivation(this.id))
+      this.dependencies = [...this.valueContext.getCurrentSpyedObserverDeps(this.id)]
+      this.valueContext.stopSpyObserver(this.id)
+    } else {
+      this.dependencies = [...this.context.getCurrentSpyedObserverDeps(this.id)]
+      this.context.stopSpyObserver(this.id)    
     }
-    this.dependencyPaths = dependencyPaths.concat(this.context.stopSpyDerivation(this.id))
   }
 }
 
@@ -186,6 +189,6 @@ export type ComputedOptions = {
   contexts?: {output?: IContainer, source?: IContainer}
 }
 
-export function computed<T>(fun: (boundThis?: IObservable) => T, options?: ComputedOptions): IDerivation<T> {
+export function computed<T>(fun: (boundThis?: IObservable) => T, options?: ComputedOptions): IComputed<T> {
   return new Computed(fun, options)
 }

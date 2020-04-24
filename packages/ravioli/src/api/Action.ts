@@ -1,4 +1,4 @@
-import { Operation } from '@warfog/crafter'
+import { Command } from '@warfog/crafter'
 import { Mutation } from './Acceptor'
 import { Proposal } from './IPresentable'
 import { MutationName } from './IComponentFactory'
@@ -44,7 +44,7 @@ export type StepContext<
 > = {
   model: MODEL
   acceptedMutations: MUTATION
-  patch: Operation[]
+  patch: Command[]
   controlState: CONTROL_STATES
   previousControlState: CONTROL_STATES
 }

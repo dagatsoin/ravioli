@@ -4,7 +4,6 @@ import { IContainer } from '../IContainer'
 type AutorunFunction = (p:{isFirstRun: boolean, dispose: () => void}) => void
 
 export class Autorun extends Observer {
-  public dependencyPaths: string[] = []
   public type = ObserverType.Autorun
   public get isStale(): boolean {
     return this._isStale
@@ -21,22 +20,18 @@ export class Autorun extends Observer {
     this.context.initReaction(this)
   }
 
-  public isDependent(observableId: string): boolean {
-    return this.dependencyPaths.some(path => path.includes(observableId))
-  }
-
   public dispose = (): void => {
     this._isStale = true
     // todo extract to super()
     // Maybe the autorun was running
-    this.context.stopSpyDerivation(this.id)
+    this.context.stopSpyObserver(this.id)
     this.context.onDisposeObserver(this)
   }
 
   public runAndUpdateDeps(): void {
     if (this._isStale) {
       let error
-      this.context.startSpyReaction(this.id)
+      this.context.startSpyObserver(this)
       try {
         this.fun({isFirstRun: this.isFirstRun, dispose: this.dispose})
         if (this.isFirstRun) {
@@ -50,7 +45,8 @@ export class Autorun extends Observer {
         this.context.onObserverError(this)
         error = e
       } finally {
-        this.dependencyPaths = this.context.stopSpyReaction(this.id)
+        this.dependencies = this.context.getCurrentSpyedObserverDeps(this.id)
+        this.context.stopSpyObserver(this.id)
         this._isStale = false
       }
       if (error) {

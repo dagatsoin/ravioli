@@ -9,10 +9,11 @@ import {
 } from './IComponentFactory'
 import { Proposal } from './IPresentable'
 import { Mutation } from './Acceptor'
+import { IObservable } from '@warfog/crafter'
 
 export interface IComponentInstance<
   TYPE,
-  REPRESENTATION,
+  REPRESENTATION extends IObservable,
   ACTIONS extends Actions<any, any, any>,
   MUTATIONS extends Mutation<any, any>
 > {

@@ -1,4 +1,5 @@
 import { IContainer } from '../IContainer'
+import { Migration } from '../lib/JSONPatch'
 
 type Global = {
   // eslint-disable-next-line camelcase
@@ -33,4 +34,9 @@ export function addHiddenProp(object: any, propName: PropertyKey, value: any): v
       configurable: true,
       value
   })
+}
+
+export function mergeMigrations(from: Migration<any, any>, to: Migration<any, any>) {
+  to.forward.push(...from.forward)
+  to.backward.push(...from.backward)
 }

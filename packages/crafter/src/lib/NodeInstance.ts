@@ -3,10 +3,10 @@ import { IInstance } from './IInstance'
 import {
   DataNode,
   INodeInstance,
-  PatchListener,
+  MigrationListener,
 } from './INodeInstance'
 import { Instance } from './Instance'
-import { Operation } from './JSONPatch'
+import { Command } from './JSONPatch'
 import { IContainer } from '../IContainer'
 
 /**
@@ -16,10 +16,10 @@ import { IContainer } from '../IContainer'
  * When the spy phase is over. The manager knows all exact paths that are actually used by the app.
  * When a mutation occure, during a transaction phase, the observable:
  * - report all the change as a JSON Patch
- * - tell to the Manager that something is being change, it must get the patch when the transaction will be complete.
+ * - tell to the Manager that something is being change, it must get the migration when the transaction will be complete.
  *
  * The observables are organized in a hierarchy. There are some roots observables and some children.
- * Only a root observable stores the patch for the whole tree.
+ * Only a root observable stores the migration for the whole tree.
  */
 
 export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
@@ -37,11 +37,10 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   public $parentKey: string | number | undefined = undefined
   public $parent: INodeInstance<any> | undefined = undefined  
   
-  private $hasStaleSnapshot = true
   private $$nativeTypeKeys: string[]
   private $snapshotComputation: (data: DataNode, context: IContainer) => SNAPSHOT
   private $valueComputation: (data: DataNode, context: IContainer) => TYPE
-  private $transactionPatchListeners: PatchListener[] = []
+  private $transactionMigrationListeners: MigrationListener[] = []
   private $prevValue: TYPE = (undefined as unknown) as TYPE
   private $prevSnapshot: SNAPSHOT = (undefined as unknown) as SNAPSHOT
   constructor(
@@ -104,27 +103,22 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
 
   public $transactionDidEnd(): void {
     if (isRoot(this)) {
-      this.$transactionPatchListeners.forEach(l => l(this.$patch))
-      this.$patch = { forward: [], backward: [] }
+      this.$transactionMigrationListeners.forEach(l => l(this.$migration))
+      this.$migration = { forward: [], backward: [] }
     } else if (this.$parent) {
       this.$parent.$transactionDidEnd()
     }
   }
 
-  public $addTransactionPatchListener(patchListener: PatchListener): void {
-    this.$transactionPatchListeners.push(patchListener)
+  public $addTransactionMigrationListener(migrationListener: MigrationListener): void {
+    this.$transactionMigrationListeners.push(migrationListener)
   }
-
-  public $invalidateSnapshot(): void {
-    this.$hasStaleSnapshot = true
-  }
-
 
   private $computeValue(): void {
     this.$prevValue = this.$valueComputation(this.$data, this.$$container)
   }
   
-  public abstract $applyOperation<O extends Operation>(operation: O): void
+  public abstract $present(proposal: Command[], shouldAddMigration: boolean): void
   public abstract $addInterceptor(index: number | string): void
   public abstract $createChildInstance<I>(item: I, index: any): IInstance<I>
 }

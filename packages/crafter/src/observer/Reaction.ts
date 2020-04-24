@@ -5,7 +5,6 @@ type TrackedFunction = (p:{isFirstRun: boolean, dispose: () => void}) => void
 type SideEffect = (p:{isFirstRun: boolean, dispose: () => void}) => void
 
 export class Reaction extends Observer {
-  public dependencyPaths: string[] = []
   public type = ObserverType.Autorun
   public get isStale(): boolean {
     return this._isStale
@@ -31,7 +30,7 @@ export class Reaction extends Observer {
   public dispose = (): void => {
     // todo extract to super()
     // Maybe the autorun was running
-    this.context.stopSpyDerivation(this.id)
+    this.context.stopSpyObserver(this.id)
     this.context.onDisposeObserver(this)
   }
 
@@ -40,10 +39,11 @@ export class Reaction extends Observer {
       let isSpying = false
       try{
         if (!this._isStale) {
-          this.context.startSpyReaction(this.id)
+          this.context.startSpyObserver(this)
           isSpying = true
           this.action({isFirstRun: true, dispose: this.dispose})
-          this.dependencyPaths = this.context.stopSpyReaction(this.id)
+          this.dependencies = this.context.getCurrentSpyedObserverDeps(this.id)
+          this.context.stopSpyObserver(this.id)
           isSpying = false
         } else {
           this.reaction({isFirstRun: false, dispose: this.dispose})
@@ -52,7 +52,7 @@ export class Reaction extends Observer {
     } catch (e) {
         this.context.onObserverError(this)
         if (isSpying) {
-          this.context.stopSpyReaction(this.id)
+          this.context.stopSpyObserver(this.id)
         }
         throw e
       }

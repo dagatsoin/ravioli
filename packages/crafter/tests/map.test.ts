@@ -149,7 +149,7 @@ describe('attach/detach', function() {
   })
 })
 
-describe('Basic JSON operation', function() {
+describe('Basic JSON command', function() {
   const World = object({
     entities: map(
       object({
@@ -193,7 +193,7 @@ describe('Basic JSON operation', function() {
 
   test('add', function() {
     getContext(toInstance(world)).transaction(() => {
-      toNode(world).$applyOperation({
+      toNode(world).$present({
         op: 'add',
         path: '/entities/4',
         value: {
@@ -206,7 +206,7 @@ describe('Basic JSON operation', function() {
 
   test('replace', function() {
     getContext(toInstance(world)).transaction(() => {
-      toNode(world).$applyOperation({
+      toNode(world).$present({
         op: 'replace',
         path: '/entities/3',
         value: {
@@ -220,7 +220,7 @@ describe('Basic JSON operation', function() {
   test('remove', function() {
     const removedNode = toNode(world.entities.get('3'))
     getContext(toInstance(world)).transaction(() => {
-      toNode(world).$applyOperation({
+      toNode(world).$present({
         op: 'remove',
         path: '/entities/3',
       })
@@ -233,7 +233,7 @@ describe('Basic JSON operation', function() {
   test('move', function() {
     const movedNode = toNode(world.entities.get('2'))
     getContext(toInstance(world)).transaction(() => {
-      toNode(world).$applyOperation({
+      toNode(world).$present({
         op: 'move',
         from: '/entities/2',
         path: '/entities/1',
@@ -245,7 +245,7 @@ describe('Basic JSON operation', function() {
 
   test('copy', function() {
     getContext(toInstance(world)).transaction(() => {
-      toNode(world).$applyOperation({
+      toNode(world).$present({
         op: 'copy',
         from: '/entities/2',
         path: '/entities/1',

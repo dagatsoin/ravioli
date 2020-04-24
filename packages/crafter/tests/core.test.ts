@@ -2,6 +2,7 @@ import { getGlobal } from '../src/utils/utils'
 import { observable } from '../src/lib/observable'
 import { toInstance, toLeaf, noop } from '../src/helpers'
 import { autorun, string, Reaction } from '../src'
+import { Graph } from '../src/Graph'
 
 test("Crafter tracks leaf accesses", function() {
   const context = getGlobal().$$crafterContext
@@ -26,27 +27,12 @@ test("Crafter tracks leaf accesses", function() {
     ])
   })
 
-  // Check array structure
-  const modelInstance = toInstance(model)
-  const inventoryInstance = toInstance(modelInstance.$data.inventory)
-  const swordInstance = toInstance(model.inventory[0])
-  const leafInstance = toLeaf(swordInstance.$data.id)
-  expect(inventoryInstance.$parent).toBe(modelInstance)
-  expect(swordInstance.$parent).toBe(inventoryInstance)
-  expect(leafInstance.$parent).toBe(swordInstance)
-
-  // Check map structure
-  const tokensMapInstance = toInstance(modelInstance.$data.tokens)
-  const tokenInstance = toLeaf((tokensMapInstance as any).$data.get('000'))
-  expect(tokensMapInstance.$parent).toBe(modelInstance)
-  expect(tokenInstance.$parent).toBe(tokensMapInstance)
-
   // Test nested object access
   autorun(() => {
     model.name
     model.stats
     model.stats.health
-    const paths  = Array.from(context.snapshot.observedPaths.values())[0]
+    const paths  = Array.from(context.snapshot.spiedObserversDependencies.values())[0]
     expect(paths.map(p => {
       const segments = p.split('/').filter(s => !!s.length)
       segments.shift()
@@ -59,7 +45,7 @@ test("Crafter tracks leaf accesses", function() {
     model.inventory
     model.inventory[0].id
     model.titles[1]
-    const paths  = Array.from(context.snapshot.observedPaths.values())[0]
+    const paths  = Array.from(context.snapshot.spiedObserversDependencies.values())[0]
     expect(paths.map(p => {
       const segments = p.split('/').filter(s => !!s.length)
       segments.shift()
@@ -72,7 +58,7 @@ test("Crafter tracks leaf accesses", function() {
     model.achievements.get('firstBlood')!.title
     model.tokens.get('000')
     model.tokens.get('001')
-    const paths  = Array.from(context.snapshot.observedPaths.values())[0]
+    const paths  = Array.from(context.snapshot.spiedObserversDependencies.values())[0]
     expect(paths.map(p => {
       const segments = p.split('/').filter(s => !!s.length)
       segments.shift()
@@ -108,7 +94,7 @@ test("Crafter tracks node accesses", function() {
   autorun(() => {
     model.stats
     model.name
-    const paths  = Array.from(context.snapshot.observedPaths.values())[0]
+    const paths  = Array.from(context.snapshot.spiedObserversDependencies.values())[0]
     expect(paths.map(p => {
       const segments = p.split('/').filter(s => !!s.length)
       segments.shift()
@@ -119,7 +105,7 @@ test("Crafter tracks node accesses", function() {
   // Test with array
   autorun(() => {
     model.inventory
-    const paths  = Array.from(context.snapshot.observedPaths.values())[0]
+    const paths  = Array.from(context.snapshot.spiedObserversDependencies.values())[0]
     expect(paths.map(p => {
       const segments = p.split('/').filter(s => !!s.length)
       segments.shift()
@@ -130,7 +116,7 @@ test("Crafter tracks node accesses", function() {
   // Test nested object access
   autorun(() => {
     model.achievements
-    const paths  = Array.from(context.snapshot.observedPaths.values())[0]
+    const paths  = Array.from(context.snapshot.spiedObserversDependencies.values())[0]
     expect(paths.map(p => {
       const segments = p.split('/').filter(s => !!s.length)
       segments.shift()
@@ -139,6 +125,85 @@ test("Crafter tracks node accesses", function() {
   })
 })
 
+describe("create an updated observables graph", function() {
+  const context = getGlobal().$$crafterContext
+
+  const model = observable({
+    name: "Fraktar",
+    stats: {
+      health: 10
+    },
+    inventory: [
+      { id: "sword", quantity: 1},
+      { id: "shield", quantity: 1}
+    ],
+    titles: new Map([
+      ['0', 'Grabe digger'],
+      ['1', 'Stone eater']
+    ])
+  })
+
+  beforeEach(function() {
+    toInstance(model).$applySnapshot({
+      name: "Fraktar",
+      stats: {
+        health: 10
+      },
+      inventory: [
+        { id: "sword", quantity: 1},
+        { id: "shield", quantity: 1}
+      ],
+      titles: new Map([
+        ['0', 'Grabe digger'],
+        ['1', 'Stone eater']
+      ])
+    })
+    context.clearContainer()
+  })
+
+  // observable ids
+  const modelId = toInstance(model).$id
+  const nameId = toInstance(toInstance(model).$data.name).$id
+  const inventoryId = toInstance(toInstance(model).$data.inventory).$id
+  const swordId = toInstance(toInstance(model).$data.inventory[0]).$id
+  const shieldId = toInstance(toInstance(model).$data.inventory[1]).$id
+  const titleId = toInstance(toInstance(model).$data.titles).$id
+  const title0Id = toInstance(model).$data.titles.keys()[0]
+  const title1Id = toInstance(model).$data.titles.keys()[1]
+
+  function getUpdatedObservableGraph(): Graph<{$id: string, $path: string}> {
+    const graph = context.snapshot.updatedObservablesGraph
+    return {
+      edges: [...graph.edges],
+      nodes: graph.nodes.map(({$id, $path}) => ({$id, $path}))
+    }
+  }
+
+  test.todo("replace a object node value")
+  test.todo("replace an array node value")
+  test.todo("replace a map node value")
+  test("replace a leaf value", function() {
+    context.transaction(function(){
+      model.name = "Fraktos"
+      expect(getUpdatedObservableGraph()).toEqual({
+        edges: [
+          {source: nameId, target: modelId}
+        ],
+        nodes: [
+          {$id: nameId, $path: "/name"}
+        ]
+      })
+    })
+  })
+  test.todo("array order command")
+  test.todo("array mutation command without length change")
+  test.todo("array mutation command with inferior length change")
+  test.todo("array mutation command with superior length change")
+  test.todo("map clear command")
+  test.todo("map set command without size change")
+  test.todo("map set command with superior size change")
+  test.todo("map set command with inferior size")
+})
 
 test("leaf un/registers as observable in the container graph when start/finish to be observed", function() {
   const context = getGlobal().$$crafterContext

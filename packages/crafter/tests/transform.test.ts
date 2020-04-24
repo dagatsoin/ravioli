@@ -390,7 +390,7 @@ test("Defer transformation by using two contexts", function() {
 
   privateContext.transaction(() => {
     model.player.entity.name = 'Fraktos'
-    migration = toNode(model).$patch
+    migration = toNode(model).$migration
   })
 
   expect(playerTransformRun).toBe(1)
@@ -400,9 +400,9 @@ test("Defer transformation by using two contexts", function() {
   
   expect(test.player.name).toBe('Fraktar')
 
-  publicContext.presentPatch(migration.forward.map((operation: any) => ({
-    ...operation,
-    path: toInstance(model).$id + operation.path
+  publicContext.presentPatch(migration.forward.map((command: any) => ({
+    ...command,
+    path: toInstance(model).$id + command.path
   })))
 
   expect(test.player.name).toBe('Fraktos')

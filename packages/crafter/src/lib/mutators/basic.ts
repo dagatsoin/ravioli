@@ -1,4 +1,4 @@
-import { getChildKey, getSnapshot, toInstance } from '../../helpers'
+import { fail, getChildKey, getSnapshot, toInstance } from '../../helpers'
 import {
   CopyChanges,
   INodeInstance,
@@ -7,28 +7,29 @@ import {
   ReplaceChanges,
 } from '../INodeInstance'
 import {
-  AddOperation,
-  CopyOperation,
-  MoveOperation,
-  RemoveOperation,
-  ReplaceOperation,
+  AddCommand,
+  CopyCommand,
+  MoveCommand,
+  RemoveCommand,
+  ReplaceCommand,
+  Migration,
+  Operation,
 } from '../JSONPatch'
 
-export function addReplacePatch<T>(
-  model: INodeInstance<unknown>,
-  proposal: ReplaceOperation<T>,
+export function createReplaceMigration<T>(
+  command: ReplaceCommand<T>,
   changes: ReplaceChanges
-): void {
-  model.$addPatch({
-    forward: [proposal],
+): Migration<ReplaceCommand, ReplaceCommand> {
+  return {
+    forward: [command],
     backward: [
       {
-        op: 'replace',
-        path: proposal.path,
+        op: Operation.replace,
+        path: command.path,
         value: changes.replaced,
       },
     ],
-  })
+  }
 }
 
 /**
@@ -42,64 +43,72 @@ export function add(model: INodeInstance<unknown>, value: any, index: string): v
   instance.$attach(model, index)
 }
 
-export function addAddPatch<T>(
-  model: INodeInstance<unknown>,
-  proposal: AddOperation
-): void {
-  model.$addPatch({
-    forward: [proposal],
+export function createAddMigration<T>(
+  command: AddCommand
+): Migration<AddCommand, RemoveCommand> {
+  return {
+    forward: [command],
     backward: [
       {
-        op: 'remove',
-        path: proposal.path,
+        op: Operation.remove,
+        path: command.path,
       },
     ],
-  })
+  }
 }
 
 export function remove<T>(
   model: INodeInstance<T>,
   index: string | number
-): RemoveChanges {
+): RemoveChanges | undefined {
   const removed = getSnapshot(model.$data[index])
-  delete model.$data[index]
+  const isDeleted = delete model.$data[index]
+  if (isDeleted) {
+    return
+  }
   delete model[index]
   return {
     removed,
   }
 }
 
-export function addRemovePatch<T>(
-  model: INodeInstance<unknown>,
-  proposal: RemoveOperation,
+export function createRemoveMigration(
+  command: RemoveCommand,
   changes: RemoveChanges
-): void {
-  model.$addPatch({
-    forward: [proposal],
+): Migration<RemoveCommand, AddCommand> {
+  return {
+    forward: [command],
     backward: [
       {
-        op: 'add',
-        path: proposal.path,
+        op: Operation.add,
+        path: command.path,
         value: changes.removed,
       },
     ],
-  })
+  }
 }
 
 export function copy<T>(
   model: INodeInstance<unknown>,
-  proposal: CopyOperation
-): CopyChanges {
-  const from = getChildKey(model.$path, proposal.from)
-  const to = getChildKey(model.$path, proposal.path)
-  if(from === undefined) throw new Error('[CRAFTER] copy operation, operation.from is undefined')
-  if(to === undefined) throw new Error('[CRAFTER] copy operation, operation.to is undefined')
+  command: CopyCommand
+): CopyChanges | undefined {
+  const from = getChildKey(model.$path, command.from)
+  const to = getChildKey(model.$path, command.path)
+  if(from === undefined) {
+    fail('[CRAFTER] copy command, command.from is undefined')
+    return
+  }
+  if(to === undefined) {
+    fail('[CRAFTER] copy command, command.to is undefined')
+    return
+  }
   const replaced = getSnapshot(model[from])
 
   const instance = model.$createChildInstance(
     getSnapshot(model[from]),
     from.toString()
   )
+  model.$data[to].$kill
   model.$data[to] = instance
   instance.$attach(model, to)
   
@@ -108,31 +117,30 @@ export function copy<T>(
   }
 }
 
-export function addCopyPatch(
-  model: INodeInstance<unknown>,
-  proposal: CopyOperation,
+export function createCopyMigration(
+  command: CopyCommand,
   changes: CopyChanges
-): void {
-  model.$addPatch({
-    forward: [proposal],
+): Migration<CopyCommand, ReplaceCommand> {
+  return {
+    forward: [command],
     backward: [
       {
-        op: 'replace',
-        path: proposal.path,
+        op: Operation.replace,
+        path: command.path,
         value: changes.replaced,
       },
     ],
-  })
+  }
 }
 
 export function move(
   model: INodeInstance<unknown>,
-  proposal: MoveOperation
+  command: MoveCommand
 ): MoveChanges {
-  const from = getChildKey(model.$path, proposal.from)
-  const to = getChildKey(model.$path, proposal.path)
-  if(from === undefined) throw new Error('[CRAFTER] move operation, operation.from is undefined')
-  if(to === undefined) throw new Error('[CRAFTER] move operation, operation.to is undefined')
+  const from = getChildKey(model.$path, command.from)
+  const to = getChildKey(model.$path, command.path)
+  if(from === undefined) throw new Error('[CRAFTER] move command, command.from is undefined')
+  if(to === undefined) throw new Error('[CRAFTER] move command, command.to is undefined')
   const replaced = getSnapshot(model[to])
   const moved = getSnapshot(model[from])
 
@@ -153,24 +161,23 @@ export function move(
   }
 }
 
-export function addMovePatch(
-  model: INodeInstance<unknown>,
-  proposal: MoveOperation,
+export function createMoveMigration(
+  command: MoveCommand,
   changes: MoveChanges
-): void {
-  model.$addPatch({
-    forward: [proposal],
+): Migration<MoveCommand, ReplaceCommand> {
+  return {
+    forward: [command],
     backward: [
       {
-        op: 'replace',
-        path: proposal.path,
+        op: Operation.replace,
+        path: command.path,
         value: changes.replaced,
       },
       {
-        op: 'replace',
-        path: proposal.from,
+        op: Operation.replace,
+        path: command.from,
         value: changes.moved,
       },
     ],
-  })
+  }
 }

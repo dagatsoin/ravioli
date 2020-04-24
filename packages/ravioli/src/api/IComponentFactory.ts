@@ -2,7 +2,7 @@ import { Mutation, Acceptor } from './Acceptor'
 import { PackagedActions, Actions } from './Action'
 import { IComponentInstance, ComponentState } from './IComponentInstance'
 import { Proposal } from './IPresentable'
-import { IType, Migration, ToLiteral, IContainer } from '@warfog/crafter'
+import { IType, Migration, ToLiteral, IContainer, IObservable, IInstance } from '@warfog/crafter'
 
 export type ComponentOptions = {
   keepLastControlStateIfUndefined?: boolean
@@ -29,7 +29,7 @@ export interface IComponentFactory<
   MUTATIONS extends Mutation<any, any> = { type: never; payload: never; },
   CONTROL_STATES extends string = never,
   ACTIONS = any,
-  TRANSFORMATION extends TYPE = TYPE,
+  REPRESENTATION extends IObservable = IInstance<TYPE>,
   NAP_NAMES extends string = never
 > {
   type: IType<TYPE, VALUE>
@@ -50,7 +50,7 @@ export interface IComponentFactory<
   create(
     value?: VALUE,
     options?: InstanceOptions
-  ): IComponentInstance<TYPE, TRANSFORMATION, ACTIONS, MUTATIONS>
+  ): IComponentInstance<TYPE, REPRESENTATION, ACTIONS, MUTATIONS>
   addAcceptor<N extends string, F extends AcceptorFactory<TYPE>>(
     name: N,
     factory: F
@@ -60,7 +60,7 @@ export interface IComponentFactory<
     MUTATIONS | Mutation<N, FactoryParameters<F>>,
     CONTROL_STATES,
     ACTIONS,
-    TRANSFORMATION
+    REPRESENTATION
   >
   removeAcceptor<ACCEPTOR_NAME extends MutationName<MUTATIONS>>(
     acceptorName: ACCEPTOR_NAME
@@ -70,7 +70,7 @@ export interface IComponentFactory<
     Exclude<MUTATIONS, Mutation<ACCEPTOR_NAME, any>>,
     CONTROL_STATES,
     ACTIONS,
-    TRANSFORMATION
+    REPRESENTATION
   >
   addActions<P extends PackagedActions<CONTROL_STATES, MUTATIONS>>(
     actions: P
@@ -80,7 +80,7 @@ export interface IComponentFactory<
     MUTATIONS,
     CONTROL_STATES,
     ACTIONS & Actions<CONTROL_STATES, MUTATIONS, P>,
-    TRANSFORMATION
+    REPRESENTATION
   >
   removeAction<ACTION_NAME extends keyof ACTIONS>(
     actionName: ACTION_NAME
@@ -90,7 +90,7 @@ export interface IComponentFactory<
     MUTATIONS,
     CONTROL_STATES,
     Omit<ACTIONS, ACTION_NAME>,
-    TRANSFORMATION
+    REPRESENTATION
   >
   setControlStatePredicate<I extends string>(
     id: I,
@@ -101,7 +101,7 @@ export interface IComponentFactory<
     MUTATIONS,
     CONTROL_STATES | ToLiteral<I>,
     ACTIONS,
-    TRANSFORMATION,
+    REPRESENTATION,
     NAP_NAMES
   >
   removeControlState<CONTROL_STATE extends CONTROL_STATES>(
@@ -112,7 +112,7 @@ export interface IComponentFactory<
     MUTATIONS,
     Exclude<CONTROL_STATES, CONTROL_STATE>,
     ACTIONS,
-    TRANSFORMATION,
+    REPRESENTATION,
     NAP_NAMES
   >
   hasControlState(name: string): boolean
@@ -131,7 +131,7 @@ export interface IComponentFactory<
     MUTATIONS,
     CONTROL_STATES,
     ACTIONS,
-    TRANSFORMATION & ReturnType<C>
+    REPRESENTATION & ReturnType<C>
   >
   removeTransformation(
     id: string
@@ -141,12 +141,12 @@ export interface IComponentFactory<
     MUTATIONS,
     CONTROL_STATES,
     ACTIONS,
-    TRANSFORMATION,
+    REPRESENTATION,
     NAP_NAMES
   >
   addStepReaction<
     I extends string,
-    R extends StepReaction<TYPE, TRANSFORMATION, MUTATIONS, CONTROL_STATES, ACTIONS>
+    R extends StepReaction<TYPE, REPRESENTATION, MUTATIONS, CONTROL_STATES, ACTIONS>
   >(
     id: I,
     reaction: R
@@ -156,10 +156,10 @@ export interface IComponentFactory<
     MUTATIONS,
     CONTROL_STATES,
     ACTIONS,
-    TRANSFORMATION,
+    REPRESENTATION,
     NAP_NAMES | ToLiteral<I>
   >
-  getNAP(): Map<string, StepReaction<TYPE, TRANSFORMATION, MUTATIONS, CONTROL_STATES, ACTIONS>>
+  getNAP(): Map<string, StepReaction<TYPE, REPRESENTATION, MUTATIONS, CONTROL_STATES, ACTIONS>>
   hasNAP(NAPName: string): boolean
   removeNap<NAP_NAME extends NAP_NAMES>(
     id: NAP_NAME
@@ -169,7 +169,7 @@ export interface IComponentFactory<
     MUTATIONS,
     CONTROL_STATES,
     ACTIONS,
-    TRANSFORMATION,
+    REPRESENTATION,
     Exclude<NAP_NAMES, NAP_NAME>
   >
 }

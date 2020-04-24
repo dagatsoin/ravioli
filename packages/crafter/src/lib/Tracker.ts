@@ -12,7 +12,7 @@ export interface ITracker {
 export class Tracker implements IObservable, ITracker {
   public $isObservable: true = true
   public isTracker: true = true
-  public $patch: Migration<any, any> = {
+  public $migration: Migration<any, any> = {
     forward: [],
     backward: [],
   }
@@ -30,7 +30,7 @@ export class Tracker implements IObservable, ITracker {
   }
 
   public $transactionDidEnd(): void {
-    this.$patch.forward = []
+    this.$migration.forward = []
   }
 
   public reportObserved(): void {
@@ -38,7 +38,7 @@ export class Tracker implements IObservable, ITracker {
   }
 
   public reportChanged(): void {
-    this.$patch.forward = [{op: 'replace', path: makePath(this.id), value: ''}]
+    this.$migration.forward = [{op: 'replace', path: makePath(this.id), value: ''}]
     this.context.transaction(() => this.context.addUpdatedObservable(this))
   }
 }

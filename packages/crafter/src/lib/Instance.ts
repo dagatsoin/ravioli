@@ -1,9 +1,10 @@
-import { IInstance, OperationListener } from './IInstance'
+import { IInstance } from './IInstance'
 import { IType } from './IType'
 import { IContainer } from '../IContainer'
-import { getGlobal } from '../utils/utils'
+import { getGlobal, mergeMigrations } from '../utils/utils'
 import { makePath, isRoot, getRoot } from '../helpers'
-import { Migration, Operation } from './JSONPatch'
+import { Migration, Command } from './JSONPatch'
+import { MigrationListener } from './INodeInstance'
 
 export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
   
@@ -19,21 +20,22 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
     // TODO cache this
     return this.$parent ? makePath(this.$parent.$path, this.$parentKey?.toString() ?? '') : '/'
   }
-  public get $patch(): Migration {
-    return isRoot(this) ? this.$$patch : getRoot(this).$patch
+  public get $migration(): Migration {
+    return isRoot(this) ? this.$$migration : getRoot(this).$migration
   }
 
-  public set $patch(patch: Migration) {
+  public set $migration(migration: Migration) {
     if (isRoot(this)) {
-      this.$$patch = patch
+      this.$$migration = migration
     } else {
-      getRoot(this).$patch = patch
+      getRoot(this).$migration = migration
     }
   }
   protected $$id!: string
-  
-  private $$patch: Migration = { forward: [], backward: [] }
-  private $operationListeners: OperationListener[] = []
+  protected $hasStaleSnapshot = true
+
+  private $$migration: Migration = { forward: [], backward: [] }
+  private $migrationListeners: MigrationListener[] = []
 
   public abstract $snapshot: Input
   public abstract $data: any
@@ -41,36 +43,33 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
 
   constructor(context?: IContainer) {
     this.$$container = context || getGlobal().$$crafterContext
+  } 
+
+  public $invalidateSnapshot(): void {
+    this.$hasStaleSnapshot = true
   }
 
-  public $transactionDidEnd(): void {
-    throw new Error('Method not callable on Leaf.')
-  }
-
-  public $addOperationListener(operationListener: OperationListener): void {
+  public $addTransactionMigrationListener(migrationListener: MigrationListener): void {
     if (isRoot(this)) {
-      this.$operationListeners.push(operationListener)
+      this.$migrationListeners.push(migrationListener)
     } else if (this.$parent) {
-      this.$parent.$addOperationListener(operationListener)
+      this.$parent.$addTransactionMigrationListener(migrationListener)
     }
   }
 
-  public $removeOperationListener(operationListener: OperationListener): void {
-    this.$operationListeners.splice(
-      this.$operationListeners.indexOf(operationListener),
+  public $removeTransactionMigrationListener(migrationListener: MigrationListener): void {
+    this.$migrationListeners.splice(
+      this.$migrationListeners.indexOf(migrationListener),
       1
     )
   }
 
-  public $addPatch<O extends Operation>(migration: Migration<O>): void {
-    const { forward, backward } = migration
+  public $addMigration<O extends Command>(migration: Migration<O>): void {
     if (this.$$container.isTransaction) {
       if (isRoot(this)) {
-        this.$$patch.forward.push(...forward)
-        this.$$patch.backward.push(...backward)
-        this.$operationListeners.forEach(listener => forward.forEach(listener))
+        mergeMigrations(migration, this.$$migration)
       } else if (this.$parent) {
-        this.$parent.$addPatch(migration)
+        this.$parent.$addMigration(migration)
       }
     }
   }
@@ -96,7 +95,9 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
       this.$setValue(snapshot)
     }
   }
-  public abstract $setValue(value: Input): void
+  public abstract $setValue(value: Input): boolean
+  public abstract $transactionDidEnd(): void
+  public abstract $present(proposal: Command[], shouldAddMigration: boolean): void
 }
 
 export function isInstance<T = any>(thing: any): thing is IInstance<T> {

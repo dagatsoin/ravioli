@@ -1,6 +1,6 @@
 import { observable } from '../src/lib/observable'
 import { getTypeFromValue } from "../src/lib/getTypeFromValue"
-import { toInstance, getSnapshot, sync, getChildKey, getTargetKey, isOwnLeafPath, makePath } from '../src/helpers'
+import { toInstance, getSnapshot, sync, getChildKey, getTargetKey, isOwnLeafPath, makePath, reduceSnapshot } from '../src/helpers'
 import { getGlobal } from '../src'
 
 test("format path", function() {
@@ -102,4 +102,20 @@ it('should clone an observable and sync its value on each change', function() {
     source.questLog.current.id = 1
   })
   expect(target.questLog.current.id).toBe(1)
+})
+
+test("reduce patch", function() {
+  const patch = [
+    {op: "push", path: "/player/inventory", value: {id: "48646"}},
+    {op: "replace", path: "/pets", value: [{id: "74455"}]},
+    {op: "replace", path:"/player/name", value: "Fraktos"},
+    {op: "replace", path:"/player/stats/health", value: 5},
+    {op: "replace", path:"/player/stats", value: { health: 5 }},
+    {op: "replace", path:"/player", value: {name: "Fraktos", stats: { health: 5 }}},
+  ]
+  expect(reduceSnapshot(patch)).toEqual([
+    {op: "push", path: "/player/inventory", value: {id: "48646"}},
+    {op: "replace", path: "/pets", value: [{id: "74455"}]},
+    {op: "replace", path:"/player", value: {name: "Fraktos", stats: { health: 5 }}},
+  ])
 })

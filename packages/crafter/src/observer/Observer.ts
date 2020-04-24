@@ -4,12 +4,12 @@ import { Computed } from './Computed'
 
 export interface IObserver {
   id: string
-  dependencyPaths: string[]
+  dependencies: string[]
   readonly isStale: boolean
   readonly isObserver: true
   type: ObserverType
   dispose: () => void
-  notifyChangeFor(): void
+  stale(): void
   runAndUpdateDeps(): void
 }
 
@@ -23,12 +23,13 @@ export abstract class Observer implements IObserver {
   public get id(): string {
     return this._id
   }
+  public dependencies: string[] = [];
   public isObserver: true = true
   protected context: IContainer
   protected _isStale = true
   private _id: string  
   
-  public abstract dependencyPaths: string[];
+
   public abstract isStale: boolean;
   public abstract type: ObserverType;
 
@@ -52,7 +53,7 @@ export abstract class Observer implements IObserver {
     }
     this.context.useUID(this.id)
   }
-  public notifyChangeFor(): void {
+  public stale(): void {
     this._isStale = true
   }
 
@@ -65,8 +66,8 @@ export abstract class Observer implements IObserver {
  * - autorun
  * - reaction
  */
-export function isReaction(observer: IObserver): boolean {
-  return observer.type === ObserverType.Autorun || observer.type === ObserverType.Reaction
+export function isReaction(type: ObserverType): boolean {
+  return type === ObserverType.Autorun || type === ObserverType.Reaction
 }
 
 export function isDerivation(observer: any): observer is Computed<any> {

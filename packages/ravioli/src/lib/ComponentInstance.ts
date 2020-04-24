@@ -39,7 +39,7 @@ export class ComponentInstance<
   MUTATION,
   CONTROL_STATES extends string,
   ACTIONS,
-  REPRESENTATION extends IObservable<any>,
+  REPRESENTATION extends IObservable,
   MUTATIONS extends Mutation<any, any>
 >
   implements
@@ -115,7 +115,7 @@ export class ComponentInstance<
     this.privateContext = options?.contexts?.private || new CrafterContainer()
     this.publicContext = options?.contexts?.public || getGlobal().$$crafterContext
     this.data = toInstance<any>(this.factory.type.create(data, { context: this.privateContext}))
-    toNode(this.data).$addTransactionPatchListener(
+    toNode(this.data).$addTransactionMigrationListener(
       (migration: Migration) => (this.stepMigration = migration)
     )
     const controlStates = getControlStates<
@@ -516,7 +516,7 @@ export class ComponentInstance<
 function syncWithModel(migration: Migration, prevRepresentation: IInstance<any>): void {
   getContext(prevRepresentation).transaction(() => {
     migration.forward.forEach(o => {
-      toNode(prevRepresentation).$applyOperation(o, true)
+      toNode(prevRepresentation).$applyCommand(o, true)
     })
   })
 }

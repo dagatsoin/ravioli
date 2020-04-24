@@ -6,9 +6,11 @@ import { number, string } from '../src/Primitive'
 import { object } from '../src/object'
 import { getGlobal } from '../src/utils/utils'
 import { isInstance } from '../src/lib/Instance'
-import { CrafterContainer, container } from '../src'
+import { CrafterContainer } from '../src'
 
 const context = getGlobal().$$crafterContext
+
+beforeEach(context.clearContainer)
 
 test("Computed notifies read when accessed", function() {
   context.clearContainer()
@@ -26,8 +28,8 @@ test("Computed notifies read when accessed", function() {
   const dispose = autorun(() => {
     observed.get()
     const spyId = context.snapshot.spyReactionQueue[0]
-    leafId = toLeaf(context.snapshot.dependencyGraph.nodes[4]).$id
-    observedPaths = context.snapshot.observedPaths.get(spyId)
+    leafId = toLeaf(context.snapshot.dependencyGraph.nodes[context.snapshot.dependencyGraph.nodes.length - 1]).$id
+    observedPaths = context.snapshot.spiedObserversDependencies.get(spyId)
   })
   expect(observedPaths).toEqual(["/" + leafId])
   dispose()
@@ -61,7 +63,7 @@ test('Computed is evaluated and register in the manager lazily, when triggered f
       name: model.name,
       stats: model.isAlive ? statsRepresentation.get() : undefined,
     }
-  })
+  }, {useOptional: true})
 
   expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
   const dispose = autorun(() => {
@@ -69,7 +71,14 @@ test('Computed is evaluated and register in the manager lazily, when triggered f
     appRepresentation.get()
   })
 
-  expect(context.snapshot.dependencyGraph.nodes.length).toBe(2)
+  /**
+   * 4 nodes:
+   * - autorun
+   * - computed
+   * - computed value node
+   * - computed value/stats
+   */
+  expect(context.snapshot.dependencyGraph.nodes.length).toBe(4)
 
   expect(statsRepRunCount).toBe(0)
   expect(appRepRunCount).toBe(1)

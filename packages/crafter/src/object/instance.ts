@@ -1,4 +1,5 @@
 import {
+  fail,
   getChildKey,
   toInstance,
   getSnapshot,
@@ -13,20 +14,20 @@ import { computeNextState } from '../lib/computeNextState'
 import { IInstance } from '../lib/IInstance'
 import { DataObject, INodeInstance } from '../lib/INodeInstance'
 import { isInstance } from '../lib/Instance'
-import { BasicOperation, Operation, ReplaceOperation } from '../lib/JSONPatch'
+import { BasicCommand, Command, ReplaceCommand, Migration, isShapeMutationCommand, Operation } from '../lib/JSONPatch'
 import {
   add,
-  addAddPatch,
-  addCopyPatch,
-  addMovePatch,
-  addRemovePatch,
-  addReplacePatch,
+  createAddMigration,
+  createCopyMigration,
+  createMoveMigration,
+  createRemoveMigration,
+  createReplaceMigration,
   copy,
   move,
   remove
 } from '../lib/mutators'
 import { NodeInstance } from '../lib/NodeInstance'
-import { setNonEnumerable } from '../utils/utils'
+import { setNonEnumerable, mergeMigrations } from '../utils/utils'
 
 import { ObjectFactoryInput, ObjectFactoryOutput, object } from './factory'
 import { Props } from './Props'
@@ -42,8 +43,8 @@ import { ArrayInstance } from '../array/instance'
 
 /**
  * Data flow
- * prop setter => present replace patch => $applyoperation => $setValue on each child
- * $setValue => split in child operation replacement => present replace patch ...
+ * prop setter => present replace migration => $applycommand => $setValue on each child
+ * $setValue => split in child command replacement => present replace migration ...
  * 
  * For a node, $setValue won't affect anything byt will delegate each chunk of value to its children
  */
@@ -116,12 +117,13 @@ export class ObjectInstance<
     })
   }
 
-  public $setValue(value: INPUT): void {
+  public $setValue(value: INPUT): boolean {
     if (!this.$$container.isWrittable) {
       throw new Error(
         'Crafter object. Tried to set an object value while model is locked.'
       )
     }
+
     // Special case, affecting new value to a Computed
     // may need to reshape the type.
     if (this.$$container.isRunningReaction) {
@@ -153,51 +155,140 @@ export class ObjectInstance<
         add(this as any, value[key], key)
       })
 
-      // Rest value to replace
-      const rest: any = valueKeys
+      // Change the value for the rest of the keys
+      return valueKeys
         .filter(key => !missingKeys.includes(key)) // just added above
         .filter(key => !!value[key]) // exclude undefined value field
-        .reduce((_rest, key) => ({...rest, [key]: value[key]}), {})
-      const proposal = cutDownUpdateOperation(rest, this.$path )
-      present(this, proposal)
+        .reduce(
+          (didChildrenChange: boolean, key) => (
+            toInstance(this.$data[key]).$setValue(value[key]) && didChildrenChange ||
+            !!missingKeys.length // Anayway, new keys has been added, so there is some changes
+          ),
+          false
+        )
+        
+      
     } else {
-      const proposal = cutDownUpdateOperation(value, this.$path )
-      present(this, proposal)
+      let didChange = false
+
+      for (const key in this.$data) {
+        didChange = this.$data[key].$setValue(value[key as any]) && didChange
+      }
+      return didChange 
     }
   }
 
-  public $applyOperation = <O extends Operation>(
-    operation: O & BasicOperation,
+ /*  public $applyCommand = <O extends Command>(
+    command: O & BasicCommand,
     shouldEmitPatch: boolean = false
   ): void => {
-    const childKey = getChildKey(this.$path, operation.path)
-    // Apply operation on this object
+    const childKey = getChildKey(this.$path, command.path)
+    // Apply command on this object
     if (
-      isOwnLeafPath(this.$path, operation.path) &&
-      operation.op === 'replace' &&
+      isOwnLeafPath(this.$path, command.path) &&
+      command.op === 'replace' &&
       childKey
     ) {
-      let backup
-      const willEmitPatch = shouldEmitPatch && canEmitReplacePatch(this, operation)
-      if (willEmitPatch) {
-         backup = this.$data[childKey].$value
-      }
-      // Apply the operation to the child key
-      this.$data[childKey].$setValue(
-        operation.value
-      )
-      if (willEmitPatch) {
-        addReplacePatch(this as any, operation, {replaced: backup})
-      }
+      this.replace<O>(shouldEmitPatch, childKey, command)
     }
     // Or delegate to children
-    else if (operation.path.includes(this.$path) && childKey) {
+    else if (command.path.includes(this.$path) && childKey) {
       // Get the concerned child key
       toNode(
         toInstance(this.$data[childKey])
-      ).$applyOperation(operation, shouldEmitPatch)
+      ).$applyCommand(command, shouldEmitPatch)
+    }
+  } */
+  
+/**
+ * Accept the value if the model is writtable
+ */
+public $present(proposal: Proposal, shouldAddMigration: boolean): void {
+  // No direct manipulation. Mutations must occure only during a transaction.
+  if (!this.$$container.isWrittable) {
+    fail(`Crafter Object. Tried to mutate an object while model is locked.`)
+    return
+  }
+  
+  const proposalMigration: Migration<any, any> = {
+    forward: [],
+    backward: []
+  }
+
+  for(const command of proposal) {
+
+    const childKey = getChildKey(this.$path, command.path)
+
+    if (!childKey) {
+      continue
+    }
+
+    // Replace the entire value
+    if(command.path === this.$path) {
+      if (command.op === Operation.replace) {
+        const didChange = this.$setValue(command.value)
+        if (didChange) {
+          mergeMigrations(createReplaceMigration(command, {replaced: this.$snapshot}), proposalMigration)            
+        }
+      }
+    }
+    else if (isOwnLeafPath(this.$path, command.path)) {
+      if (command.op === Operation.replace) {
+        const didChange =  this.$data[childKey as keyof this["$data"]].$setValue(command.value)
+        if (didChange) {
+          mergeMigrations(createReplaceMigration(command, {replaced: this.$snapshot}), proposalMigration)            
+        }
+      } else if (command.op === 'remove') {
+        const changes = remove(this, getObjectKey(this, command))
+        if (changes) {
+          mergeMigrations(createRemoveMigration(command, changes), proposalMigration)
+        }
+      } else if (command.op === 'add') {
+        const index = getObjectKey(this, command)
+        // Is an alias of replace
+        if (this.$data[index] !== undefined) {
+          throw new Error('not implemented yet')
+  //        present(model, [{ ...command, op: 'replace' }])
+        } else {
+          add(this, command.value, index)
+       /*    if (willEmitPatch) {
+            addAddPatch(model, command)
+          } */
+        }
+      } else if (command.op === 'copy') {
+        const changes = copy(this, command)
+        if (changes) {
+          mergeMigrations(createCopyMigration(command, changes), proposalMigration)
+        }
+      } else if (command.op === 'move') {
+        const changes = move(this, command)
+        if (changes) {
+          mergeMigrations(createMoveMigration(command, changes), proposalMigration)
+        }
+      } else {
+        throw new Error(`Crafter Array.$applyOperation: ${
+          (proposal as any).op
+        } is not a supported command. This error happened
+          during a migration command. The transaction is cancelled and the model is reset to its previous value.`)
+      }
+    }
+    // Or delegate to children
+    else if (command.path.includes(this.$path)) {
+      // Get the concerned child key
+      toNode(
+        toInstance(this.$data[childKey])
+      ).$present(command, shouldEmitPatch)
     }
   }
+
+  // Those commands update the shape of the model
+  if (proposalMigration.forward.some(isShapeMutationCommand)) {
+    this.$$container.addUpdatedObservable(this)
+  } if (shouldAddMigration) {
+    this.$addMigration(proposalMigration)
+  }
+}
+
   public $addInterceptor(index: string): void {
     addPropGetSet(this, index)
   }
@@ -309,11 +400,12 @@ function addPropGetSet(
         }
       },
       set(value: any) {
-        // If the value is an object, cut it down in atomic JSON operation
+        // If the value is an object, cut it down in atomic JSON command
         const needToCutDown = isObject(value)
         if (needToCutDown) {
-          const proposal = cutDownUpdateOperation(value, makePath(propName.toString()) )
-          present(obj, proposal)
+          present(obj, [{ op: 'replace', value: value instanceof Map ? Array.from(value.entries()) : value, path: makePath(obj.$path, propName) }])
+    //      const proposal = cutDownUpdateOperation(value, makePath(propName.toString()) )
+    //      present(obj, proposal)
         } else {
           present(obj, [{ op: 'replace', value: value instanceof Map ? Array.from(value.entries()) : value, path: makePath(obj.$path, propName) }])
         }
@@ -329,57 +421,62 @@ function isObject(thing: any): thing is object {
 }
 
 export function cutDownUpdateOperation(value: object, opPath: string): Proposal {
-  return Object.keys(value)
-    .flatMap(function(key) {
-      if (isObject(value[key])) {
-        return cutDownUpdateOperation(value[key], makePath(opPath, key))
-      } else {
-        return {
-          op: "replace",
-          path: makePath(opPath, key),
-          value: value[key]
-        }
-      }
-    })
+  return Object
+    .keys(value)
+    .map(key => ({
+      op: Operation.replace,
+      path: makePath(opPath, key),
+      value: value[key]
+    }))
 }
 
-type Proposal = BasicOperation[]
-
-/**
- * Business rule predicate.
- * Only a leaf, the replacement of a leaf value, an array value or a map value can emit an update patch
- * @param model 
- * @param command 
- */
-function canEmitReplacePatch(model: ObjectInstance<any, any, any, any>, command: BasicOperation) {
-  const target = model.$data[getObjectKey(model, command)]
-  const isLeaf = !isNode(target)
-
-  return isLeaf ||
-    !isLeaf && target instanceof ArrayInstance ||
-    !isLeaf && target instanceof MapInstance
-}
+type Proposal = BasicCommand[]
 
 /**
  * Accept the value if the model is writtable
  */
 function present(
   model: ObjectInstance<any, any, any, any>,
-  proposal: Proposal,
-  shouldEmitPatch: boolean = true
+  proposal: Proposal
 ): void {
   // No direct manipulation. Mutations must occure only during a transaction.
   if (!model.$$container.isWrittable) {
-    throw new Error(
-      `Crafter Object. Tried to mutate an object while model is locked.`
-    )
+    fail(`Crafter Object. Tried to mutate an object while model is locked.`)
+    return
   }
+  
+  const proposalMigration: Migration<any, any> = {
+    forward: [],
+    backward: []
+  }
+
   proposal.forEach(command => {
+
+    const childKey = getChildKey(model.$path, command.path)
+    // Apply command on model object
+    if (
+      isOwnLeafPath(model.$path, command.path) &&
+      command.op === 'replace' &&
+      childKey
+    ) {
+      model.replace<O>(shouldEmitPatch, childKey, command)
+    }
+    // Or delegate to children
+    else if (command.path.includes(model.$path) && childKey) {
+      // Get the concerned child key
+      toNode(
+        toInstance(model.$data[childKey])
+      ).$present(command, shouldEmitPatch)
+    }
+
+
     if (command.op === 'replace') {
-      model.$applyOperation(command, shouldEmitPatch)
+      model.$present(command, true)
     } else if (command.op === 'remove') {
       const changes = remove(model, getObjectKey(model, command))
-      addRemovePatch(model, command, changes)
+      if (changes) {
+        mergeMigrations(createRemoveMigration(command, changes), proposalMigration)
+      }
     } else if (command.op === 'add') {
       const index = getObjectKey(model, command)
       // Is an alias of replace
@@ -393,32 +490,34 @@ function present(
         } */
       }
     } else if (command.op === 'copy') {
-      throw new Error('not implemented yet')
-      /* const changes = copy(model, command)
-      if (willEmitPatch) {
-        addCopyPatch(model, command, changes)
-      } */
+      const changes = copy(model, command)
+      if (changes) {
+        mergeMigrations(createCopyMigration(command, changes), proposalMigration)
+      }
     } else if (command.op === 'move') {
-      throw new Error('not implemented yet')
-      /* const changes = move(model, command)
-      if (willEmitPatch) {
-        addMovePatch(model, command, changes)
-      } */
+      const changes = move(model, command)
+      if (changes) {
+        mergeMigrations(createMoveMigration(command, changes), proposalMigration)
+      }
     } else {
       throw new Error(`Crafter Array.$applyOperation: ${
         (proposal as any).op
-      } is not a supported operation. This error happened
-        during a patch operation. The transaction is cancelled and the model is reset to its previous value.`)
+      } is not a supported command. This error happened
+        during a migration command. The transaction is cancelled and the model is reset to its previous value.`)
     }
   })
 
-  computeNextState(model)
+  // Those commands update the shape of the model
+  if (proposalMigration.forward.some(isShapeMutationCommand)) {
+    model.$$container.addUpdatedObservable(model)
+  }
+  model.$addMigration(proposalMigration)
 }
 
-function getObjectKey(model: INodeInstance<any>, op: BasicOperation): string {
+function getObjectKey(model: INodeInstance<any>, op: BasicCommand): string {
   const index = String(getChildKey(model.$path, op.path))
   if (!isValidObjectIndex(model, index, op)) {
-    throw new Error(`Crafter ${index} is not a valid array index.`)
+    throw new Error(`Crafter ${index} is not a property of the object instance.`)
   }
   return index
 }
@@ -429,7 +528,7 @@ function getObjectKey(model: INodeInstance<any>, op: BasicOperation): string {
 function isValidObjectIndex(
   model: INodeInstance<any>,
   index: string,
-  proposal: BasicOperation
+  proposal: BasicCommand
 ): boolean {
   // property starting with $ is reserved for internal used
   return (

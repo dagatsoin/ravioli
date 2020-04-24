@@ -65,6 +65,39 @@ export function getGraphEdgesFrom<T>({
   ]
 }
 
+
+/**
+ * Return the node edges
+ * @param nodeId 
+ * @param graph 
+ */
+export function getEdgesOf(nodeId: string, graph: Graph<any>) {
+  return  graph.edges
+  .filter(e => (
+    e.source === nodeId ||
+    e.target === nodeId
+  ))
+}
+
+
+/**
+ * Return true if the given edge are the same
+ * @param edge0
+ * @param edge1 
+ */
+export function isSameEdge(edge0: Edge, edge1: Edge): boolean {
+  return edge0.source === edge1.source && edge0.target === edge1.target
+}
+
+/**
+ * Return true if the graph has the given edge
+ * @param edge 
+ * @param graph 
+ */
+export function hasEdge(edge: Edge, graph: Graph<any>): boolean {
+  return graph.edges.some((_edge) => isSameEdge(edge, _edge))
+}
+
 export function removeNode({
   node,
   dependencyGraph,

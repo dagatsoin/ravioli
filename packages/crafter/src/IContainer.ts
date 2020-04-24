@@ -1,11 +1,11 @@
 import { INodeInstance } from "./lib/INodeInstance"
-import { IObserver } from "./observer/Observer"
+import { IObserver, ObserverType } from "./observer/Observer"
 import { Graph } from "./Graph"
 import { IObservable as IInstance, IObservable } from "./IObservable"
-import { Operation, BasicOperation } from "./lib/JSONPatch"
-import { IDerivation } from "./observer/IDerivation"
+import { Command, BasicCommand } from "./lib/JSONPatch"
+import { IComputed } from "./observer/IDerivation"
 
-export type ContextListener = (patch: [string, BasicOperation[]][]) => void
+export type ContextListener = (migration: [string, BasicCommand[]][]) => void
 
 export type State = {
   // Is writtable
@@ -13,7 +13,7 @@ export type State = {
 
   // List of used ids (used for generate UID)
   uids: string[]
-  observedPaths: Map<string, string[]>
+  spiedObserversDependencies: Map<string, string[]>
 
   // Map of node isntances used in the container
   referencableNodeInstances: Map<string, INodeInstance<any>>
@@ -22,16 +22,25 @@ export type State = {
   // This will be used to clean the graph from unused derivations.
   activeDerivations: Map<string, IObserver>
 
-  // Listeners to patch event triggered after each transaction
+  // Listeners to migration event triggered after each transaction
   contextListeners: ContextListener[]
 
-  // In the case of nested derivation, this list will stored the
-  // stack of derivation ids
-  spyDerivationQueue: string[]
-  
-  // In the case of nested running reaction, this list will stored the
-  // stack of running reaction ids
-  spyReactionQueue: string[]
+  /**
+   * The stack of running observer ids ans type
+   * All possible observer chaining:
+   * - An autorun is a triggerd by an autorun
+   *   [autorun0, autorun1]
+   * - A derivation is triggered by an autorun
+   *   [autorun0, derivation0]
+   * - A derivation is triggered by a derivation
+   *   [autorun0, derivation0, derivation1]
+   * We can not have:
+   * - A derivation alone
+   *   [derivation0]
+   * - A derivation between two reactions. (A derivation can not trigger a side effect)
+   *   [autorun0, derivation0, autorun1]
+   */
+  spyReactionQueue: {type: ObserverType, id: string}[]
 
   // Store the top level transaction ID.
   // Only the top level transaction ID will trigger the learning phase.
@@ -49,7 +58,10 @@ export type State = {
   isComputingNextState: boolean
 
   // The graph of the observers running in this container.
-  dependencyGraph: Graph<IObservable | IObserver | IDerivation<any>>
+  dependencyGraph: Graph<IObservable | IObserver | IComputed<any>>
+
+  // The graph of the stale node after a transaction
+  updatedObservablesGraph: Graph<IObservable>
 
   // A list of observables used during a transaction.
   // Once the transaction is complete, the manager will
@@ -76,7 +88,7 @@ export interface IContainer {
    * Consistency: A transaction is a correct transformation of the model state. It is the responsability of the model to accept, reject or throw to any changes.
    *  Also, the system will rollback to the previous stable state if it throws during transaction.
    * Isolation: The transaction execution is syncrhronous. It is no possible to have async command during transaction or having two transactions in the same times.
-   * Durability: Once a transaction completes successfully, its changes are saved as patch (with rollback/forward command list) and a snapshot of the new model.
+   * Durability: Once a transaction completes successfully, its changes are saved as migration (with rollback/forward command list) and a snapshot of the new model.
    */
   transaction(fun: () => any): any
 
@@ -118,26 +130,20 @@ export interface IContainer {
 
   /**
    * Start to collect all observables paths and derivations
-   * poping out during the given reaction id run.
+   * poping out during the given observer run.
    */
-  startSpyReaction(reactionId: string): void
-  /**
-   * Stop to collect observable paths and new observers for this reaction and
-   * return the paths.
-   */
-  stopSpyReaction(reactionId: string): string[]
+  startSpyObserver(observer: IObserver): void
 
   /**
-   * Start the manager to collect all observables paths for the
-   * given derication id run.
+   * Return the deps of the current spyed observer
+   * @param observerId 
    */
-  startSpyDerivation(derivationId: string): void
-  
+  getCurrentSpyedObserverDeps(observerId: string): string[]
+
   /**
-   * Stop to collect observable paths and for this derivation and
-   * return the paths.
+   * Stop to collect observable paths and for this observer
    */
-  stopSpyDerivation(derivationId: string): string[]
+  stopSpyObserver(observerId: string): void
   
   pauseSpies(): void
   resumeSpies(): void
@@ -167,8 +173,8 @@ export interface IContainer {
   onObserverError(observer: IObserver): void
 
   /**
-   * Present a patch to the reactions.
-   * You need to specify the ID of the observable the patch comes from.
+   * Present a migration to the reactions.
+   * You need to specify the ID of the observable the migration comes from.
    */
-  presentPatch(patch: Operation[]): void
+  presentPatch(migration: Command[]): void
 }

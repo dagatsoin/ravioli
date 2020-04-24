@@ -2,7 +2,7 @@ import { array } from '../src/array'
 import { object } from '../src/object'
 import { string, number } from '../src/Primitive'
 import { observable } from '../src/lib/observable'
-import { getContext, toInstance, toNode } from '../src/helpers'
+import { getContext, toInstance, toNode, toLeaf } from '../src/helpers'
 import { getGlobal } from '../src/utils/utils'
 
 const context = getGlobal().$$crafterContext
@@ -93,3 +93,41 @@ test("path", function() {
 test.todo(
   'Failed creation should be cleaned. If a child node/leaf fail for a reason, all the tree must be destroyed'
 )
+
+test("Check node parenting", function() {
+  context.clearContainer()
+  const model = observable({
+    name: "Fraktar",
+    stats: {
+      health: 10
+    },
+    inventory: [
+      {id: "sword", quantity: 1},
+      {id: "shield", quantity: 1}
+    ],
+    titles: ["Lord of the Pump", "Black cat"],
+    achievements: new Map([
+      ['firstBlood', {title: "First blood"}],
+      ['firstQuest', {title: "First quest"}],
+    ]),
+    tokens: new Map([
+      ['000', "login"],
+      ['001', "logout"]
+    ])
+  })
+
+  // Check array structure
+  const modelInstance = toInstance(model)
+  const inventoryInstance = toInstance(modelInstance.$data.inventory)
+  const swordInstance = toInstance(model.inventory[0])
+  const leafInstance = toLeaf(swordInstance.$data.id)
+  expect(inventoryInstance.$parent).toBe(modelInstance)
+  expect(swordInstance.$parent).toBe(inventoryInstance)
+  expect(leafInstance.$parent).toBe(swordInstance)
+
+  // Check map structure
+  const tokensMapInstance = toInstance(modelInstance.$data.tokens)
+  const tokenInstance = toLeaf((tokensMapInstance as any).$data.get('000'))
+  expect(tokensMapInstance.$parent).toBe(modelInstance)
+  expect(tokenInstance.$parent).toBe(tokensMapInstance)
+})

@@ -31,3 +31,7 @@ export class Union<T> extends NodeType<T, T> {
 
   public isValidValue = (value?: any): value is T => this.types.some(t => t.isValidValue(value))
 }
+
+export function isUnionType(type: IType<any>): type is Union<any> {
+  return type instanceof Union
+}

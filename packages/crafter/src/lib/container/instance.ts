@@ -3,7 +3,7 @@ import { setNonEnumerable } from '../../utils/utils'
 import { IInstance } from '../IInstance'
 import { INodeInstance } from '../INodeInstance'
 import { INodeType } from '../INodeType'
-import { Operation, isAdditiveOperationWithoutKey, isRemovalOperationWithoutKey } from '../JSONPatch'
+import { Command, isShapeMutationCommand } from '../JSONPatch'
 import { NodeInstance } from '../NodeInstance'
 import { isNode } from "../isNode"
 import { ArrayInstance } from '../../array/instance'
@@ -40,26 +40,26 @@ export class ContainerInstance<TYPE> extends NodeInstance<TYPE, any>
   public $attach(parent: INodeInstance<any>, key: string): void {
     super.$attach(parent, key)
     this.$targetInstance.$attach(parent, key)
-    this.$targetInstance.$addOperationListener((log: Operation) => {
+    this.$targetInstance.$addTransactionMigrationListener(m => m.forward.forEach(command => {
       if (this.$targetInstance instanceof MapInstance) {
         // Map does not need to sync its first level keys. All data is stored in entries.
         return
       }
-      if (log.op === 'add') {
+      if (command.op === 'add') {
         // Check if the mutation concerns the node itself (not a children)
-        if (isOwnLeafPath(this.$path, log.path)) {
-          const childKey = getChildKey(this.$path, log.path)
-          if(childKey === undefined) throw new Error('[CRAFTER] add operation, operation.from is undefined')
+        if (isOwnLeafPath(this.$path, command.path)) {
+          const childKey = getChildKey(this.$path, command.path)
+          if(childKey === undefined) throw new Error('[CRAFTER] add command, command.from is undefined')
           addGetterSetter(this, childKey)
         }
-      } else if (log.op === 'remove') {
-        if (isOwnLeafPath(this.$path, log.path)) {
-          const childKey = getChildKey(this.$path, log.path)
+      } else if (command.op === 'remove') {
+        if (isOwnLeafPath(this.$path, command.path)) {
+          const childKey = getChildKey(this.$path, command.path)
           if (childKey) {
             delete this[childKey]
           }
         }
-      } else if (isAdditiveOperationWithoutKey(log) || isRemovalOperationWithoutKey(log)) {
+      } else if (isShapeMutationCommand(command)) {
         // Depending on the type, we reflect the key index changes
         if (this.$targetInstance instanceof ArrayInstance) {
           const thisLength = Object.keys(this).filter(k => !isNaN(Number(k))).length
@@ -81,7 +81,7 @@ export class ContainerInstance<TYPE> extends NodeInstance<TYPE, any>
           }  
         }
       }
-    })
+    }))
     
     // Listen to mutation.
     // If a add or remove is detected, reflect the changes in the container
@@ -92,12 +92,9 @@ export class ContainerInstance<TYPE> extends NodeInstance<TYPE, any>
     this.$targetInstance.$kill()
   }
 
-  public $applyOperation<O extends Operation>(
-    operation: O,
-    willEmitPatch: boolean = false
-  ): void {
+  public $present(proposal: Command[], shouldAddMigration: boolean): void {
     if (isNode(this.$targetInstance)) {
-      this.$targetInstance.$applyOperation(operation, willEmitPatch)
+      this.$targetInstance.$present(proposal, shouldAddMigration)
     }
   }
 
@@ -110,8 +107,8 @@ export class ContainerInstance<TYPE> extends NodeInstance<TYPE, any>
     return this.$targetInstance.$value
   }
 
-  public $setValue(value: TYPE): void {
-    this.$targetInstance.$setValue(value)
+  public $setValue(value: TYPE): boolean {
+    return this.$targetInstance.$setValue(value)
   }
 }
 

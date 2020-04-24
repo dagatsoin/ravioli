@@ -1,4 +1,7 @@
 import { IObservable } from '../IObservable';
-export interface IDerivation<T> extends IObservable {
-  get(): T;
+import { Migration } from '../lib/JSONPatch';
+
+export interface IComputed<T> extends IObservable {
+  $migration: Migration
+  get(): T
 }

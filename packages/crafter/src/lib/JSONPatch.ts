@@ -1,173 +1,321 @@
 import { SortCommands } from '../array'
 import { IObserver } from '../observer/Observer'
+import { IObservable } from '../IObservable'
 
-export interface AddOperation<T = any> extends Operation {
-  op: 'add'
+export enum Operation {
+  // Basic
+  add = 'add',
+  remove = 'remove',
+  replace = 'replace',
+  move = 'move',
+  copy = 'copy',
+  
+  // Array
+  splice = 'splice',
+  push = 'push',
+  unshift = 'unshift',
+  setLength = 'setLength',
+  copyWithin = 'copyWithin',
+  fill = 'fill',
+  reverse = 'reverse',
+  shift = 'shift',
+  pop = 'pop',
+  sort = 'sort',
+
+  // Map
+  clear = 'clear',
+  delete = 'delete'
+}
+
+export type AddCommand<T = any> = Command & {
+  op: Operation.add
   value: T
 }
 
-export interface RemoveOperation extends Operation {
-  op: 'remove'
+export type RemoveCommand = Command & {
+  op: Operation.remove
 }
-export interface ReplaceOperation<T = any> extends Operation {
-  op: 'replace'
+export type ReplaceCommand<T = any> = Command & {
+  op: Operation.replace
   value: T
 }
-export interface MoveOperation extends Operation {
-  op: 'move'
+export type MoveCommand = Command & {
+  op: Operation.move
   from: string
 }
-export interface CopyOperation extends Operation {
-  op: 'copy'
+export type CopyCommand = Command & {
+  op: Operation.copy
   from: string
 }
-export interface SpliceOperation<T = any> extends Operation {
-  op: 'splice'
+export type SpliceCommand<T = any> = Command & {
+  op: Operation.splice
   value?: T[]
   start: number
   deleteCount?: number | undefined
 }
 
-export interface PushOperation<T = any> extends Operation {
-  op: 'push'
+export type PushCommand<T = any> = Command & {
+  op: Operation.push
   value: T[]
 }
 
-export interface UnshiftOperation<T = any> extends Operation {
-  op: 'unshift'
+export type UnshiftCommand<T = any> = Command & {
+  op: Operation.unshift
   value: T[]
 }
 
-export interface SetLengthOperation extends Operation {
-  op: 'setLength'
+export type SetLengthCommand = Command & {
+  op: Operation.setLength
   value: number
 }
 
-export interface CopyWithinOperation extends Operation {
-  op: 'copyWithin'
+export type CopyWithinCommand = Command & {
+  op: Operation.copyWithin
   target: number
   start: number
   end?: number
 }
 
-export interface FillOperation<T = any> extends Operation {
-  op: 'fill'
+export type FillCommand<T = any> = Command & {
+  op: Operation.fill
   value: T
   start?: number
   end?: number
 }
 
-export interface ReverseOperation extends Operation {
-  op: 'reverse'
+export type ReverseCommand = Command & {
+  op: Operation.reverse
 }
 
-export interface ShiftOperation extends Operation {
-  op: 'shift'
+export type ShiftCommand = Command & {
+  op: Operation.shift
 }
 
-export interface PopOperation extends Operation {
-  op: 'pop'
+export type PopCommand = Command & {
+  op: Operation.pop
 }
 
-export interface SortOperation extends Operation {
-  op: 'sort'
+export type SortCommand = Command & {
+  op: Operation.sort
   commands: SortCommands
 }
 
-export interface ClearOperation extends Operation {
-  op: 'clear'
+export type ClearCommand = Command & {
+  op: Operation.clear
 }
 
-export type Operation = {
-  op: string
+export type Command = {
+  op: Operation
   path: string
+  value?: any
 }
 
-export type BasicOperation<T = any> =
-  | AddOperation<T>
-  | RemoveOperation
-  | ReplaceOperation<T>
-  | MoveOperation
-  | CopyOperation
+export type BasicCommand<T = any> =
+  | AddCommand<T>
+  | RemoveCommand
+  | ReplaceCommand<T>
+  | MoveCommand
+  | CopyCommand
 
-export type ArrayOperation<T = any> =
-  | BasicOperation<T>
-  | PushOperation<T>
-  | SetLengthOperation
-  | SpliceOperation<T>
-  | CopyWithinOperation
-  | FillOperation<T>
-  | ReverseOperation
-  | ShiftOperation
-  | PopOperation
-  | SortOperation
-  | UnshiftOperation<T>
+export type ArrayCommand<T = any> =
+  | BasicCommand<T>
+  | PushCommand<T>
+  | SetLengthCommand
+  | SpliceCommand<T>
+  | CopyWithinCommand
+  | FillCommand<T>
+  | ReverseCommand
+  | ShiftCommand
+  | PopCommand
+  | SortCommand
+  | UnshiftCommand<T>
 
-export type MapOperation<T = any> = BasicOperation<T> | ClearOperation
+export type MapCommand<T = any> = BasicCommand<T> | ClearCommand
 
-export type Migration<O extends Operation = BasicOperation<any>, R extends Operation = BasicOperation<any>> = {
-  forward: O[]
+export type Migration<C extends Command = any, R extends Command = any> = {
+  forward: C[]
   backward: R[]
 }
 
-export function isBasicJSONOperation<O extends Operation>(proposal: O): boolean {
+export function isBasicCommand<C extends Command>(proposal: C): boolean {
   return (
-    proposal.op === 'add' ||
-    proposal.op === 'copy' ||
-    proposal.op === 'move' ||
-    proposal.op === 'replace' ||
-    proposal.op === 'remove'
+    proposal.op === Operation.add ||
+    proposal.op === Operation.copy ||
+    proposal.op === Operation.move ||
+    proposal.op === Operation.replace ||
+    proposal.op === Operation.remove
   )
 }
 
-export function isAdditiveOperationWithoutKey({op}: Operation): boolean {
+function isExpendSizeCommand(op: Operation): boolean {
   return (
+    // Basic
+    op === Operation.add ||
     // Array
-    op === 'push' ||
-    op === 'unshift' ||
-    op === 'splice' ||
-    op === 'setLength' ||
-    // Map
-    op === 'set'
+    op === Operation.push ||
+    op === Operation.unshift ||
+    op === Operation.splice ||
+    op === Operation.setLength
   )
 }
 
-export function isRemovalOperationWithoutKey({op}: Operation): boolean {
+function isShrinkSizeCommand(op: Operation): boolean {
   return (
+    // Basic
+    op === Operation.remove ||
     // Array
-    op === 'splice' ||
-    op === 'shift' ||
-    op === 'pop' ||
-    op === 'setLength' ||
+    op === Operation.splice ||
+    op === Operation.shift ||
+    op === Operation.pop ||
+    op === Operation.setLength ||
     // Map
-    op === 'delete' ||
-    op === 'clear'
+    op === Operation.delete ||
+    op === Operation.clear
   )
 }
 
+function isLeafUpdateOperation(op: Operation) {
+  return (
+    op === Operation.replace ||
+    op === Operation.move ||
+    op === Operation.copy
+  )
+}
 
-export function isDependent({op, path}: Operation) {
-  return function (node: IObserver): boolean {
-    return (
-      // Path is part of the dependency
-      hasPath(node, path) || 
-      // The node depends on the length of a array
-      // and the operation was a push, splice, ...
-      hasPath(node, path + '/length') && isLenghtOperation({op, path}) ||
-      // The node depends on the length of a map
-      // and the operation was a set, delete, ...
-      hasPath(node, path + '/size') && isLenghtOperation({op, path})
+function isNodeUpdateOperation(op: Operation) {
+  return (
+    // Basic
+    op === Operation.replace ||
+    op === Operation.move ||
+    op === Operation.copy ||
+
+    // Array
+    op === Operation.copyWithin ||
+    op === Operation.fill ||
+    op === Operation.reverse ||
+    op === Operation.sort
+  )
+}
+
+function mapToObject(map: Map<string, any>) {
+  return Array.from(map.entries()).reduce(
+    function(obj, [key, value]) {
+      obj[key] = value
+      return obj
+    },
+    {}
+  )
+}
+
+/**
+ * Deeply transform an object into a list of path to its leafs.
+ * Support also Map and Array.
+ * @param object 
+ * @param root 
+ */
+function getObjectPaths(object: {}, root: string = '/'): string[] {
+  const keys = Object.keys(object)
+  return keys.flatMap(function(key) {
+    switch(typeof object[key]) {
+      case 'object':
+        if (object[key] instanceof Map) {
+          return getObjectPaths(mapToObject(object[key]), root + key + '/')
+        }
+        return getObjectPaths(object[key], root + key + '/')
+
+      default: return root + key
+    }
+  })
+}
+
+/**
+ * This predicate is the core of the reaction system. It analyses the changes
+ * happened during transaction and see if the given observer is dependent.
+ * 
+ * OR[
+ *  1. AND [
+ *    - it is an node update command: replace, copy or move, reverse, fill...
+ *    - it targets an object, array or map node
+ *    - one of the command value leaf matches the path of an updated observable
+ *    - some of the matched updated observables match one of the path of the observer dependencies 
+ *  ]
+ *  2. AND [
+ *    - it is an array wide update command: reverse, fill, sort
+ *    - some of the updated observable path match the array children
+ *    - some of the matched updated observables match one of the path of the observer dependencies 
+ *  ]
+ *  3. AND [
+ *    - it is an array atomic shape update command without explicit target path: splice, unshift, shift, pop, push
+ *    - OR [
+ *       - AND [
+*         - some of the matched updated observables paths match one of the path of the array children affected by the operation 
+ *        - some of the matched updated observables paths match one of the path of the observer dependencies 
+ *       ]
+ *       - AND [
+ *        - one of the updated observable is the lenght of the array
+ *        - some of the observer dependencies is the length of the array
+ *       ] 
+ *    ]
+ *  ]
+ *  4. AND [
+ *    - it targets a map, array or object node
+ *    - it is a atomic shape update command with explicit target path: add, remove, set, delete
+ *    - OR [
+ *       - AND [
+ *        - one of the update observable path matches the array child affected by the operation
+ *        - the matched updated observable path matches one of the path of the observer dependencies 
+ *       ]
+ *       - AND [
+ *        - one of the updated observable is the lenght of the array
+ *        - some of the observer dependencies is the length of the array
+ *       ] 
+ *    ] *  ]
+ *  5. AND [
+ *    - it targets a leaf 
+ *    - an updated observable path matches one of the path of the observer dependencies
+ *  ]
+ * 
+ * @param observer 
+ * @param param1 
+ */
+export function isDependent(observer: IObserver, {op, value, path}: Command, updatedObservables: readonly IObservable[]) {
+  return (
+    /* 1 */
+    (
+      (typeof value === 'object' || value instanceof Map) &&
+      isNodeUpdateOperation(op) &&    
+      getObjectPaths(value).some(_path => hasPath(observer, _path))
+    ) ||
+    /* 2 */
+    (
+      (typeof value !== 'object' && !(value instanceof Map)) &&
+      isLeafUpdateOperation(op) &&
+      updatedObservables.some(({$path}) => hasPath(observer, $path))
+    ) ||
+    /* 3 */
+    (
+      (Array.isArray(value) || value instanceof Map) &&
+      isShapeMutationCommand(op) &&
+      updatedObservables.some(({$path}) => hasPath(observer, $path))
     )
-  }
+  )
 }
 
+/**
+ * Return true if some of the node dependencies paths
+ * is strictly equal to the given path.
+ * Note the "strictly". That means that a parent node won't react
+ * if it is its child which has been updated.
+ * @param node
+ * @param path 
+ */
 export function hasPath(node: IObserver, path: string): boolean {
-  return node.dependencyPaths.some(depPath => depPath === path)
+  return node.dependencies.some(depPath => depPath === path)
 }
 
 /**
  * Return true if the operation has an incidence on the lenght/size of the array/map
  */
-function isLenghtOperation(operation: Operation): boolean {
-  return isRemovalOperationWithoutKey(operation) || isAdditiveOperationWithoutKey(operation)
+export function isShapeMutationCommand(op: Operation): boolean {
+  return isShrinkSizeCommand(op) || isExpendSizeCommand(op)
 }

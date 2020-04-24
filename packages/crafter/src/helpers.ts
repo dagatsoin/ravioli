@@ -6,7 +6,9 @@ import { FactoryOutput } from './lib/IFactory'
 import { IObservable } from './IObservable'
 import { IContainer } from './IContainer'
 import { InstanceFromValue } from './InstanceFromValue'
-import { ILeafInstance, INodeInstance } from './lib'
+import { ILeafInstance } from './lib/ILeafInstance'
+import { INodeInstance } from './lib/INodeInstance'
+import { Command } from './lib/JSONPatch'
 
 export function toNode<T>(data: T): InstanceFromValue<T> {
   if (!isNode<T>(data)) {
@@ -149,7 +151,7 @@ export function makePath(...segments: string[]): string {
 
 export function sync<T extends IObservable>(observable: T): T {
   const target = clone(observable)
-  toNode(observable).$addOperationListener(o => toNode(target).$applyOperation(o, true))
+  toNode(observable).$addTransactionMigrationListener(m => m.forward.forEach(c => toNode(target).$present(c, true)))
   return target
 }
 
@@ -189,4 +191,81 @@ export function getContext(instance: IInstance<any>): IContainer {
 
 export function isUnique<T>(value: T, index: number, array: T[]) {
   return array.indexOf(value) === index;
+}
+
+export function fail(e: string) {
+  if (__DEV__) {
+    throw new Error(e)
+  }
+}
+
+/**
+ * Reduce a patch by removing redondant command.
+ *  {op: "push", path: "/player/inventory", value: {id: "48646"}},
+ *  {op: "replace", path: "/pets", value: [{id: "74455"}]},
+ *  {op: "replace", path:"/player/name", value: "Fraktos"},
+ *  {op: "replace", path:"/player/stats/health", value: 5},
+ *  {op: "replace", path:"/player/stats", value: { health: 5 }},
+ *  {op: "replace", path:"/player", value: {name: "Fraktos", stats: { health: 5 }}},
+ * becomes
+ *  {op: "push", path: "/player/inventory", value: {id: "48646"}},
+ *  {op: "replace", path: "/pets", value: [{id: "74455"}]},
+ *  {op: "replace", path:"/player", value: {name: "Fraktos", stats: { health: 5 }}},
+ * @param patch 
+ */
+export function reduceSnapshot(patch: Command[]) {
+  if (!patch.length) {
+    return []
+  }
+  if (patch.length === 1) {
+    return patch
+  }
+  // Split patch in operation group
+  const operationGroups = patch.reduce(
+    (groups, command, index) => {
+      // The first group is already initialized in the last arg of the reduce call.
+      if (index === 0) {
+        return groups
+      }
+      const currentGroup =  groups[groups.length-1]
+      if (currentGroup.find(({op}) => op === command.op)) {
+        currentGroup.push(command)
+      } else {
+        groups.push([command])
+      }
+      return groups
+    },
+    [[patch[0]]] as Command[][]
+  )
+  
+  // Reduce each "replace" command groups by their minimal operation
+  return operationGroups.flatMap(function(group) {
+    if (group[0].op === "replace") {
+      // find common roots
+      return findMostLittleCommand(group)
+    } else {
+      return group
+    }
+  })
+}
+
+function findMostLittleCommand(group: Command[]) {
+  // Sort paths by ascending length
+  const paths = group
+    .map(({ path }) => path)
+    .sort((a, b) => a.length - b.length)
+
+  const groups = [paths[0]]
+  let currentSegment = paths[0]
+  
+  // Split paths in common group by root
+  for (let i = 1; i < paths.length; i++) {
+    const path = paths[i]
+    if (!path.startsWith(currentSegment)) {
+      groups.push(path)
+      currentSegment = path
+    }
+  }
+  // Return the most little command
+  return groups.map(commonRoot => group.find(({ path }) => path === commonRoot))
 }

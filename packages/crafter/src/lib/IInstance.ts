@@ -2,7 +2,8 @@ import { IType } from './IType'
 import { IContainer } from '../IContainer'
 import { IWithParent } from './IWithParent'
 import { IObservable } from '../IObservable'
-import { Migration, Operation } from './JSONPatch'
+import { Migration, Command } from './JSONPatch'
+import { MigrationListener } from './INodeInstance'
 
 export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent, IObservable{
   readonly $id: string
@@ -12,12 +13,16 @@ export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent, IObservab
   $data: any
   $snapshot: SNAPSHOT
   $value: TYPE
-  $addPatch(patch: Migration): void
+  $addMigration(migration: Migration): void
   $applySnapshot(snapshot: SNAPSHOT): void
-  $setValue(value: SNAPSHOT): void
+  $invalidateSnapshot(): void
+  $setValue(value: SNAPSHOT): boolean
   $kill(): void
-  $addOperationListener(operationListener: OperationListener): void
-  $removeOperationListener(operationListener: OperationListener): void
+  $addTransactionMigrationListener(commandListener: MigrationListener): void
+  $removeTransactionMigrationListener(commandListener: MigrationListener): void
+  /**
+   * Present an JSON command list to the instance.
+   * If shouldAddMigration is true, this will emit a migration.
+   */
+  $present(proposal: Command[], shouldAddMigration: boolean): void
 }
-
-export type OperationListener = (operation: Operation) => void

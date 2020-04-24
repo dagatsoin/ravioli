@@ -1,23 +1,19 @@
-import { toNode, getRoot, getSnapshot, unique, makePath, isUnique, toInstance, noop } from './helpers'
+import { toNode, getRoot, getSnapshot, unique, isUnique, noop, toInstance, isRoot } from './helpers'
 import { IObservable } from './IObservable'
-import { Operation, isDependent, hasPath, Migration } from './lib/JSONPatch'
-import { IObserver, ObserverType, isObserver, isReaction, isDerivation } from './observer/Observer'
-import { Graph, removeNode, removeNodeEdges, getGraphEdgesFrom, Edge, getAllPathsTo } from './Graph'
+import { Command, isDependent, Migration } from './lib/JSONPatch'
+import { IObserver, isObserver, isReaction, isDerivation, ObserverType } from './observer/Observer'
+import { Graph, removeNode, removeNodeEdges, getGraphEdgesFrom, Edge, getAllPathsTo, getEdgesOf, hasEdge, isSameEdge } from './Graph'
 import { INodeInstance } from './lib/INodeInstance'
-import { Tracker } from './lib/Tracker'
 import { State, IContainer, ContextListener } from './IContainer'
-import { Computed } from './observer/Computed'
-import { IDerivation } from "./observer/IDerivation"
+import { IComputed } from "./observer/IDerivation"
 import { isNode } from './lib/isNode'
 import { isObservable } from './lib/observable'
-import { isInstance } from './lib'
 
 function getInitState(): State {
   return {
     isWrittable: true,
     uids: [],
-    observedPaths: new Map(),
-    spyDerivationQueue: [],
+    spiedObserversDependencies: new Map(),
     spyReactionQueue: [],
     referencableNodeInstances: new Map(),
     isTransaction: false,
@@ -26,6 +22,10 @@ function getInitState(): State {
     activeDerivations: new Map(),
     rootTransactionId: undefined,
     dependencyGraph: {
+      nodes: [],
+      edges: [],
+    },
+    updatedObservablesGraph: {
       nodes: [],
       edges: [],
     },
@@ -39,8 +39,7 @@ export class CrafterContainer implements IContainer {
       isWrittable: this.state.isWrittable,
       uids: [...this.state.uids],
       referencableNodeInstances: new Map(this.state.referencableNodeInstances),
-      observedPaths: new Map(this.state.observedPaths),
-      spyDerivationQueue: [...this.state.spyDerivationQueue],
+      spiedObserversDependencies: new Map(this.state.spiedObserversDependencies),
       spyReactionQueue: [...this.state.spyReactionQueue],
       isTransaction: this.state.isTransaction,
       contextListeners: [...this.state.contextListeners],
@@ -50,6 +49,10 @@ export class CrafterContainer implements IContainer {
       dependencyGraph: {
         nodes: [...this.state.dependencyGraph.nodes],
         edges: [...this.state.dependencyGraph.edges],
+      },
+      updatedObservablesGraph: {
+        nodes: [...this.state.updatedObservablesGraph.nodes],
+        edges: [...this.state.updatedObservablesGraph.edges],
       },
       updatedObservables: [...this.state.updatedObservables]
     }
@@ -64,14 +67,15 @@ export class CrafterContainer implements IContainer {
   }
 
   public get isRunningReaction(): boolean {
-    return !!this.getCurrentSpiedReactionId()
+    const current = this.state.spyReactionQueue[this.state.spyReactionQueue.length - 1]
+    return current && isReaction(current.type)
   }
 
   private state: State = getInitState()
 
   private isSpyingPaused: boolean = false
   private get isSpying() {
-    return !this.isSpyingPaused && (this.state.spyDerivationQueue.length > 0 || this.state.spyReactionQueue.length > 0)
+    return !this.isSpyingPaused && (this.state.spyReactionQueue.length > 0)
   }
 
   /**
@@ -84,7 +88,7 @@ export class CrafterContainer implements IContainer {
     reaction.runAndUpdateDeps() 
   }
 
-  public notifyRead(instance: IObservable, observedPath: string): void {
+  public notifyRead(instance: IObservable | IComputed<any>, observedPath: string): void {
     if (!this.isSpying) {
       return
     }    
@@ -92,60 +96,36 @@ export class CrafterContainer implements IContainer {
     if (this.isSpyingPaused) {
       return
     }
-    const spiedDerivationId = this.getCurrentSpiedDerivationId()
+    const spiedObserverId = this.getCurrentSpiedObserverId()?.id
     // Special case, the read observable is the value of the derivation itself.
-    if (observedPath.includes(spiedDerivationId)) {
+    if (spiedObserverId && observedPath.includes(spiedObserverId)) {
       return
     }
-    const paths = this.state.observedPaths.get(spiedDerivationId)
-    // Path is not present, add it.
-    if (!!paths && !paths.includes(observedPath)) {
-      // The previous added path is a parent of this path.
-      // That means that an observer is reading a nested observable property.
-      // As observer must track final node or leaf read, we
-      // replace the previous place.
-      const previousPath = paths[paths.length - 1]
-      const isChildOfPreviousPath = observedPath.includes(previousPath)
-      if (isChildOfPreviousPath) {
-        paths[paths.length - 1] = observedPath
-        
-        // Remove the old edge
-        const parentEdge = this.state.dependencyGraph.edges.find(e => e.target === spiedDerivationId && e.source === toInstance(instance).$parent?.$id)!
-        if (parentEdge) {
-          const parentNode = getGraphNode(parentEdge.source, this.state.dependencyGraph)
-          // Other edges uses the parent node, don't delete
-          const shouldDeleteParentNode = this.state.dependencyGraph.edges.filter(e => e.source === parentEdge.source || e.target === parentEdge.source).length < 2
-          removeNodeEdges({nodeId: toInstance(parentNode).$id, dependencyGraph: this.state.dependencyGraph})
-          if(shouldDeleteParentNode) {
-            removeNode({node: parentNode, dependencyGraph: this.state.dependencyGraph})
-          }
+    if (spiedObserverId) {
+      const paths = this.state.spiedObserversDependencies.get(spiedObserverId)
+      // Path is not present, add it.
+      if (!!paths && !paths.includes(observedPath)) {
+        // The previous added path is a parent of this path.
+        // That means that an observer is reading a nested observable property.
+        // Replace the previous place, otherwise observers will "over" react.
+        const previousPath = paths[paths.length - 1]
+        const isChildOfPreviousPath = observedPath.includes(previousPath)
+
+        if (isChildOfPreviousPath) {
+          paths[paths.length - 1] = observedPath
+          // Remove parent dependency
+          this.removeParentDependency(spiedObserverId, instance)
         }
-      }
-      // This path is not a child of the previous path.
-      // The observer is reading a new path.
-      else {
-        paths.push(observedPath)
-      }
-      // Add to the graph
-      if (!this.state.dependencyGraph.edges.some(e => e.target === spiedDerivationId && e.source === (
-        isObserver(instance) && // FIXME Test this first because it will access any "type" getter if this is an instance. 
-        isDerivation(instance)
-          ? instance.id
-          : instance.$id
-        ))) {
-        this.state.dependencyGraph.edges.push({
-          target: spiedDerivationId,
-          source: isObserver(instance) && // FIXME Test this first because it will access any "type" getter if this is an instance. 
-            isDerivation(instance)
-              ? instance.id
-              : instance.$id
-        })
-      }
-      if (!this.state.dependencyGraph.nodes.includes(instance)) {
-        this.state.dependencyGraph.nodes.push(instance)
+        // This path is not a child of the previous path.
+        // The observer is reading a new path.
+        else {
+          paths.push(observedPath)
+        }
+
+        // Add to the graph
+        this.addDependency(spiedObserverId, instance)
       }
     }
-
   }
 
   /**
@@ -155,7 +135,7 @@ export class CrafterContainer implements IContainer {
    * Consistency: A transaction is a correct transformation of the model state. It is the responsability of the model to accept, reject or throw to any changes.
    *  Also, the system will rollback to the previous stable state if it throws during transaction.
    * Isolation: The transaction execution is syncrhronous. It is no possible to have async command during transaction or having two transactions in the same times.
-   * Durability: Once a transaction completes successfully, its changes are saved as patch (with rollback/forward command list) and a snapshot of the new model.
+   * Durability: Once a transaction completes successfully, its changes are saved as migration (with rollback/forward command list) and a snapshot of the new model.
    */
   public transaction(fun: () => any): any {
     const id = this.getUID('Transaction#')
@@ -202,7 +182,11 @@ export class CrafterContainer implements IContainer {
         if ((o as any).isTracker) {
           return
         } else {
-          invalidateSnapshot(toNode(o))
+          if (isNode(o)) {
+            invalidateSnapshot(o)
+          } else if (!isRoot(toInstance(o))) {
+            invalidateSnapshot(toNode(toInstance(o).$parent))
+          }
         }
       })
       
@@ -278,42 +262,32 @@ export class CrafterContainer implements IContainer {
 
   /**
    * Start to collect all observables paths and derivations
-   * poping out during the given reaction id run.
+   * poping out during the given observer run.
    */
-  public startSpyReaction(reactionId: string): void {
+  public startSpyObserver({id, type}: IObserver): void {
     // Pause the current spy if any.
-    this.state.spyReactionQueue.push(reactionId)
-    this.startSpyDerivation(reactionId)
+    this.state.spyReactionQueue.push({id, type})
+    this.state.spiedObserversDependencies.set(id, [])
   }
 
   /**
-   * Stop to collect observable paths and new observers for this reaction and
-   * return the paths.
+   * Stop to collect observable paths and new observers for this observer
    */
-  public stopSpyReaction(reactionId: string): string[] {
-    this.state.spyReactionQueue.pop()
-    return this.stopSpyDerivation(reactionId)
+  public stopSpyObserver(observerId: string): void {
+    // Remove the observer id from the queue
+    const data = this.state.spyReactionQueue.splice(
+      this.state.spyReactionQueue.findIndex(({id}) => id === observerId),
+      1
+    )[0]
+    data && this.state.spiedObserversDependencies.delete(data.id)
   }
 
-  /**
-   * Start the manager to collect all observables paths for the
-   * given derication id run.
-   */
-  public startSpyDerivation(derivationId: string): void {
-    // Pause the current spy if any.
-    this.state.spyDerivationQueue.push(derivationId)
-    this.state.observedPaths.set(derivationId, [])
-  }
-
-  /**
-   * Stop to collect observable paths and for this derivation and
-   * return the paths.
-   */
-  public stopSpyDerivation(derivationId: string): string[] {
-    const paths = this.state.observedPaths.get(derivationId) || []
-    this.state.spyDerivationQueue.pop()
-    this.state.observedPaths.delete(derivationId)
-    return paths
+  public getCurrentSpyedObserverDeps(observerId: string): string[] {
+    const deps = this.state.spiedObserversDependencies.get(observerId) 
+    if (deps) {
+      return deps
+    }
+    throw new Error('[CRAFTER] unknown observer id ' + observerId)
   }
 
   public pauseSpies(): void {
@@ -365,9 +339,9 @@ export class CrafterContainer implements IContainer {
     this.state.contextListeners.splice(this.state.contextListeners.indexOf(listener), 1)
   }
 
-  public presentPatch<O extends Operation>(patch: O[]): void {
-    const staleObservers: IObserver[] = []
-    patch.forEach(({op, path}) => {
+  public presentPatch<O extends Command>(migration: O[]): void {
+/*     const staleObservers: IObserver[] = []
+    migration.forEach(({op, path}) => {
       const observers = this.getTargets(makePath(path), op)
       // Remove duplicate. An observer can be present because it is dependent of a previous observable.
       .filter(o => staleObservers.indexOf(o) === -1)
@@ -386,7 +360,7 @@ export class CrafterContainer implements IContainer {
       // All computed values affected by the last observables mutation are now flagged as stale.
       // Let's run the reaction which uses those computed values.
       this.runReactions(staleObservers)
-    })
+    }) */
   }
     
   /**
@@ -397,52 +371,90 @@ export class CrafterContainer implements IContainer {
   }
 
   /**
-   * Return a list of observers which depends directly or indirectly on the given observable
+   * Remove the parent of the given source from the graph.
+   * The parent will be removed if its only dependency is the given source.
+   * @param targetId 
+   * @param source 
    */
-  private getTargets(path: string, op?: Operation['op']): IObserver[] {
-    // Get direct dependencies
-    const directDependencies: IObserver[] = []
-    if (op) {
-      directDependencies.push(...this.getDirectDependencies({path, op}))
-    } else {
-      directDependencies.push(...this.state
-        .dependencyGraph
-        .nodes
-        .filter(isObserver)
-        .filter(node => hasPath(node, path))
-      )
+  private removeParentDependency(targetId: string, source: IObservable) {
+    const graph = this.state.dependencyGraph
+
+
+    const parentEdge = {
+      target: targetId,
+      source: toInstance(source).$parent?.$id ?? ''
     }
-    const targets = directDependencies.concat(
-      ...directDependencies.map(dep => {
-        // If the dep is a derivation, we retrieve its id (for boxed value, the computed if, otherwise the value id)
-        const sourceId = dep.type === ObserverType.Computed
-          ? (dep as Computed<any>).observedValueId
-          : dep.id
-        return this.getTargets(makePath(sourceId))
-      })
-    )
-    return targets.filter(unique)
+    // Remove the old edge
+    if (hasEdge(parentEdge, graph)) {
+      const parentNode = getGraphNode(parentEdge.source, graph)
+
+      removeNodeEdges({nodeId: toInstance(parentNode).$id, dependencyGraph: graph})
+
+      // Other edges depend on the parent node, don't delete.
+      const canDeleteParentNode = getEdgesOf(parentEdge.source, graph).length < 2
+
+      if(canDeleteParentNode) {
+        removeNode({node: parentNode, dependencyGraph: graph})
+      }
+    }
   }
 
   /**
-   * Returns a list of observers directly dependant of the observable
-   * changed by the given operation.
+   * Register a dependency to the graph
+   * @param target 
+   * @param source 
+   */
+  private addDependency(targetId: string, source: IObservable | IComputed<any>): void {
+    // Add to the graph
+    const graph = this.state.dependencyGraph
+    const sourceId = isDerivation(source)
+      ? source.id
+      : source.$id
+
+    const edge = {target: targetId, source: sourceId}
+    
+    if (!hasEdge(edge, graph)) {
+      graph.edges.push({
+        target: targetId,
+        source: sourceId
+      })
+    }
+    if (!graph.nodes.includes(source)) {
+      graph.nodes.push(source)
+    }
+  }
+
+  /**
+   * Returns a list of observers directly dependent of the observable
+   * changed by the given command.
    * @param param0
    */
-  private getDirectDependencies({op, path}: Operation): IObserver[] {
+  private getDirectDependencies(patch: Command[]): IObserver[] {
     return this.state
       .dependencyGraph
       .nodes
       .filter(isObserver)
-      .filter(isDependent({op, path}))
+      .filter(n => patch.some(command => isDependent(n, command, this.state.dependencyGraph.nodes.filter(isObservable))))
   }
 
-  private getCurrentSpiedReactionId(): string {
-    return this.state.spyReactionQueue[this.state.spyReactionQueue.length - 1] || ''
+  /**
+   * Returns a list of observers directly dependent of this graph
+   * @param param0
+   */
+  private getGraphObservers({
+    target,
+    from
+  }: {
+    target: Graph<IObservable | IObserver | IComputed<any>>,
+    from: Graph<IObservable | IObserver | IComputed<any>>
+  }): IObserver[] {
+    throw new Error("getDirectDependenciesOfGraph not implemented")
   }
 
-  private getCurrentSpiedDerivationId(): string {
-    return this.state.spyDerivationQueue[this.state.spyDerivationQueue.length - 1] || ''
+  private getCurrentSpiedObserverId(): {type: ObserverType, id: string} | undefined{
+    // Derivation are prioritary because the always run as a child
+    // So let's see if a derivation is running. If not, fallback to the last running reaction.
+    return this.state.spyReactionQueue[this.state.spyReactionQueue.length - 1]
   }
   
   /**
@@ -456,7 +468,7 @@ export class CrafterContainer implements IContainer {
     }
     // The current spied is empty. This is because we are registring
     // the root reaction. Do not add edge, but add the node.
-    const target = this.getCurrentSpiedDerivationId()
+    const target = this.getCurrentSpiedObserverId()?.id
     if (target) {
       this.state.dependencyGraph.edges.push({
         target,
@@ -485,69 +497,50 @@ export class CrafterContainer implements IContainer {
   }
 
   /**
-   * This will update the dependency graph given a set of updated observables.
-   * 1- gather all forward patch of the updated observables
-   * 2- find all the direct target of those observables affected by the changes
-   * 3- stale reactions
-   * 4- find updated observable which are indirect source of found targets.
+   * Propagate the changes of the observables into the graph and update all derivations
+   * when necessary to reach a new stable state..
+   * It will return the list of reaction to run.
+   * 1- find all the direct target of the updated observables graph
+   * 2- stale reactions
+   * 3- in the direct targets, find observers which have indirect sources
+   *    in the updated observables graph.
    *    eg. C0 -> O, C2 -> O, C2 -> C1 // C2 is both a direct and indirect target of O
    *        C2 won't be ran until all its dependencies have been run.
-   * 5- run other direct targets and store the resulting updated observables
-   * 6- if there was some indirect derivation, add the corresponding
-   *    patch operation paths from the given updated observables passed in arguments.
-   * 7- recall the function which the new updated observables and the new staled derivations.
-   * 
+   * 4- run only direct targets which is plain dependant of the updated observables graph
+   * 5- recall the function with:
+   *    - the new updated observables from the ran derivations
+   *    - the previous updated observable which are source of indirect observers
+   *    - the new staled derivations.
    * @param observables
    * @returns the ids of the stale derivations
    */
-  private updateDerivations(
-    observables: (IObservable | IDerivation<any>)[],
-    localState?: {
-      ranDerivationIds: string[]
-      staleReactionIds: string[]
-    }): string[] {
-    /* 1 */
-    // Add the ID of the observable to the path to make them unique in the entire graph.
-    const ops = observables.flatMap(obs => {
-      const {$patch: {forward}} = obs
-
-      return forward
-        .map(patch => ({
-          ...patch,
-          path: makePath(isDerivation(obs) || obs instanceof Tracker ? '' : getRoot(toInstance(obs)).$id, patch.path)
-        }))
+  private updateGraph(_ranComputedIds: string[] = []): string[] {   
+    /* 1 */ 
+    const directTargets = this.getGraphObservers({
+      target: this.state.dependencyGraph,
+      from: this.state.updatedObservablesGraph
     })
-    /* 2 */ 
-    const directTargets = ops.flatMap(operation => this.getDirectDependencies({
-      op: operation.op,
-      path: operation.path
-    }))
-    // Exclude already ran derivations if this is a recursive call
-    .filter(d => localState?.ranDerivationIds.includes(d.id) ?? true)
+    // Filter already ran computed
+    .filter(({id}) => !_ranComputedIds.includes(id))
 
-    /* 3 */
+    /* 2 */
     const reactions = directTargets
-      .filter(isReaction)
-      // Eclude already included reactions if this is a recursive call
-      .filter(d => localState?.staleReactionIds.includes(d.id) ?? true)
+      .filter(o => isReaction(o.type))
+      .filter(r => !r.isStale)
 
     // Stale reactions
-    reactions.forEach(r => r.notifyChangeFor())
+    reactions.forEach(r => r.stale())
 
-    /* 4 */
-    // The list of derivations which have some direct AND indirect dependencies to the
-    // updated observable.
+    /* 3 */
+    // Find the observers of the updated observables graph which are directly AND indirectly dependent
+    // of the updated observables graph.
     const notReadyToRunDerivations: IObserver[] = [] 
-    const indirectSources: IObservable[] = []
 
-    for (const obs of observables) {
+    for (const obs of this.state.updatedObservablesGraph.nodes) {
       // Is this observable is used as an indirect source of a direct target.
       for (const target of directTargets) {
-        if (isDerivation(target)) {
-          if (this.isIndirectTarget(target, obs)) {
-            indirectSources.push(obs)
-            notReadyToRunDerivations.push(target)
-          }
+        if (isDerivation(target) && isObservable(obs) && this.isIndirectTarget(target, obs)) {
+          notReadyToRunDerivations.push(target)
         }
       }
     }
@@ -555,30 +548,28 @@ export class CrafterContainer implements IContainer {
     function isReady(derivation: IObserver) {
       return !notReadyToRunDerivations.includes(derivation)
     }
-      
-    const newUpdatedObservables = indirectSources
-    
+          
     /* 5 */
     const readyToRunDerivation = directTargets
       .filter(isDerivation)
-      .filter(isReady)  
+      .filter(isReady)
+    const ranComputedIds: string[] = []  
     
     readyToRunDerivation
       .forEach(derivation => {
         derivation.runAndUpdateDeps()
-        /* 6 */
-        newUpdatedObservables.push(derivation)
+        ranComputedIds.push(derivation.id)
       })
 
+    const newReactionIds = reactions.map(({id}) => id)
+
     /* 7 */
-    const reactionIds = reactions.map(({id}) => id)
-      
     // Recursive call returning the reactions to run.
-    if (newUpdatedObservables.length) {
-      reactionIds.push(...this.updateDerivations(newUpdatedObservables))
+    if (this.state.updatedObservablesGraph.nodes.length) {
+      this.updateGraph(ranComputedIds)
     }
     
-    return localState?.staleReactionIds.concat(reactionIds) ?? reactionIds
+    return newReactionIds.concat()
   }
 
   /**
@@ -589,10 +580,10 @@ export class CrafterContainer implements IContainer {
   private nextState(state: State): void {
     state.isComputingNextState = true
     // List all observers which are dependant of the observale mutated during the transaction.
-    const staleReactions = this.updateDerivations(state.updatedObservables)
+    const staleReactions = this.updateGraph()
       .map(id => getGraphNode(id, this.state.dependencyGraph) as IObserver)
 
-    // Do something with the transaction patch
+    // Do something with the transaction migration
     collectTransactionPatches(state.updatedObservables)
 
     // The learning phase is over. Prepare the the state for the next step.
@@ -647,7 +638,7 @@ export class CrafterContainer implements IContainer {
  * Return an observer stored in the dependencies graph.
  * Thrown if not found
  */
-function getGraphNode(id: string, graph: Graph<IObservable | IObserver | IDerivation<any>>): IObserver | IObservable {
+function getGraphNode(id: string, graph: Graph<IObservable | IObserver | IComputed<any>>): IObserver | IObservable {
   const child = graph
     .nodes
     .find(node => getNodeId(node) === id)
@@ -659,6 +650,7 @@ function getGraphNode(id: string, graph: Graph<IObservable | IObserver | IDeriva
     )
   }
 }
+
 
 /**
  * Will update the dependecy graph by removing a node and the associated edges
@@ -701,7 +693,7 @@ function removeObserver({
  * Return the id of an observable or an observer
  * @param node
  */
-function getNodeId(node: IObservable | IObserver | IDerivation<any>): string {
+function getNodeId(node: IObservable | IObserver | IComputed<any>): string {
   return isObservable(node)
     ? isDerivation(node)
       ? node.id
@@ -747,14 +739,15 @@ function extractNodeId(edge: Edge): [string, string] {
 function onDisposeObserver(observer: IObserver, state: State): void {
   // Get all the observers dependent of the caller.
   // An observer wich is also a dependeny on other top level observer will stay untouched.
+  const graph = state.dependencyGraph
   const tree = getDependencyTree({
     targetId: observer.id,
-    graph: state.dependencyGraph,
+    graph,
   })
   // Remove caller from the graph
   removeObserver({
     observer,
-    dependencyGraph: state.dependencyGraph
+    dependencyGraph: graph
   })
 
   // Dispose observer and remove it from the graph
@@ -765,26 +758,23 @@ function onDisposeObserver(observer: IObserver, state: State): void {
         disposeComputation(node)
         removeObserver({
           observer: node,
-          dependencyGraph: state.dependencyGraph
+          dependencyGraph: graph
         })
       } else {
         
       }
     })
   // Remove edges from the graph
-  state.dependencyGraph.edges = state.dependencyGraph.edges.filter(edge => !tree.edges.some(isSameEdge(edge))) 
+  graph.edges = graph.edges.filter(edge => !tree.edges.some(treeEdge => isSameEdge(edge, treeEdge))) 
 }
-
-const isSameEdge = (edge: Edge): (value: Edge) => boolean =>
-(e: Edge): boolean => e.source === edge.source && e.target === edge.target
 
 function collectTransactionPatches(
   updatedObservables: IObservable[]
 ): [string, Migration][] {
   const transactionPatches: [string, Migration][] = []
   updatedObservables.forEach(observable => {
-    if (observable.$patch.forward.length) {
-      transactionPatches.push([observable.$id, observable.$patch])
+    if (observable.$migration.forward.length) {
+      transactionPatches.push([observable.$id, observable.$migration])
       observable.$transactionDidEnd()
     }
   })
@@ -800,8 +790,4 @@ function invalidateSnapshot(o: INodeInstance<any>): void {
   if (parent) {
     invalidateSnapshot(parent)
   }
-}
-
-function isTopLevelObserver(observer: IObserver): boolean {
-  return observer.type !== ObserverType.Computed
 }

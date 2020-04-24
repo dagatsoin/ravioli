@@ -13,7 +13,7 @@ import {
   InstanceOptions,
 } from '../api/IComponentFactory'
 import { IComponentInstance } from '../api/IComponentInstance'
-import { isNodeType, IType } from '@warfog/crafter'
+import { isNodeType, IType, IObservable, IInstance } from '@warfog/crafter'
 import { ComponentInstance, TransformationPackage } from './ComponentInstance'
 import { check } from './helpers'
 import { Mutation } from '../api/Acceptor'
@@ -24,7 +24,7 @@ export class ComponentFactory<
   MUTATIONS extends Mutation<any, any> = { type: never },
   CONTROL_STATES extends string = never,
   ACTIONS = any,
-  REPRESENTATION extends TYPE = TYPE,
+  REPRESENTATION extends IObservable = IInstance<TYPE>,
   NAP_NAMES extends string = never
 >
   implements
@@ -34,7 +34,8 @@ export class ComponentFactory<
       MUTATIONS,
       CONTROL_STATES,
       ACTIONS,
-      REPRESENTATION
+      REPRESENTATION,
+      NAP_NAMES
     >,
     IWithAcceptorFactories<TYPE> {
   public get Mutations(): MUTATIONS {

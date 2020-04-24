@@ -1,4 +1,5 @@
 import {
+  fail,
   getChildKey,
   toInstance,
   toNode,
@@ -19,31 +20,34 @@ import {
   MoveChanges,
   RemoveChanges,
   ReplaceChanges,
+  AddChanges,
 } from '../lib/INodeInstance'
 import { isInstance } from '../lib/Instance'
 import {
-  AddOperation,
-  BasicOperation,
-  ClearOperation,
-  CopyOperation,
-  isBasicJSONOperation,
-  MapOperation,
-  MoveOperation,
-  Operation,
-  RemoveOperation,
-  ReplaceOperation,
+  AddCommand,
+  BasicCommand,
+  ClearCommand,
+  CopyCommand,
+  isBasicCommand,
+  MapCommand,
+  MoveCommand,
+  Command,
+  RemoveCommand,
+  ReplaceCommand,
+  isShapeMutationCommand,
+  Migration,
 } from '../lib/JSONPatch'
 import {
-  addAddPatch,
-  addCopyPatch,
-  addMovePatch,
-  addRemovePatch,
-  addReplacePatch,
+  createAddMigration,
+  createCopyMigration,
+  createMoveMigration,
+  createRemoveMigration,
+  createReplaceMigration as createReplaceMigration,
 } from '../lib/mutators'
 import { NodeInstance } from '../lib/NodeInstance'
 import { isNode } from "../lib/isNode"
 import { Snapshot } from '../lib/Snapshot'
-import { setNonEnumerable } from '../utils/utils'
+import { setNonEnumerable, mergeMigrations } from '../utils/utils'
 
 import { MapType } from './type'
 import { IContainer } from '../IContainer'
@@ -153,18 +157,18 @@ export class MapInstance<TYPE>
     )
   
 
-  public $applyOperation<O extends Operation>(
-    proposal: O & BasicOperation,
+  public $present<O extends Command>(
+    proposal: O & BasicCommand,
     willEmitPatch: boolean = false
   ): void {
     // Apply only if the path concerns this node or a leaf child.
     if (isNodePath(this.$path, proposal.path)) {
       present(this, [proposal], false)
     } else if (isOwnLeafPath(this.$path, proposal.path)) {
-      if (isBasicJSONOperation(proposal)) {
+      if (isBasicCommand(proposal)) {
         present(this, [proposal])
       } else {
-        throw new Error('LeafInstance accepts only basic JSON write operations')
+        throw new Error('LeafInstance accepts only basic JSON write commands')
       }
     } // Or delegate to children
     else if (isChildPath(this.$path, proposal.path)) {
@@ -172,8 +176,8 @@ export class MapInstance<TYPE>
         Number(getChildKey(this.$path, proposal.path))
       ]
       // Get the concerned child key
-      toNode(toInstance(childInstance)).$applyOperation(
-        proposal as BasicOperation,
+      toNode(toInstance(childInstance)).$present(
+        proposal as BasicCommand,
         willEmitPatch
       )
     }
@@ -301,7 +305,7 @@ function build(
   })
 }
 
-type Proposal<T = any> = MapOperation<T>
+type Proposal<T = any> = MapCommand<T>
 
 /**
  * Accept the value if the model is writtable
@@ -315,81 +319,101 @@ function present<T>(
   if (!model.$$container.isWrittable) {
     throw new Error(`Crafter Map. Tried to mutate a Map while model is locked.`)
   }
+
+  const proposalMigration: Migration<any, any> = {
+    forward: [],
+    backward: []
+  }
+
   proposal.forEach(command => {
     if (command.op === 'add') {
-      add(model, command)
-      model.refineTypeIfNeeded(command.value)
-      if (willEmitPatch) {
-        addAddPatch(model, command)
+      const changes = add(model, command)
+      if (changes) {
+        model.refineTypeIfNeeded(command.value)
+        mergeMigrations(createAddMigration(command), proposalMigration)
       }
     } else if (command.op === 'replace') {
       const changes = replace(model, command)
-      if (willEmitPatch) {
-        addReplacePatch(model, command, changes)
+      if (changes) {
+        mergeMigrations(createReplaceMigration(command, changes), proposalMigration)
       }
     } else if (command.op === 'remove') {
       const changes = deleteInMap(model, command)
-      if (willEmitPatch) {
-        addRemovePatch(model, command, changes)
+      if (changes) {
+        mergeMigrations(createRemoveMigration(command, changes), proposalMigration)
       }
     } else if (command.op === 'copy') {
       const changes = copy(model, command)
-      if (willEmitPatch) {
-        if (changes) {
-          addCopyPatch(model, command, changes)
-        } else {
-          const from = model.get(command.from)
-          if (from === undefined) {
-            throw new Error("[CRAFTER: Map.copy from index is not valid. " + command)
-          }
-          addAddPatch(model, {
+      if (changes) {
+        mergeMigrations(createCopyMigration(command, changes), proposalMigration)
+      } else {
+        const from = model.get(command.from)
+        if (from === undefined) {
+          fail("[CRAFTER: Map.copy from index is not valid. " + command)
+        }
+        mergeMigrations(
+          createAddMigration({
             op: 'add',
             path: command.path,
             value: getSnapshot(toInstance(from)),
-          })
-        }
+          }),
+          proposalMigration
+        )
       }
     } else if (command.op === 'move') {
       const changes = move(model, command)
-      if (willEmitPatch) {
-        addMovePatch(model, command, changes)
+      if (changes) {
+        mergeMigrations(createMoveMigration(command, changes), proposalMigration)
       }
     } else if (command.op === 'clear') {
-      const changes = clear(model)
-      if (willEmitPatch) {
-        addClearPatch(model, command, changes)
+      if (model.$data.size > 0) {
+        const changes = clear(model)
+        if (changes) {
+          mergeMigrations(createClearMigration(command, changes), proposalMigration)
+        }
       }
     } else {
       throw new Error(`Crafter Array.$applyOperation: ${
         (proposal as any).op
-      } is not a supported operation. This error happened
-        during a patch operation. The transaction is cancelled and the model is reset to its previous value.`)
+      } is not a supported command. This error happened
+        during a migration command. The transaction is cancelled and the model is reset to its previous value.`)
     }
   })
 
-  computeNextState(model)
+  // Those commands update the size of the map
+  if (proposalMigration.forward.some(isShapeMutationCommand)) {
+    model.$$container.addUpdatedObservable(model)
+  }
+  if (willEmitPatch) {
+    model.$addMigration(proposalMigration)
+  }
 }
 
 function add(
   model: MapInstance<any>,
-  command: AddOperation | ReplaceOperation
-): void {
+  command: AddCommand | ReplaceCommand
+): AddChanges | undefined {
   const key = getChildKey(model.$path, command.path)
   if (!key) {
-    throw new Error (`[CRAFTER] MapInstance.add command. Path is not valid: ${command.path}`)
+    fail(`[CRAFTER] MapInstance.add command. Path is not valid: ${command.path}`)
+    return
   }
   const item = toInstance(model.$type.itemType.create(command.value, { context: model.$$container }))
   model.$data.set(key, item)
   item.$attach(model, key)
+  return {
+    added: command.value,
+  }
 }
 
 function replace(
   model: MapInstance<any>,
-  command: AddOperation | ReplaceOperation
-): ReplaceChanges {
+  command: AddCommand | ReplaceCommand
+): ReplaceChanges | undefined {
   const key = getChildKey(model.$path, command.path)
   if (!key) {
-    throw new Error (`[CRAFTER] MapInstance.replace command. Path is not valid: ${command.path}`)
+    fail(`[CRAFTER] MapInstance.replace command. Path is not valid: ${command.path}`)
+    return
   }
   const itemToReplace = model.get(key)
   itemToReplace.$kill()
@@ -398,7 +422,8 @@ function replace(
   }
   const target = model.get(key)
   if (target === undefined) {
-    throw new Error("[CRAFTER: Map.replace target index is not valid. " + command)
+    fail("[CRAFTER: Map.replace target index is not valid. " + command)
+    return
   }
   target.$setValue(command.value)
   return changes
@@ -406,11 +431,12 @@ function replace(
 
 function deleteInMap(
   model: MapInstance<any>,
-  command: RemoveOperation
-): RemoveChanges {
+  command: RemoveCommand
+): RemoveChanges | undefined {
   const key = getChildKey(model.$path, command.path)
   if (!key) {
-    throw new Error (`[CRAFTER] MapInstance.delete command. Path is not valid: ${command.path}`)
+    fail(`[CRAFTER] MapInstance.delete command. Path is not valid: ${command.path}`)
+    return
   }
   const itemToRemove = model.get(key)
   itemToRemove.$kill()
@@ -420,27 +446,28 @@ function deleteInMap(
   }
   const result = model.$data.delete(key)
   if (!result) {
-    throw new Error('Crafter Map. Can not delete ' + key)
+    fail('Crafter Map. Can not delete ' + key)
+    return
   }
   return changes
 }
 
 function copy(
   model: MapInstance<any>,
-  command: CopyOperation
+  command: CopyCommand
 ): CopyChanges | undefined {
   const fromKey = getChildKey(model.$path, command.from)
   const destinationKey = getChildKey(model.$path, command.path)
   if (!fromKey || !destinationKey) {
-    throw new Error (`[CRAFTER] MapInstance.copy command. Path is not valid: ${command.from}, ${command.path}`)
+    fail(`[CRAFTER] MapInstance.copy command. Path is not valid: ${command.from}, ${command.path}`)
+    return
   }
   const from = model.get(fromKey)
   const to = model.get(destinationKey)
 
   if (from === undefined) {
-    throw new Error(
-      'Crafter Map: copy operation. ' + fromKey + ' does not exist'
-    )
+    fail('[CRAFTER] Map: copy command. ' + fromKey + ' does not exist')
+    return
   }
 
   // Destination key exists, it is a replace
@@ -455,12 +482,13 @@ function copy(
 
 function move(
   model: MapInstance<any>,
-  command: MoveOperation
-): MoveChanges {
+  command: MoveCommand
+): MoveChanges | undefined {
   const from = getChildKey(model.$path, command.from)
   const to = getChildKey(model.$path, command.path)
   if (!from || !to) {
-    throw new Error (`[CRAFTER] MapInstance.move command. Path is not valid: ${command.from}, ${command.path}`)
+    fail(`[CRAFTER] MapInstance.move command. Path is not valid: ${command.from}, ${command.path}`)
+    return
   }
   const movedItem = model.get(from)
   const changes = {
@@ -501,19 +529,18 @@ function clear(model: MapInstance<any>): ClearChanges<any> {
   }
 }
 
-function addClearPatch(
-  model: MapInstance<any>,
-  command: ClearOperation,
+function createClearMigration(
+  command: ClearCommand,
   changes: ClearChanges<any>
-): void {
-  model.$addPatch({
+): Migration<ClearCommand, ReplaceCommand> {
+  return {
     forward: [command],
     backward: [
       {
         op: 'replace',
-        path: model.$path,
+        path: command.path,
         value: changes.removed,
       },
     ],
-  })
+  }
 }

@@ -4,15 +4,13 @@ import { computed } from '../src/observer/Computed'
 import { getContext, toInstance } from '../src/helpers'
 import { createTracker } from '../src/lib/Tracker'
 import { getGlobal } from '../src/utils/utils'
-import { array } from '../src'
+import { array, string } from '../src'
 
 type Transform = <M, I>(
   model: M,
   initialValue: I,
   transformer: (m: M, i: I) => void
 ) => { value: I }
-
-declare const transform: Transform
 
 const context = getGlobal().$$crafterContext
 

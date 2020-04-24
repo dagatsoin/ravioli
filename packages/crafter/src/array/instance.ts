@@ -1,6 +1,7 @@
 import { ArrayType } from '../array/type'
 import {
   clone,
+  fail,
   getChildKey,
   toInstance,
   toNode,
@@ -12,53 +13,50 @@ import {
   getRoot,
   makePath,
 } from '../helpers'
-import { computeNextState } from '../lib/computeNextState'
 import { IInstance } from '../lib/IInstance'
 import { DataArray, INodeInstance, RemoveChanges, ReplaceChanges } from '../lib/INodeInstance'
 import { isInstance } from '../lib/Instance'
 import {
-  ArrayOperation,
-  BasicOperation,
-  CopyWithinOperation,
-  FillOperation,
-  isBasicJSONOperation,
+  ArrayCommand,
+  CopyWithinCommand,
+  FillCommand,
+  isBasicCommand,
   Migration,
-  Operation,
-  PopOperation,
-  PushOperation,
-  RemoveOperation,
-  ReverseOperation,
-  SetLengthOperation,
-  ShiftOperation,
-  SpliceOperation,
-  UnshiftOperation,
+  PopCommand,
+  PushCommand,
+  RemoveCommand,
+  ReverseCommand,
+  SetLengthCommand,
+  ShiftCommand,
+  SpliceCommand,
+  UnshiftCommand,
 } from '../lib/JSONPatch'
 import {
   add,
-  addAddPatch,
-  addCopyPatch,
-  addMovePatch,
-  addRemovePatch,
-  addReplacePatch,
+  createAddMigration,
+  createCopyMigration,
+  createMoveMigration,
+  createRemoveMigration,
+  createReplaceMigration,
   copy,
   move
 } from '../lib/mutators'
 import { NodeInstance } from '../lib/NodeInstance'
 import { isNode } from "../lib/isNode"
 import { Snapshot } from '../lib/Snapshot'
-import { setNonEnumerable } from '../utils/utils'
+import { setNonEnumerable, mergeMigrations } from '../utils/utils'
 import { IContainer } from '../IContainer'
 import { isUnknownType, isPrimitive } from '../Primitive'
 import { getTypeFromValue } from "../lib/getTypeFromValue"
 import { ReferenceType, reference, isReferenceType } from '../lib/reference'
 import { INodeType } from '../lib/INodeType'
-import { isNodeType } from '../lib'
+import { isNodeType, isShapeMutationCommand, SortCommand, Operation } from '../lib'
 
 /**
  * Code review
  * - [ ] each new node is attached
  * - [ ] each new node has an interceptor
- * - [ ] each acceptor has its dedicated patch generator
+ * - [ ] each acceptor has its dedicated migration generator
  *
  * QA
  * - [ ] I can do myArray[n] = something and it will the necessary empty slots
@@ -110,7 +108,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   public set length(value: number) {
     present(this as any, [
       {
-        op: 'setLength',
+        op: Operation.setLength,
         path: this.$path,
         value,
       },
@@ -133,7 +131,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     // Initialize the array
     super(generateSnapshot, generateValue, methodKeys, options)
     this.$type = type
-    // The item type is known. If not, those operations will be done in refineTypeIfNeeded
+    // The item type is known. If not, those commands will be done in refineTypeIfNeeded
     if (!isUnknownType(type.itemType)) {
       this.$refFactory = (isNodeType(type.itemType) ? reference(type.itemType) : undefined) as any
       this.$isPrimitiveArray = !isNodeType(type.itemType)
@@ -190,27 +188,29 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     this.$attachChildren()
   }
 
-  public $applyOperation<O extends Operation>(
-    proposal: O & ArrayOperation<SUBTYPE>,
-    willEmitPatch: boolean = false
+  public $present(
+    proposal: ArrayCommand<SUBTYPE>[],
+    shouldAddMigration: boolean = false
   ): void {
-    // Apply only if the path concerns this node or a leaf child.
-    if (isNodePath(this.$path, proposal.path)) {
-      present(this, [proposal], willEmitPatch)
-    } else if (isOwnLeafPath(this.$path, proposal.path)) {
-      if (isBasicJSONOperation(proposal)) {
-        present(this, [proposal], willEmitPatch)
-      } else {
-        throw new Error('LeafInstance accepts only basic JSON write operations')
+    proposal.forEach(command => {
+      // Apply only if the path concerns this node or a leaf child.
+      if (isNodePath(this.$path, command.path)) {
+        present(this, [command], shouldAddMigration)
+      } else if (isOwnLeafPath(this.$path, command.path)) {
+        if (isBasicCommand(command)) {
+          present(this, [command], shouldAddMigration)
+        } else {
+          fail('[CRAFTER] Array.$applyCommand LeafInstance accepts only basic JSON write commands')
+        }
+      } // Or delegate to children
+      else if (isChildPath(this.$path, command.path)) {
+        const childInstance = this.$data[
+          Number(getChildKey(this.$path, command.path))
+        ]
+        // Get the concerned child key
+        toNode(childInstance).$present([command], shouldAddMigration)
       }
-    } // Or delegate to children
-    else if (isChildPath(this.$path, proposal.path)) {
-      const childInstance = this.$data[
-        Number(getChildKey(this.$path, proposal.path))
-      ]
-      // Get the concerned child key
-      toNode(childInstance).$applyOperation(proposal as BasicOperation, willEmitPatch)
-    }
+    })
   }
 
   /**
@@ -238,7 +238,9 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
       this.$addInterceptor(i)
     }
     this.$attachChildren()
-    computeNextState(this)
+
+    // The value of the array changed, notify the container.
+    this.$$container.addUpdatedObservable(this)
   }
 
   public $kill(): void {
@@ -259,7 +261,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     start: number,
     end?: number | undefined
   ): this => {
-    present(this, [{ op: 'copyWithin', path: this.$path, target, start, end }])
+    present(this, [{ op: Operation.copyWithin, path: this.$path, target, start, end }])
     return this
   }
 
@@ -362,7 +364,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     start?: number | undefined,
     end?: number | undefined
   ): this => {
-    present(this, [{ op: 'fill', path: this.$path, value, start, end }])
+    present(this, [{ op: Operation.fill, path: this.$path, value, start, end }])
     return this
   }
 
@@ -416,13 +418,13 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   }
 
   public reverse = (): SUBTYPE[] => {
-    present(this, [{ op: 'reverse', path: this.$path }])
+    present(this, [{ op: Operation.reverse, path: this.$path }])
     return this
   }
 
   public shift = (): SUBTYPE | undefined => {
     const item = this.$data[0]
-    present(this, [{ op: 'shift', path: this.$path }])
+    present(this, [{ op: Operation.shift, path: this.$path }])
     return item ? unbox(item) : undefined
   }
 
@@ -442,7 +444,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   public sort = (
     compareFn?: ((a: SUBTYPE, b: SUBTYPE) => number) | undefined
   ): this => {
-    present(this, [{ op: 'sort', path: this.$path, compareFn }])
+    present(this, [{ op: Operation.sort, path: this.$path, compareFn }])
     return this
   }
 
@@ -453,7 +455,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   ): SUBTYPE[] => {
     present(this, [
       {
-        op: 'splice',
+        op: Operation.splice,
         path: this.$path,
         start,
         deleteCount,
@@ -475,7 +477,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
 
   public pop = (): SUBTYPE | undefined => {
     const item = this[this.length - 1]
-    present(this, [{ op: 'pop', path: this.$path }])
+    present(this, [{ op: Operation.pop, path: this.$path }])
     return item
   }
 
@@ -484,7 +486,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
       return this.length
     }
 
-    present(this, [{ op: 'push', value: items, path: this.$path }])
+    present(this, [{ op: Operation.push, value: items, path: this.$path }])
 
     return this.length
   }
@@ -494,7 +496,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
       return this.length
     }
 
-    present(this, [{ op: 'unshift', value: items, path: this.$path }])
+    present(this, [{ op: Operation.unshift, value: items, path: this.$path }])
 
     return this.length
   }
@@ -564,7 +566,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
         },
         set(value: any) {
           present(this, [
-            { op: 'replace', value, path: makePath(this.$path, index.toString()) },
+            { op: Operation.replace, value, path: makePath(this.$path, index.toString()) },
           ])
         },
         enumerable: true,
@@ -598,24 +600,24 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   }
 }
 
-// Special case: sort operation.
+// Special case: sort command.
 // Array.sort can take a predicate function to sort the array.
 // This is only included here to be used with the Array instance
 // as ArrayOperation must contains only serializable value.
-type SortCommand<T = any> = {
-  op: 'sort'
+type SortCommandWithCompareFn<T = any> = {
+  op: Operation.sort
   path: string
   compareFn?: (a: T, b: T) => number
 }
 
-type Proposal<T = any> = ArrayOperation<T> | SortCommand<T>
+type Proposal<T = any> = ArrayCommand<T> | SortCommandWithCompareFn<T>
 
 function replace(
   model: ArrayInstance<unknown>,
   value: any,
   index: string | number
 ): ReplaceChanges {
-  // Some index may have been deleted by previous operation
+  // Some index may have been deleted by previous command
   if (model[index] === undefined) {
     model.$addInterceptor(index)
   }
@@ -645,6 +647,11 @@ function present(
       `Crafter Array. Tried to mutate an array while model is locked. Hint: if you want sort an observable array, you must copy it first eg: [...observableArray].sort()`
     )
   }
+  const proposalMigration: Migration<any, any> = {
+    forward: [],
+    backward: []
+  }
+
   proposal.forEach(command => {
     if (command.op === 'replace') {
       const changes = replace(
@@ -652,106 +659,94 @@ function present(
         command.value,
         getArrayIndex(model, command)
       )
-      if (willEmitPatch) {
-        addReplacePatch(model, command, changes)
-      }
+      mergeMigrations(createReplaceMigration(command, changes), proposalMigration)
     } else if (command.op === 'remove') {
       const changes = removeFromArray(model, command)
-      if (willEmitPatch) {
-        addRemovePatch(model, command, changes)
+      if (changes) {
+        mergeMigrations(createRemoveMigration(command, changes), proposalMigration)
       }
     } else if (command.op === 'add') {
       try {
         model.refineTypeIfNeeded(command.value)
         const index = getArrayIndex(model, command)
         add(model, command.value, index.toString())
-        if (willEmitPatch) {
-          addAddPatch(model, command)
-        }
+        mergeMigrations(createAddMigration(command), proposalMigration)
       } catch (e) {
         // Is an alias of replace
-        present(model, [{ ...command, op: 'replace' }])
+        present(model, [{ ...command, op: Operation.replace }])
       }
     } else if (command.op === 'copy') {
       const changes = copy(model, command)
-      if (willEmitPatch) {
-        addCopyPatch(model, command, changes)
-      }
+      mergeMigrations(createCopyMigration(command, changes), proposalMigration)
     } else if (command.op === 'move') {
       const changes = move(model, command)
-      if (willEmitPatch) {
-        addMovePatch(model, command, changes)
-      }
+      mergeMigrations(createMoveMigration(command, changes), proposalMigration)
     } else if (command.op === 'splice') {
       const changes = splice(model, command)
-      if (willEmitPatch) {
-        addSplicePatch(model, command, changes)
+      if (changes) {
+        mergeMigrations(createSplicePatch(command, changes), proposalMigration)
       }
     } else if (command.op === 'copyWithin') {
       const changes = copyWithin(model, command)
-      if (willEmitPatch) {
-        addCopyWithinPatch(model, command, changes)
+      if (changes) {
+        mergeMigrations(createCopyWithinPatch(command, changes), proposalMigration)
       }
     } else if (command.op === 'sort') {
-      // Sort can be a serialized list of moved operation (SortCommands)
-      // or a command with a compareFn function (not serializable)
-      if (isSortCommand(command)) {
-        const changes = sort(model, command)
-        if (willEmitPatch) {
-          addSortPatch(model, changes)
-        }
-      } else {
-        const changes = sortWithMoveOps(model, command.commands)
-        if (willEmitPatch) {
-          addSortPatch(model, changes)
-        }
+      // Sort can be a serialized list of moved command (SortCommands)
+      // or a command with a compMigration<CopyWithinOperation, SpliceOperation>n function (not serializable)
+      const changes = isSortCommand(command)
+        ? sort(model, command)
+        : sortWithMoveOps(model, command.commands)
+      if (changes) {
+        mergeMigrations(createSortPatch(model, changes), proposalMigration)
       }
     } else if (command.op === 'fill') {
       model.refineTypeIfNeeded(command.value)
       const changes = fill(model, command)
-      if (willEmitPatch) {
-        addFillPatch(model, command, changes)
-      }
+      mergeMigrations(createFillPatch(command, changes), proposalMigration)
     } else if (command.op === 'reverse') {
       reverse(model)
-      if (willEmitPatch) {
-        addReversePatch(model, command)
-      }
+      mergeMigrations(createReversePatch(command), proposalMigration)
     } else if (command.op === 'shift') {
       const changes = shift(model)
-      if (willEmitPatch && changes) {
-        addShiftPatch(model, command, changes)
+      if (changes) {
+        mergeMigrations(createShiftPatch(command, changes), proposalMigration)
       }
     } else if (command.op === 'pop') {
       const changes = pop(model)
-      if (willEmitPatch && changes) {
-        addPopPatch(model, command, changes)
+      if (changes) {
+        mergeMigrations(createPopPatch(command, changes), proposalMigration)
       }
     } else if (command.op === 'push') {
       model.refineTypeIfNeeded(command.value)
-      push(model, command)
-      if (willEmitPatch) {
-        addPushPatch(model, command)
+      const changes = push(model, command)
+      if (changes) {
+        mergeMigrations(createPushPatch(model, command), proposalMigration)
       }
     } else if (command.op === 'unshift') {
-      unshift(model, command)
-      if (willEmitPatch) {
-        addUnshiftPatch(model, command)
+      const changes = unshift(model, command)
+      if (changes) {
+        mergeMigrations(createUnshiftPatch(command), proposalMigration)
       }
     } else if (command.op === 'setLength') {
       const changes = setLength(model, command)
-      if (willEmitPatch) {
-        addSetLengthPatch(model, changes)
+      if (changes) {
+        mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
       }
     } else {
       throw new Error(`Crafter Array.$applyOperation: ${
         (proposal as any).op
-      } is not a supported operation. This error happened
-        during a patch operation. The transaction is cancelled and the model is reset to its previous value.`)
+      } is not a supported command. This error happened
+        during a migration command. The transaction is cancelled and the model is reset to its previous value.`)
     }
   })
-
-  computeNextState(model)
+  // Those commands update the length of the array
+  if (proposalMigration.forward.some(isShapeMutationCommand)) {
+    model.$$container.addUpdatedObservable(model)
+  }
+  if (willEmitPatch) {
+    model.$addMigration(proposalMigration)
+  }
 }
 
 function generateSnapshot<T>(data: DataArray<T>, context: IContainer): T[] {
@@ -774,9 +769,14 @@ function build(array: ArrayInstance<any>, items: any[]): void {
 
 function push<T>(
   model: ArrayInstance<T>,
-  proposal: PushOperation<T>
-): PushChanges<T> {
-  const items = proposal.value
+  command: PushCommand<T>
+): PushChanges<T> | undefined {
+  const items = command.value
+
+  if (!items.length) {
+    return
+  }
+
   const startIndex = model.length
   const lastIndex = startIndex + items.length - 1
   model.$data.push(...items.map(model.$createChildInstance))
@@ -789,36 +789,41 @@ function push<T>(
   }
   return {
     prevLength: model.length - items.length,
-    added: proposal.value,
+    added: command.value,
   }
 }
 
-function addPushPatch<T>(model: ArrayInstance<T>, proposal: PushOperation<T>): void {
-  model.$addPatch({
+function createPushPatch<T>(model: ArrayInstance<T>, proposal: PushCommand<T>): Migration<PushCommand, SpliceCommand> {
+  return {
     forward: [
       {
-        op: 'push',
+        op: Operation.push,
         path: model.$path,
         value: proposal.value,
       },
     ],
     backward: [
       {
-        op: 'splice',
+        op: Operation.splice,
         path: proposal.path,
         start: model.length - proposal.value.length,
         deleteCount: proposal.value.length,
       },
     ],
-  })
+  }
 }
 
 function setLength<T>(
   model: ArrayInstance<T>,
-  proposal: SetLengthOperation
-): SetLengthChanges {
-  const length = proposal.value
+  command: SetLengthCommand
+): SetLengthChanges | undefined {
+  const length = command.value
   const prevLength = model.length
+  
+  if (length === prevLength) {
+    return
+  }
+
   const removed =
     length < prevLength ? model.$data.slice(length).map(getSnapshot) : []
 
@@ -840,19 +845,19 @@ function setLength<T>(
   }
 }
 
-function addSetLengthPatch<T>(
+function createSetLengthPatch<T>(
   model: ArrayInstance<T>,
   changes: SetLengthChanges
-): void {
-  const patch: Migration = {
+): Migration<SetLengthCommand, SpliceCommand> {
+  return {
     forward: [{
-      op: 'setLength',
+      op: Operation.setLength,
       path: model.$path,
       value: model.$data.length
     }], 
     backward: [
       {
-        op: 'splice',
+        op: Operation.splice,
         path: model.$path,
         start:
           model.length > changes.prevLength ? changes.prevLength : model.length,
@@ -861,7 +866,6 @@ function addSetLengthPatch<T>(
       },
     ],
   }
-  model.$addPatch(patch)
 }
 
 function kill(item: IInstance<any>, model: ArrayInstance<any>) {
@@ -880,11 +884,15 @@ function attach(item: IInstance<any>, index: number, model: ArrayInstance<any>) 
 
 function removeFromArray<T>(
   model: ArrayInstance<T>,
-  proposal: RemoveOperation
-): RemoveChanges {
-  const index = Number(getArrayIndex(model, proposal))
+  command: RemoveCommand
+): RemoveChanges | undefined {
+  const index = Number(getArrayIndex(model, command))
   const removed = getSnapshot(model.$data[index])
   const removedItem = model.$data[index]
+
+  if (removedItem === undefined) {
+    return
+  }
 
   // Detach and free UID
   kill(removedItem, model)
@@ -902,11 +910,11 @@ function removeFromArray<T>(
 
 function splice<T>(
   model: ArrayInstance<T>,
-  proposal: SpliceOperation<T>
-): SpliceChanges {
-  const { start, deleteCount, value: items = [] } = proposal
+  command: SpliceCommand<T>
+): SpliceChanges | undefined {
+  const { start, deleteCount, value: items = [] } = command
 
-  // Retain the length before the splice operation
+  // Retain the length before the splice command
   const arrayLengthBeforeSplice = model.length
 
   const removedItems = model.$data.splice(
@@ -947,30 +955,29 @@ function splice<T>(
   }
 }
 
-function addSplicePatch(
-  model: ArrayInstance<any>,
-  proposal: SpliceOperation<any>,
+function createSplicePatch(
+  command: SpliceCommand<any>,
   changes: SpliceChanges
-): void {
-  model.$addPatch({
-    forward: [proposal],
+): Migration<SpliceCommand, SpliceCommand> {
+ return {
+    forward: [command],
     backward: [
       {
-        op: 'splice',
-        path: proposal.path,
-        start: proposal.start,
-        deleteCount: proposal.value?.length || 0,
+        op: Operation.splice,
+        path: command.path,
+        start: command.start,
+        deleteCount: command.value?.length || 0,
         value: changes.removed,
       },
     ],
-  })
+  }
 }
 
 function copyWithin<T>(
   model: ArrayInstance<T>,
-  proposal: CopyWithinOperation
+  command: CopyWithinCommand
 ): CopyWithinChanges {
-  const { target, start, end } = proposal
+  const { target, start, end } = command
   // If target is negative, it is treated as length+target where length is the length of the array.
   const targetIndex = target < 0 ? model.length + target : target
   // If start is negative, it is treated as length+start. If end is negative, it is treated as length+end
@@ -1006,32 +1013,31 @@ function copyWithin<T>(
   }
 }
 
-function addCopyWithinPatch(
-  model: ArrayInstance<any>,
-  proposal: CopyWithinOperation,
+function createCopyWithinPatch(
+  command: CopyWithinCommand,
   changes: CopyWithinChanges
-): void {
-  model.$addPatch({
-    forward: [proposal],
+): Migration<CopyWithinCommand, SpliceCommand> {
+  return {
+    forward: [command],
     backward: [
       {
-        op: 'splice',
-        path: proposal.path,
-        start: proposal.target,
+        op: Operation.splice,
+        path: command.path,
+        start: command.target,
         deleteCount: changes.replaced.length,
         value: changes.replaced,
       },
     ],
-  })
+  }
 }
 
 function fill<T>(
   model: ArrayInstance<T>,
-  proposal: FillOperation<T>
+  command: FillCommand<T>
 ): FillChanges {
   // Neet to set to undefined to get the right number or arguments, otherwise it will call another Array.fill signature.
   // tslint:disable-next-line: no-unnecessary-initializer
-  const { value, start = undefined, end = undefined } = proposal
+  const { value, start = undefined, end = undefined } = command
   const backup = model.$snapshot.slice() as Snapshot<T>[]
   const replaced: Snapshot<T>[] = []
 
@@ -1078,43 +1084,41 @@ function fill<T>(
   }
 }
 
-function addFillPatch(
-  model: ArrayInstance<any>,
-  proposal: FillOperation<any>,
+function createFillPatch(
+  command: FillCommand<any>,
   changes: FillChanges
-): void {
-  model.$addPatch({
-    forward: [proposal],
+): Migration<FillCommand, SpliceCommand> {
+  return {
+    forward: [command],
     backward: [
       {
-        op: 'splice',
-        path: proposal.path,
-        start: proposal.start || 0,
+        op: Operation.splice,
+        path: command.path,
+        start: command.start || 0,
         deleteCount: changes.replaced.length,
         value: changes.replaced,
       },
     ],
-  })
+  }
 }
 
 function reverse<T>(model: ArrayInstance<T>): void {
   model.$data.reverse()
 
-  // Generate patch
+  // Generate migration
   for (let i = 0; i < model.length; i++) {
     // reattach nodes
     attach(model.$data[i], i, model)
   }
 }
 
-function addReversePatch<T>(
-  model: ArrayInstance<T>,
-  proposal: ReverseOperation
-): void {
-  model.$addPatch({
-    forward: [proposal],
-    backward: [{ op: 'reverse', path: proposal.path }],
-  })
+function createReversePatch(
+  command: ReverseCommand
+): Migration<ReverseCommand, ReverseCommand> {
+  return {
+    forward: [command],
+    backward: [{ op: Operation.reverse, path: command.path }],
+  }
 }
 
 function shift<T>(model: ArrayInstance<T>): ShiftChanges | undefined {
@@ -1141,21 +1145,20 @@ function shift<T>(model: ArrayInstance<T>): ShiftChanges | undefined {
   }
 }
 
-function addShiftPatch<T>(
-  model: ArrayInstance<T>,
-  proposal: ShiftOperation,
+function createShiftPatch(
+  command: ShiftCommand,
   changes: ShiftChanges
-): void {
-  model.$addPatch({
-    forward: [proposal],
+): Migration<ShiftCommand, UnshiftCommand> {
+  return {
+    forward: [command],
     backward: [
       {
-        op: 'unshift',
-        path: proposal.path,
+        op: Operation.unshift,
+        path: command.path,
         value: changes.removed,
       },
     ],
-  })
+  }
 }
 
 function pop(model: ArrayInstance<any>): PopChanges | undefined {
@@ -1170,13 +1173,13 @@ function pop(model: ArrayInstance<any>): PopChanges | undefined {
   }
 }
 
-function sort(model: ArrayInstance<any>, proposal: SortCommand): SortCommands {
+function sort(model: ArrayInstance<any>, proposal: SortCommandWithCompareFn): SortCommands | undefined{
   // As sort can use a function in this parameters. We will convert
-  // the sort function into a succession of move operations to log the changes.
+  // the sort function into a succession of move commands to log the changes.
   // 1- backup the actual index order
-  // 2- execute the sort operation on $data
+  // 2- execute the sort command on $data
   // 3- reattach nodes
-  // 4- store the moved operations as a SortCommands array
+  // 4- store the moved commands as a SortCommands array
 
   /* 1 */
   const oldIndexes = model.$data.map(toInstance).map(({ $id }) => $id)
@@ -1188,33 +1191,43 @@ function sort(model: ArrayInstance<any>, proposal: SortCommand): SortCommands {
     .forEach((instance, index) => {
       attach(instance, index, model)
     })
+  
+  // Return if the order did not change
+  const newIndexes = model.$data.map(toInstance).map(({ $id }) => $id)
+  if (newIndexes.some((id, index) => oldIndexes[index] !== id)) {
+    return
+  }
+  
   /* 4 */
-  return model.$data.map(toInstance).map(({ $id: id }, to) => ({
+  return newIndexes.map((id, index) => ({
     id,
     from: oldIndexes.indexOf(id),
-    to,
+    to: index,
   }))
 }
 
-function isSortCommand(command: any): command is SortCommand {
+function isSortCommand(command: any): command is SortCommandWithCompareFn {
   return !!command.compareFn
 }
 
 function sortWithMoveOps(
   model: ArrayInstance<any>,
   sortCommands: SortCommands
-): SortCommands {
-  const newData = model.$data.map(toInstance).map(function(instance) {
+): SortCommands | undefined {
+  const newData = []
+  for (const value of model.$data) {
+    const instance = toInstance(value)
     const command = sortCommands.find(({ id }) => id === instance.$id)
     if (!command) {
-      throw new Error(
+      fail(
         'Crafter Array.sort. Sorting failed, command id: ' +
           instance.$id +
           ' does not exists.'
       )
+      return
     }
-    return model.$data[command.to]
-  })
+    newData.push(model.$data[command.to])
+  }
   // Replace and attach the new data set
   model.$data = newData
   model.$data.forEach((instance, index) => {
@@ -1223,18 +1236,18 @@ function sortWithMoveOps(
   return sortCommands
 }
 
-function addSortPatch(model: ArrayInstance<any>, sortCommands: SortCommands): void {
-  model.$addPatch({
+function createSortPatch(model: ArrayInstance<any>, sortCommands: SortCommands): Migration<SortCommand, SortCommand> {
+  return {
     forward: [
       {
-        op: 'pop',
+        op: Operation.sort,
         path: model.$path,
         commands: sortCommands,
       },
     ],
     backward: [
       {
-        op: 'sort',
+        op: Operation.sort,
         path: model.$path,
         commands: sortCommands.map(command => ({
           id: command.id,
@@ -1243,25 +1256,29 @@ function addSortPatch(model: ArrayInstance<any>, sortCommands: SortCommands): vo
         })),
       },
     ],
-  })
+  }
 }
 
-function addPopPatch(
-  model: ArrayInstance<any>,
-  proposal: PopOperation,
+function createPopPatch(
+  command: PopCommand,
   changes: PopChanges
-): void {
-  model.$addPatch({
-    forward: [proposal],
-    backward: [{ op: 'push', path: proposal.path, value: changes.removed }],
-  })
+): Migration<PopCommand, PushCommand> {
+  return {
+    forward: [command],
+    backward: [{ op: Operation.push, path: command.path, value: changes.removed }],
+  }
 }
 
-function unshift<T>(model: ArrayInstance<T>, proposal: UnshiftOperation<T>): void {
+function unshift<T>(model: ArrayInstance<T>, proposal: UnshiftCommand<T>): UnshiftChanges | undefined {
   const items = proposal.value
+
+  if (!items.length) {
+    return
+  }
+
   const arrayLengthBeforeShift = model.length
 
-  model.$data.unshift(
+  const prevLength = model.$data.unshift(
     ...items.map(model.$createChildInstance)
   )
 
@@ -1270,28 +1287,32 @@ function unshift<T>(model: ArrayInstance<T>, proposal: UnshiftOperation<T>): voi
     model.$addInterceptor(i)
   }
 
-  // Generate patch for new items
+  // Generate migration for new items
   for (let i = 0; i < items.length; i++) {
     // Attach new items
     attach(model.$data[i], i, model)
   }
+
+  return {
+    added: proposal.value,
+    prevLength
+  }
 }
 
-function addUnshiftPatch(
-  model: ArrayInstance<any>,
-  proposal: UnshiftOperation<any>
-): void {
-  model.$addPatch({
+function createUnshiftPatch(
+  proposal: UnshiftCommand<any>
+): Migration<UnshiftCommand, SpliceCommand> {
+  return {
     forward: [proposal],
     backward: [
       {
-        op: 'splice',
+        op: Operation.splice,
         path: proposal.path,
         start: 0,
         deleteCount: proposal.value.length,
       },
-    ],
-  })
+    ]
+  }
 }
 
 export type PushChanges<T> = {
@@ -1358,8 +1379,8 @@ function isValidArrayIndex(
   // TODO add can be out of positive range (and create empty slots if necessary)
   i >= 0 && // not negative i
     proposal.op === 'add'
-    ? i <= model.length // add operation could be an alias of push operation. Must be not greater than length
-    : i < model.length // other operation must be in range
+    ? i <= model.length // add command could be an alias of push command. Must be not greater than length
+    : i < model.length // other command must be in range
 }
 
 function addObservedLength(arrayInstance: ArrayInstance<any>): void {
