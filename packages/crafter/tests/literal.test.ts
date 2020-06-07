@@ -1,4 +1,4 @@
-import { object } from "../src/object"
+/* import { object } from "../src/object"
 import { literal } from "../src/literal"
 import { getContext, toInstance } from "../src/helpers"
 
@@ -31,3 +31,4 @@ it('should be immutable', function() {
   expect(() => getContext(toInstance(model)).transaction(() => (model.type = 'grunt' as any))).toThrow()
   expect(model.type).toBe('player')
 })
+ */

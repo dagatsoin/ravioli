@@ -1,4 +1,4 @@
-import { MapType } from './type'
+/* import { MapType } from './type'
 import { IType } from '../lib/IType'
 import { INodeType } from '../lib/INodeType'
 
@@ -11,3 +11,4 @@ export function map<F extends IType<any>>(
 > {
   return new MapType(itemType)
 }
+ */

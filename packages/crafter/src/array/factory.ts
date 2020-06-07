@@ -1,4 +1,4 @@
-import { IType } from '../lib/IType'
+/* import { IType } from '../lib/IType'
 import { ArrayType } from './type'
 import { INodeType } from '../lib/INodeType'
 
@@ -10,3 +10,4 @@ export function array<F extends IType<any>>(
 > {
   return new ArrayType(itemType)
 }
+ */

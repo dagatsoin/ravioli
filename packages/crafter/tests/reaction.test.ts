@@ -1,4 +1,4 @@
-import { observable, Reaction } from "../src"
+/* import { observable, Reaction } from "../src"
 import { getGlobal } from '../src/utils/utils'
 
 const context = getGlobal().$$crafterContext
@@ -46,4 +46,4 @@ it("should abort initialisation when an error occurs during the tracking", funct
   })).toThrow()
   expect(ran).toBeFalsy()
   expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
-})
+}) */

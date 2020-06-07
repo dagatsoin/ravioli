@@ -1,4 +1,4 @@
-import { array } from '../src/array'
+/* import { array } from '../src/array'
 import { toNode, toInstance } from '../src/helpers'
 import { object } from '../src/object'
 import { number, string } from '../src/Primitive'
@@ -110,4 +110,4 @@ test('Context is the same across types', function(){
   expect(context.snapshot.referencableNodeInstances.size).toBe(3)
   context.transaction(() => instance.data = [{name: "Fraktar"}])
   expect(context.snapshot.referencableNodeInstances.size).toBe(4)
-})
+}) */

@@ -1,4 +1,4 @@
-import { observable } from '../src/lib/observable'
+/* import { observable } from '../src/lib/observable'
 import { isNode } from '../src/lib/isNode'
 import { getGlobal } from '../src/utils/utils'
 import { toInstance, isUnknownType, getContext, ArrayType, MapType } from '../src'
@@ -83,3 +83,4 @@ test('unknown map should refine when receive a value', function() {
   getContext(toInstance(model)).transaction(() => model.set('0', {name: 'Fraktar'}))
   expect(isUnknownType((toInstance(model).$type as MapType<any>).itemType)).toBeFalsy()
 })
+ */

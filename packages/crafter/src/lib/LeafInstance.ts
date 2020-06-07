@@ -1,4 +1,4 @@
-import { setNonEnumerable, mergeMigrations } from '../utils/utils'
+import { mergeMigrations } from '../utils/utils'
 import { ILeafType } from './ILeafType'
 import { Instance, isInstance } from './Instance'
 import { InputValidator } from './TypeChecker'
@@ -21,7 +21,7 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
   public $isLeaf: true = true
   public $type: ILeafType<T>
 
-  private $setter: (v: T) => void
+  private setter: (v: T) => void
   private $prevSnapshot: T
 
   constructor({
@@ -40,8 +40,6 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
     this.$type = type
     this.$$id = options?.id || this.$$container.getUID('LeafInstance#')
 
-    Object.keys(this).forEach(key => setNonEnumerable(this, key))
-
     // Rather having unused condition in the setter, the constructor
     // will choose how to implement the setter.
     const isImmutable = options?.isImmutable || false
@@ -57,14 +55,12 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
           )
         }
       }
-      this.$setter = failMutation
+      this.setter = failMutation
     } else if (isCheckingEnabled) {
-      this.$setter = setWitchCheck(this, type.isValidSnapshot, type.typeFlag)
+      this.setter = setWitchCheck(this, type.isValidSnapshot, type.typeFlag)
     } else {
-      this.$setter = setWithNoCheck(this)
+      this.setter = setWithNoCheck(this)
     }
-    setNonEnumerable(this, '$setValue')
-    setNonEnumerable(this, '$setter')
   }
 
   public get $snapshot(): T {
@@ -82,7 +78,7 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
     return this.$$id
   }
 
-  public $present(patchProposal: ReplaceCommand[], shouldAddMigration: boolean): void {
+  public $present (patchProposal: ReplaceCommand[], addMigration = true): void {
     const proposalMigration = {
       forward: [],
       backward: []
@@ -92,7 +88,7 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
         const didChange = this.$setValue(command.value)
         if (didChange) {
           this.$$container.addUpdatedObservable(this)
-          if (shouldAddMigration) {
+          if (addMigration) {
             mergeMigrations(createReplaceMigration(command, {replaced: this.$snapshot}), proposalMigration)
           }
         }
@@ -100,11 +96,10 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
     }
   }
   public $transactionDidEnd(): void {}
-  // Implementation will be chosen by the constructor
+
   public $setValue(value: T): boolean {
-    fail('[CRAFTER] LeafInstance.$setValue implementation has not been set.')
     const backup = this.$snapshot
-    this.$setter(value)
+    this.setter(value)
     return backup !== this.$data
   }
 }

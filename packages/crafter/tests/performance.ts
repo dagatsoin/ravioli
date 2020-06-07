@@ -1,4 +1,4 @@
-import { array } from '../src/array'
+/* import { array } from '../src/array'
 import { assert, toInstance, getSnapshot, getContext } from '../src/helpers'
 import { object } from '../src/object'
 import { number, string } from '../src/Primitive'
@@ -105,3 +105,4 @@ function createArrayWith10k(): void {
 
 createSingleEntity()
 createArrayWith10k()
+ */

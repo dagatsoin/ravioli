@@ -183,7 +183,7 @@ export class CrafterContainer implements IContainer {
           return
         } else {
           if (isNode(o)) {
-            invalidateSnapshot(o)
+            invalidateSnapshot(toNode(o))
           } else if (!isRoot(toInstance(o))) {
             invalidateSnapshot(toNode(toInstance(o).$parent))
           }
@@ -615,7 +615,7 @@ export class CrafterContainer implements IContainer {
         return
       }
       else {
-        const root = getRoot(o)
+        const root = getRoot(toInstance(o))
         if (!rootIds.includes(root.$id)) {
           root.$type.applySnapshot(root, getSnapshot(toNode(root)))
           rootIds.push(root.$id)

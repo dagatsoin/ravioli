@@ -1,4 +1,4 @@
-import { Observer, ObserverType } from './Observer'
+/* import { Observer, ObserverType } from './Observer'
 import { IContainer } from '../IContainer'
 
 type TrackedFunction = (p:{isFirstRun: boolean, dispose: () => void}) => void
@@ -58,4 +58,4 @@ export class Reaction extends Observer {
       }
     }
   }
-}
+} */

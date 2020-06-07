@@ -1,4 +1,4 @@
-import { autorun, object, array, getContext, toInstance, getSnapshot, number, string, boolean, identifier, computed, CrafterContainer, getGlobal, toNode, ObserverType, IInstance } from "../src"
+/* import { autorun, object, array, getContext, toInstance, getSnapshot, number, string, boolean, identifier, computed, CrafterContainer, getGlobal, toNode, ObserverType, IInstance } from "../src"
 import { createTransformer } from "../src/transformer"
 import { reference } from "../src/lib/reference"
 
@@ -23,7 +23,7 @@ test("transform to primitive", function() {
 /**
  * Special case: recreation an array during the transformation.
  * This should result in an observable array.
- */
+ *//*
 test("transform to observable object", function() {
   const Model = object({
     name: string(),
@@ -432,4 +432,4 @@ describe("Set id to the transformed view", function() {
     expect(context.snapshot.dependencyGraph.nodes.find(n => n.type === ObserverType.Computed)!.id).toBe("customId")
     dispose()
   })
-})
+}) */

@@ -1,6 +1,6 @@
 import { IContainer } from '../IContainer'
 import { getGlobal } from '../utils/utils'
-import { Computed } from './Computed'
+import { IComputed } from './IDerivation';
 
 export interface IObserver {
   id: string
@@ -70,7 +70,7 @@ export function isReaction(type: ObserverType): boolean {
   return type === ObserverType.Autorun || type === ObserverType.Reaction
 }
 
-export function isDerivation(observer: any): observer is Computed<any> {
+export function isDerivation(observer: any): observer is IComputed<any> {
   return observer.type === ObserverType.Computed
 }
 

@@ -1,4 +1,4 @@
-import { string, object, identifier, getContext, getSnapshot, toInstance } from '../src'
+/* import { string, object, identifier, getContext, getSnapshot, toInstance } from '../src'
 
 test("Persistent manager handling multiple connections on server.", async function(done) {
   const User = object({
@@ -13,7 +13,7 @@ test("Persistent manager handling multiple connections on server.", async functi
 
   /**
    * Mock a read DB query
-   */
+   *//*
   async function getSnapshotInDB(userId: string): Promise<typeof User['Snapshot']> {
     return new Promise(function(resolve) {
       switch(userId) {
@@ -33,7 +33,7 @@ test("Persistent manager handling multiple connections on server.", async functi
 
   /**
    * Mock a write DB query
-   */
+   *//*
   async function setSnapshotInDB(userId: string, snapshot: any): Promise<void> {
     return new Promise(function(resolve) {
       switch(userId) {
@@ -65,4 +65,4 @@ test("Persistent manager handling multiple connections on server.", async functi
   expect(db['000']).toEqual({id: '000', name: 'Fraktar'})
   expect(db['001']).toEqual({id: '001', name: 'Elwëïn'})
   done()
-})
+}) */

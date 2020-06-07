@@ -1,4 +1,4 @@
-import { IFactory } from '../lib/IFactory'
+/* import { IFactory } from '../lib/IFactory'
 import { IType } from '../lib/IType'
 import { NodeType } from '../lib/NodeType'
 import { ArrayInstance } from './instance'
@@ -42,3 +42,4 @@ export class ArrayType<TYPE> extends NodeType<TYPE[], TYPE[]> {
         )
   }
 }
+ */

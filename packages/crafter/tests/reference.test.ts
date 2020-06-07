@@ -1,4 +1,4 @@
-import { reference } from '../src/lib/reference'
+/* import { reference } from '../src/lib/reference'
 import { object } from '../src/object'
 import { array } from '../src/array'
 import { identifier } from '../src/identifier'
@@ -50,3 +50,4 @@ test('snapshot', function() {
   const model2 = Model.create(snapshot as any, { context: getContext(toInstance(player))})
   expect(model2.player.name).toBe('Fraktar')
 })
+ */

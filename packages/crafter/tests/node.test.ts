@@ -1,4 +1,4 @@
-import { array } from '../src/array'
+/* import { array } from '../src/array'
 import { object } from '../src/object'
 import { string, number } from '../src/Primitive'
 import { observable } from '../src/lib/observable'
@@ -131,3 +131,4 @@ test("Check node parenting", function() {
   expect(tokensMapInstance.$parent).toBe(modelInstance)
   expect(tokenInstance.$parent).toBe(tokensMapInstance)
 })
+ */

@@ -1,4 +1,4 @@
-import {
+/* import {
   fail,
   getChildKey,
   toInstance,
@@ -309,7 +309,7 @@ type Proposal<T = any> = MapCommand<T>
 
 /**
  * Accept the value if the model is writtable
- */
+ *//*
 function present<T>(
   model: MapInstance<T>,
   proposal: Proposal[],
@@ -543,4 +543,4 @@ function createClearMigration(
       },
     ],
   }
-}
+} */

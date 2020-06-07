@@ -24,5 +24,5 @@ export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent, IObservab
    * Present an JSON command list to the instance.
    * If shouldAddMigration is true, this will emit a migration.
    */
-  $present(proposal: Command[], shouldAddMigration: boolean): void
+  $present(proposal: Command[], addMigration?: boolean): void
 }

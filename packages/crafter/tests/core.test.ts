@@ -1,4 +1,4 @@
-import { getGlobal } from '../src/utils/utils'
+/* import { getGlobal } from '../src/utils/utils'
 import { observable } from '../src/lib/observable'
 import { toInstance, toLeaf, noop } from '../src/helpers'
 import { autorun, string, Reaction } from '../src'
@@ -248,4 +248,4 @@ test("node un/registers as observable in the container graph when start/finish t
       nodes: []
     })
   })
-})
+}) */

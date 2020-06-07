@@ -1,4 +1,4 @@
-import {
+/* import {
   fail,
   getChildKey,
   toInstance,
@@ -7,17 +7,14 @@ import {
   isOwnLeafPath,
   unbox,
   getRoot,
-  getTargetKey,
   makePath,
 } from '../helpers'
-import { computeNextState } from '../lib/computeNextState'
 import { IInstance } from '../lib/IInstance'
 import { DataObject, INodeInstance } from '../lib/INodeInstance'
 import { isInstance } from '../lib/Instance'
-import { BasicCommand, Command, ReplaceCommand, Migration, isShapeMutationCommand, Operation } from '../lib/JSONPatch'
+import { BasicCommand, Migration, isShapeMutationCommand, Operation } from '../lib/JSONPatch'
 import {
   add,
-  createAddMigration,
   createCopyMigration,
   createMoveMigration,
   createRemoveMigration,
@@ -29,7 +26,7 @@ import {
 import { NodeInstance } from '../lib/NodeInstance'
 import { setNonEnumerable, mergeMigrations } from '../utils/utils'
 
-import { ObjectFactoryInput, ObjectFactoryOutput, object } from './factory'
+import { ObjectFactoryInput, ObjectFactoryOutput } from './factory'
 import { Props } from './Props'
 import { ObjectType } from './type'
 import { ReferenceValue, isReferenceType } from '../lib/reference'
@@ -38,8 +35,6 @@ import { isIdentifierType } from '../identifier'
 import { Computed } from '../observer'
 import { getTypeFromValue } from '../lib/getTypeFromValue'
 import { isNode } from '../lib/isNode'
-import { MapInstance } from '../map/instance'
-import { ArrayInstance } from '../array/instance'
 
 /**
  * Data flow
@@ -48,7 +43,7 @@ import { ArrayInstance } from '../array/instance'
  * 
  * For a node, $setValue won't affect anything byt will delegate each chunk of value to its children
  */
-
+/*
 export class ObjectInstance<
   TYPE extends {},
   PROPS extends Props<TYPE>,
@@ -202,7 +197,7 @@ export class ObjectInstance<
   
 /**
  * Accept the value if the model is writtable
- */
+ *//*
 public $present(proposal: Proposal, shouldAddMigration: boolean): void {
   // No direct manipulation. Mutations must occure only during a transaction.
   if (!this.$$container.isWrittable) {
@@ -248,13 +243,13 @@ public $present(proposal: Proposal, shouldAddMigration: boolean): void {
         // Is an alias of replace
         if (this.$data[index] !== undefined) {
           throw new Error('not implemented yet')
-  //        present(model, [{ ...command, op: 'replace' }])
+  //        present(model, [{ ...command, op: Operation.replace }])
         } else {
           add(this, command.value, index)
        /*    if (willEmitPatch) {
             addAddPatch(model, command)
           } */
-        }
+        }/*
       } else if (command.op === 'copy') {
         const changes = copy(this, command)
         if (changes) {
@@ -277,7 +272,7 @@ public $present(proposal: Proposal, shouldAddMigration: boolean): void {
       // Get the concerned child key
       toNode(
         toInstance(this.$data[childKey])
-      ).$present(command, shouldEmitPatch)
+      ).$present([command], shouldAddMigration)
     }
   }
 
@@ -357,7 +352,7 @@ function build(obj: ObjectInstance<any, any, any, any>, value = {}): void {
       }
       else {
         present(obj, [
-          { op: 'add', path: makePath(obj.$path, key), value: value[key] },
+          { op: Operation.add, path: makePath(obj.$path, key), value: value[key] },
         ])
       }
     })
@@ -403,11 +398,11 @@ function addPropGetSet(
         // If the value is an object, cut it down in atomic JSON command
         const needToCutDown = isObject(value)
         if (needToCutDown) {
-          present(obj, [{ op: 'replace', value: value instanceof Map ? Array.from(value.entries()) : value, path: makePath(obj.$path, propName) }])
+          present(obj, [{ op: Operation.replace, value: value instanceof Map ? Array.from(value.entries()) : value, path: makePath(obj.$path, propName) }])
     //      const proposal = cutDownUpdateOperation(value, makePath(propName.toString()) )
     //      present(obj, proposal)
         } else {
-          present(obj, [{ op: 'replace', value: value instanceof Map ? Array.from(value.entries()) : value, path: makePath(obj.$path, propName) }])
+          present(obj, [{ op: Operation.replace, value: value instanceof Map ? Array.from(value.entries()) : value, path: makePath(obj.$path, propName) }])
         }
       },
       enumerable: true,
@@ -434,7 +429,7 @@ type Proposal = BasicCommand[]
 
 /**
  * Accept the value if the model is writtable
- */
+ *//*
 function present(
   model: ObjectInstance<any, any, any, any>,
   proposal: Proposal
@@ -459,19 +454,19 @@ function present(
       command.op === 'replace' &&
       childKey
     ) {
-      model.replace<O>(shouldEmitPatch, childKey, command)
+      model.$setValue(shouldEmitPatch, childKey, command)
     }
     // Or delegate to children
     else if (command.path.includes(model.$path) && childKey) {
       // Get the concerned child key
       toNode(
         toInstance(model.$data[childKey])
-      ).$present(command, shouldEmitPatch)
+      ).$present([command], shouldEmitPatch)
     }
 
 
     if (command.op === 'replace') {
-      model.$present(command, true)
+      model.$present([command], true)
     } else if (command.op === 'remove') {
       const changes = remove(model, getObjectKey(model, command))
       if (changes) {
@@ -482,13 +477,13 @@ function present(
       // Is an alias of replace
       if (model.$data[index] !== undefined) {
         throw new Error('not implemented yet')
-//        present(model, [{ ...command, op: 'replace' }])
+//        present(model, [{ ...command, op: Operation.replace }])
       } else {
         add(model, command.value, index)
      /*    if (willEmitPatch) {
           addAddPatch(model, command)
         } */
-      }
+   /*   }
     } else if (command.op === 'copy') {
       const changes = copy(model, command)
       if (changes) {
@@ -524,7 +519,7 @@ function getObjectKey(model: INodeInstance<any>, op: BasicCommand): string {
 
 /**
  * Return true if the string is a valid Object or Map index.
- */
+ *//*
 function isValidObjectIndex(
   model: INodeInstance<any>,
   index: string,
@@ -564,3 +559,4 @@ function getId({
     }
   }
 }
+ */

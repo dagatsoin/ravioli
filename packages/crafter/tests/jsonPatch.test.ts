@@ -1,4 +1,4 @@
-import { toNode, getContext, toInstance } from '../src/helpers'
+/* import { toNode, getContext, toInstance } from '../src/helpers'
 import { observable } from '../src/lib/observable'
 import { object } from '../src/object/factory'
 import { string, number } from '../src/Primitive'
@@ -133,7 +133,7 @@ describe('JSON migration generation', function() {
 describe('apply JSON command', function() {
   /**
    * Any update command on an object property must be a list or leaf command
-   */
+   *//*
   test('cut down update command', function(){
     expect(cutDownUpdateOperation({
       name: 'Fraktar',
@@ -163,4 +163,4 @@ describe('apply JSON command', function() {
       }
     ])
   })
-})
+}) */

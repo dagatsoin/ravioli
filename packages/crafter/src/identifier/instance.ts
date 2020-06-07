@@ -1,4 +1,4 @@
-import { IType } from "../lib/IType"
+/* import { IType } from "../lib/IType"
 import { Instance } from "../lib/Instance"
 import { IContainer } from "../IContainer"
 import { setNonEnumerable } from '../utils/utils'
@@ -41,4 +41,4 @@ export class IdentifierInstance<T extends string> extends Instance<T, T> {
       throw new Error (`[CRAFTER] Identifier: attempt to mutate an identifier.`)
     }
   }
-}
+} */

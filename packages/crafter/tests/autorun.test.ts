@@ -1,4 +1,4 @@
-import { observable } from '../src/lib/observable'
+/* import { observable } from '../src/lib/observable'
 import { autorun } from '../src/observer/Autorun'
 import { computed } from '../src/observer/Computed'
 import { getContext, toInstance } from '../src/helpers'
@@ -202,4 +202,4 @@ test("array length reaction", function(){
   autorun(() => length = model.length)
   getContext(toInstance(model)).transaction(() => model.push('fraktar'))
   expect(length).toBe(1)
-})
+}) */

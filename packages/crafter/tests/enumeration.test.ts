@@ -1,4 +1,4 @@
-import { enumeration } from '../src/enum'
+/* import { enumeration } from '../src/enum'
 import { object } from '../src/object'
 import { getContext, toInstance } from '../src/helpers'
 
@@ -24,3 +24,4 @@ it('should be mutable', function() {
   getContext(toInstance(model)).transaction(() => (model.type = 'grunt'))
   expect(model.type).toEqual('grunt')
 })
+ */

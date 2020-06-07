@@ -1,4 +1,4 @@
-import { string, unknown } from "../src/Primitive"
+/* import { string, unknown } from "../src/Primitive"
 import { optional } from "../src/optional"
 import { object } from "../src/object"
 import { getContext, toInstance } from "../src/helpers"
@@ -25,4 +25,4 @@ test("set optional unknown value", function() {
   }).create({name: "Fraktar"} as any)
 
   expect(getContext(toInstance(model)).transaction(() => model.stats = { health: 10 }))
-})
+}) */

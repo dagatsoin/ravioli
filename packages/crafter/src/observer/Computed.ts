@@ -1,4 +1,4 @@
-import { IObservable } from '../IObservable'
+/* import { IObservable } from '../IObservable'
 import { observable, isObservable } from '../lib/observable'
 import { ObserverType, Observer } from './Observer'
 import {  makePath, toInstance, toLeaf } from '../helpers'
@@ -18,7 +18,7 @@ import { IComputed } from './IDerivation'
  * During the next call to Computed.get(), if the value is stale, the expression will run again, if no stale, it
  * will send back the cached value.
  */
-
+/*
 const type = ObserverType.Computed
 
 export class Computed<T> extends Observer implements IComputed<T> {
@@ -131,10 +131,10 @@ export class Computed<T> extends Observer implements IComputed<T> {
     // Those signals are not useful and must be bypassed by compute the value BEFORE (1) setting it
     // in the observable to prevent and PAUSE spies (2) during the creation.
     /* 1 */
-    const value = target ? this.fun.call(target, target) : this.fun()
+  /*  const value = target ? this.fun.call(target, target) : this.fun()
     
     /* 2 */
-    this.valueContext.pauseSpies()
+  /*  this.valueContext.pauseSpies()
     // The observer run for the first. We set the observable result.
     if (!this.isIinitialized) {
       // This is a boxed value
@@ -192,3 +192,4 @@ export type ComputedOptions = {
 export function computed<T>(fun: (boundThis?: IObservable) => T, options?: ComputedOptions): IComputed<T> {
   return new Computed(fun, options)
 }
+ */

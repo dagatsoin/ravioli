@@ -1,4 +1,4 @@
-import { IType } from '../lib/IType'
+/* import { IType } from '../lib/IType'
 import { undefinedType } from '../Primitive'
 import { union } from '../union'
 
@@ -7,3 +7,4 @@ export function optional<T extends IType<any>>(
 ): IType<(T extends IType<any> ? T['Type'] : never) | undefined> {
   return union([undefinedType(), type])
 }
+ */

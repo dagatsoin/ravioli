@@ -1,4 +1,4 @@
-import { toInstance } from '../helpers'
+/* import { toInstance } from '../helpers'
 import { build, ContainerInstance } from '../lib/container/instance'
 import { IFactory } from '../lib/IFactory'
 import { INodeType } from '../lib/INodeType'
@@ -75,3 +75,4 @@ function clean(unionInstance: UnionInstance<any>): void {
     Object.keys(unionInstance).forEach(k => delete unionInstance[k])
   }
 }
+ */

@@ -1,4 +1,4 @@
-import { toInstance, getContext, toLeaf } from '../src/helpers'
+/* import { toInstance, getContext, toLeaf } from '../src/helpers'
 import { getObservable, observable } from '../src/lib/observable'
 import { autorun } from '../src/observer/Autorun'
 import { computed } from '../src/observer/Computed'
@@ -69,7 +69,7 @@ test('Computed is evaluated and register in the manager lazily, when triggered f
   const dispose = autorun(() => {
     autoRunCount++
     appRepresentation.get()
-  })
+  }) */
 
   /**
    * 4 nodes:
@@ -78,7 +78,7 @@ test('Computed is evaluated and register in the manager lazily, when triggered f
    * - computed value node
    * - computed value/stats
    */
-  expect(context.snapshot.dependencyGraph.nodes.length).toBe(4)
+  /* expect(context.snapshot.dependencyGraph.nodes.length).toBe(4)
 
   expect(statsRepRunCount).toBe(0)
   expect(appRepRunCount).toBe(1)
@@ -282,7 +282,7 @@ describe('Compute an observable value', function() {
  * 
  * To implements that, we need to check, for a given valid value, if the shape of the observable is conform.
  * If not, we need to detect the extra or missing keys in the Type properties and create or remove them.
- */
+ *//*
 test("Reshape an existing type", function() {
   const Model = object({
     health: number()
@@ -353,4 +353,4 @@ test("Computed notify read even if its context is not running reaction", functio
   expect(run).toBe(3)
   expect(foo).toBe('foo')
   expect(count).toBe(1)
-})
+}) */

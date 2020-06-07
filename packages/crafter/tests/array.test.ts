@@ -1,4 +1,4 @@
-import { ArrayCommand } from '../src/lib/JSONPatch'
+/* import { ArrayCommand } from '../src/lib/JSONPatch'
 import { array } from '../src/array'
 import { string, number } from '../src/Primitive'
 import { isInstance } from '../src/lib/Instance'
@@ -2283,3 +2283,4 @@ describe('Array methods', function() {
     expect(a.filter(c => c > 1)).toEqual([2, 3])
   })
 })
+ */

@@ -1,4 +1,4 @@
-import { IType } from '../lib/IType'
+/* import { IType } from '../lib/IType'
 import { NodeType } from '../lib/NodeType'
 import { ObjectFactoryInput, ObjectFactoryOutput } from './factory'
 import { ObjectInstance } from './instance'
@@ -62,4 +62,4 @@ export class ObjectType<
         })
   )
  
-}
+} */

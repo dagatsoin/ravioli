@@ -1,4 +1,4 @@
-import { map } from "../src/map/factory"
+/* import { map } from "../src/map/factory"
 import { string, number } from "../src/Primitive"
 import { isInstance } from "../src/lib/Instance"
 import { isNode } from "../src/lib/isNode"
@@ -418,3 +418,4 @@ describe('Map methods', function() {
     ])
   })
 })
+ */

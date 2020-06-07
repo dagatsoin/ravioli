@@ -1,4 +1,4 @@
-import { IType } from '../lib/IType'
+/* import { IType } from '../lib/IType'
 import { isLeafType } from '../lib/LeafType'
 import { NodeType } from '../lib/NodeType'
 import { MapInstance } from './instance'
@@ -41,3 +41,4 @@ export class MapType<TYPE> extends NodeType<
       : this.isValidSnapshot(value)
   }
 }
+ */

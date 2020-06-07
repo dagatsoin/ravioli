@@ -1,4 +1,4 @@
-import { array } from "../src/array"
+/* import { array } from "../src/array"
 import { object } from "../src/object"
 import { number, string } from "../src/Primitive"
 import { toNode, getContext, toInstance } from "../src/helpers"
@@ -106,7 +106,7 @@ it('get snapshot from a tree', function() {
     },
   ])
 }) */
-
+/*
 test('Snapshot are not changed during a transaction.', function() {
   const Player = object({
     name: string(),

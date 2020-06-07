@@ -1,4 +1,4 @@
-import { ArrayType } from '../array/type'
+/* import { ArrayType } from '../array/type'
 import {
   clone,
   fail,
@@ -51,16 +51,6 @@ import { getTypeFromValue } from "../lib/getTypeFromValue"
 import { ReferenceType, reference, isReferenceType } from '../lib/reference'
 import { INodeType } from '../lib/INodeType'
 import { isNodeType, isShapeMutationCommand, SortCommand, Operation } from '../lib'
-
-/**
- * Code review
- * - [ ] each new node is attached
- * - [ ] each new node has an interceptor
- * - [ ] each acceptor has its dedicated migration generator
- *
- * QA
- * - [ ] I can do myArray[n] = something and it will the necessary empty slots
- */
 
 // List all the Array method keys that should be bound into a container.
 const methodKeys = [
@@ -218,7 +208,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
    * If it is the case it is time to refined the type with by
    * infer the given value.
    */
-  public $setValue(_value: INPUT): void {
+  /*public $setValue(_value: INPUT): void {
     if (!this.$$container.isWrittable) {
       throw new Error(
         'Crafter Array. Tried to set an array value while model is locked.'
@@ -255,7 +245,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
    * All methods must be bound to this instance. Because in some case, eg. Union type. The caller will be the
    * container instance (UnionInstance), not the ArrayInstance.
    */
-
+/*
   public copyWithin = (
     target: number,
     start: number,
@@ -635,7 +625,7 @@ function replace(
 
 /**
  * Accept the value if the model is writtable
- */
+ *//*
 function present(
   model: ArrayInstance<any>,
   proposal: Proposal[],
@@ -1182,13 +1172,13 @@ function sort(model: ArrayInstance<any>, proposal: SortCommandWithCompareFn): So
   // 4- store the moved commands as a SortCommands array
 
   /* 1 */
-  const oldIndexes = model.$data.map(toInstance).map(({ $id }) => $id)
+/*  const oldIndexes = model.$data.map(toInstance).map(({ $id }) => $id)
   /* 2 */
-  model.$data
+/*  model.$data
     .sort(proposal.compareFn)
     /* 3 */
 
-    .forEach((instance, index) => {
+ /*   .forEach((instance, index) => {
       attach(instance, index, model)
     })
   
@@ -1199,7 +1189,7 @@ function sort(model: ArrayInstance<any>, proposal: SortCommandWithCompareFn): So
   }
   
   /* 4 */
-  return newIndexes.map((id, index) => ({
+/*  return newIndexes.map((id, index) => ({
     id,
     from: oldIndexes.indexOf(id),
     to: index,
@@ -1368,7 +1358,7 @@ function getArrayIndex(model: ArrayInstance<any>, proposal: Proposal): number {
 
 /**
  * Return true if the string is a valid Array index.
- */
+ *//*
 function isValidArrayIndex(
   model: ArrayInstance<any>,
   index: number,
@@ -1385,4 +1375,4 @@ function isValidArrayIndex(
 
 function addObservedLength(arrayInstance: ArrayInstance<any>): void {
   arrayInstance.$$container.notifyRead(arrayInstance, makePath(getRoot(arrayInstance).$id, arrayInstance.$path, 'length'))
-}
+} */

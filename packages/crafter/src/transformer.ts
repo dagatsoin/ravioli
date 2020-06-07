@@ -1,4 +1,4 @@
-import { computed } from "./observer/Computed"
+/* import { computed } from "./observer/Computed"
 import { IComputed } from "./observer/IDerivation"
 import { addHiddenProp } from "./utils/utils"
 import { IContainer } from "./IContainer"
@@ -59,4 +59,4 @@ function getMemoizationId(object: any): string {
       addHiddenProp(object, "$transformId", `memoizationId:${++memoizationId}`)
     }
     return object.$transformId
-}
+} */

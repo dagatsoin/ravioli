@@ -1,4 +1,4 @@
-import { object } from "../src/object"
+/* import { object } from "../src/object"
 import { getContext, toInstance } from "../src/helpers"
 import { array } from "../src/array/factory"
 import { map } from "../src/map/factory"
@@ -93,3 +93,4 @@ it('should remove an identifier from the manager when a node is removed from a m
   getContext(toInstance(model)).transaction(model.clear)
   expect(getContext(toInstance(model)).snapshot.uids.includes('157')).toBeFalsy()
 })
+ */

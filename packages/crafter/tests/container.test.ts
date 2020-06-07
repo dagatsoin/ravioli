@@ -1,4 +1,4 @@
-import { array } from '../src/array/factory'
+/* import { array } from '../src/array/factory'
 import { container } from '../src/lib/container/factory'
 import { map } from '../src/map/factory'
 import { object } from '../src/object/factory'
@@ -101,4 +101,4 @@ test('array function binding', function() {
   })
   const instance = model.create({ players: [{ name: 'Fraktar' }] })
   expect(instance.players.slice()).toEqual([{ name: 'Fraktar' }])
-})
+}) */

@@ -1,4 +1,4 @@
-import { IFactory } from '../lib/IFactory'
+/* import { IFactory } from '../lib/IFactory'
 import { NodeType } from '../lib/NodeType'
 import { UnionInstance } from './instance'
 import { toInstance, getContext } from '../helpers'
@@ -34,4 +34,4 @@ export class Union<T> extends NodeType<T, T> {
 
 export function isUnionType(type: IType<any>): type is Union<any> {
   return type instanceof Union
-}
+} */

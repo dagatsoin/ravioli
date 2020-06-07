@@ -1,4 +1,4 @@
-import { observable } from '../src/lib/observable'
+/* import { observable } from '../src/lib/observable'
 import { getTypeFromValue } from "../src/lib/getTypeFromValue"
 import { toInstance, getSnapshot, sync, getChildKey, getTargetKey, isOwnLeafPath, makePath, reduceSnapshot } from '../src/helpers'
 import { getGlobal } from '../src'
@@ -118,4 +118,4 @@ test("reduce patch", function() {
     {op: "replace", path: "/pets", value: [{id: "74455"}]},
     {op: "replace", path:"/player", value: {name: "Fraktos", stats: { health: 5 }}},
   ])
-})
+}) */

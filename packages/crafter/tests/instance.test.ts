@@ -1,4 +1,4 @@
-import { number, string, undefinedType } from "../src/Primitive"
+/* import { number, string, undefinedType } from "../src/Primitive"
 import { object } from "../src/object"
 import { toNode, toLeaf, makePath, toInstance, getContext } from "../src/helpers"
 import { array } from "../src/array"
@@ -250,4 +250,4 @@ describe("Node is dettached when killed", function() {
     expect(childInstance.$parentKey === '')
     expect(childInstance.$path === '')
   })
-})
+}) */

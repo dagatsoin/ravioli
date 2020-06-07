@@ -1,4 +1,4 @@
-import { array } from '../src/array/factory'
+/* import { array } from '../src/array/factory'
 import { getSnapshot, toInstance, toNode, getContext } from '../src/helpers'
 import { isInstance, isLeafType, isNodeType } from '../src/lib'
 import { object } from '../src/object'
@@ -159,7 +159,7 @@ test('valid value', function() {
  * 
  * To implements that, we need to check, for a given valid value, if the shape of the observable is conform.
  * If not, we need to detect the extra or missing keys in the Type properties and create or remove them.
- */
+ *//*
 test("Reshape an existing type", function() {
   const Model = object({
     stats: object({
@@ -233,4 +233,4 @@ test("replace the value with $setValue", function(){
       health: 10
     }
   })
-})
+}) */
