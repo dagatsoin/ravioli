@@ -5,9 +5,6 @@ type AutorunFunction = (p:{isFirstRun: boolean, dispose: () => void}) => void
 
 export class Autorun extends Observer {
   public type = ObserverType.Autorun
-  public get isStale(): boolean {
-    return this._isStale
-  }
   private fun: AutorunFunction
   private isFirstRun = true
 
@@ -21,7 +18,7 @@ export class Autorun extends Observer {
   }
 
   public dispose = (): void => {
-    this._isStale = true
+    this.isStale = true
     // todo extract to super()
     // Maybe the autorun was running
     this.context.stopSpyObserver(this.id)
@@ -29,7 +26,7 @@ export class Autorun extends Observer {
   }
 
   public runAndUpdateDeps(): void {
-    if (this._isStale) {
+    if (this.isStale) {
       let error
       this.context.startSpyObserver(this)
       try {
@@ -47,7 +44,7 @@ export class Autorun extends Observer {
       } finally {
         this.dependencies = this.context.getCurrentSpyedObserverDeps(this.id)
         this.context.stopSpyObserver(this.id)
-        this._isStale = false
+        this.isStale = false
       }
       if (error) {
         throw error

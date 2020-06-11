@@ -1,6 +1,4 @@
-import { SortCommands } from '../array'
 import { IObserver } from '../observer/Observer'
-import { IObservable } from '../IObservable'
 
 export enum Operation {
   // Basic
@@ -26,6 +24,15 @@ export enum Operation {
   clear = 'clear',
   delete = 'delete'
 }
+
+export type SortCommands = {
+  // Id of the item
+  id: string
+  // Where is was
+  from: number
+  // Where it is now
+  to: number
+}[]
 
 export type AddCommand<T = any> = Command & {
   op: Operation.add
@@ -131,6 +138,8 @@ export type ArrayCommand<T = any> =
   | UnshiftCommand<T>
 
 export type MapCommand<T = any> = BasicCommand<T> | ClearCommand
+
+export type Patch<C extends Command = any> = C[]
 
 export type Migration<C extends Command = any, R extends Command = any> = {
   forward: C[]
@@ -278,39 +287,36 @@ function getObjectPaths(object: {}, root: string = '/'): string[] {
  * @param observer 
  * @param param1 
  */
-export function isDependent(observer: IObserver, {op, value, path}: Command, updatedObservables: readonly IObservable[]) {
+export function isDependent(observer: IObserver, {op, value}: Command, updatedObservablePaths: string[]) {
   return (
     /* 1 */
     (
       (typeof value === 'object' || value instanceof Map) &&
       isNodeUpdateOperation(op) &&    
-      getObjectPaths(value).some(_path => hasPath(observer, _path))
+      hasPath(observer, getObjectPaths(value))
     ) ||
     /* 2 */
     (
       (typeof value !== 'object' && !(value instanceof Map)) &&
       isLeafUpdateOperation(op) &&
-      updatedObservables.some(({$path}) => hasPath(observer, $path))
+      hasPath(observer, updatedObservablePaths)
     ) ||
     /* 3 */
     (
       (Array.isArray(value) || value instanceof Map) &&
       isShapeMutationCommand(op) &&
-      updatedObservables.some(({$path}) => hasPath(observer, $path))
+      hasPath(observer, updatedObservablePaths)
     )
   )
 }
 
 /**
- * Return true if some of the node dependencies paths
- * is strictly equal to the given path.
- * Note the "strictly". That means that a parent node won't react
- * if it is its child which has been updated.
+ * Return true if some of the given paths is a dependence of the node.
  * @param node
  * @param path 
  */
-export function hasPath(node: IObserver, path: string): boolean {
-  return node.dependencies.some(depPath => depPath === path)
+export function hasPath(node: IObserver, paths: string[]): boolean {
+  return node.dependencies.some(path => paths.includes(path))
 }
 
 /**

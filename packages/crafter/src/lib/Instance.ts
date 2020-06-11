@@ -1,10 +1,9 @@
 import { IInstance } from './IInstance'
 import { IType } from './IType'
 import { IContainer } from '../IContainer'
-import { getGlobal, mergeMigrations } from '../utils/utils'
-import { makePath, isRoot, getRoot } from '../helpers'
-import { Migration, Command } from './JSONPatch'
-import { MigrationListener } from './INodeInstance'
+import { getGlobal } from '../utils/utils'
+import { makePath } from '../helpers'
+import { Command } from './JSONPatch'
 
 export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
   
@@ -20,22 +19,8 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
     // TODO cache this
     return this.$parent ? makePath(this.$parent.$path, this.$parentKey?.toString() ?? '') : '/'
   }
-  public get $migration(): Migration {
-    return isRoot(this) ? this.$$migration : getRoot(this).$migration
-  }
-
-  public set $migration(migration: Migration) {
-    if (isRoot(this)) {
-      this.$$migration = migration
-    } else {
-      getRoot(this).$migration = migration
-    }
-  }
   protected $$id!: string
   protected $hasStaleSnapshot = true
-
-  private $$migration: Migration = { forward: [], backward: [] }
-  private $migrationListeners: MigrationListener[] = []
 
   public abstract $snapshot: Input
   public abstract $data: any
@@ -47,31 +32,6 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
 
   public $invalidateSnapshot(): void {
     this.$hasStaleSnapshot = true
-  }
-
-  public $addTransactionMigrationListener(migrationListener: MigrationListener): void {
-    if (isRoot(this)) {
-      this.$migrationListeners.push(migrationListener)
-    } else if (this.$parent) {
-      this.$parent.$addTransactionMigrationListener(migrationListener)
-    }
-  }
-
-  public $removeTransactionMigrationListener(migrationListener: MigrationListener): void {
-    this.$migrationListeners.splice(
-      this.$migrationListeners.indexOf(migrationListener),
-      1
-    )
-  }
-
-  public $addMigration<O extends Command>(migration: Migration<O>): void {
-    if (this.$$container.isTransaction) {
-      if (isRoot(this)) {
-        mergeMigrations(migration, this.$$migration)
-      } else if (this.$parent) {
-        this.$parent.$addMigration(migration)
-      }
-    }
   }
 
   public $kill(): void {
@@ -96,7 +56,6 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
     }
   }
   public abstract $setValue(value: Input): boolean
-  public abstract $transactionDidEnd(): void
   public abstract $present(proposal: Command[], shouldAddMigration: boolean): void
 }
 

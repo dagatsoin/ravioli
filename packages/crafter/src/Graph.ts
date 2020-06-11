@@ -1,13 +1,125 @@
-export type Graph<T> = {
+export type Graph<T, M = {}> = {
   nodes: Node<T>[];
-  edges: Edge[];
+  edges: Edge<M>[];
 };
+
+export type WeightedGraph<T> = Graph<T, {weight: number}>
 
 export type Node<T> = T
 
-export type Edge = {
+export type Edge<M = {}> = {
   source: string
   target: string
+  metadata?: M
+}
+
+/**
+ * Return the shortest path in a weighted graph.
+ * @param graph 
+ * @param startId 
+ * @param goalId 
+ */
+export function dijkstra(graph: WeightedGraph<any>, startId: string, goalId: string) {
+  // The cost of each node from the start
+  // The start node costs 0
+  // All the other node cost infinity for now
+  const nodeCosts = {};
+  for (const node of graph.nodes) {
+    nodeCosts[node.id] = {
+      cost: Infinity,
+      from: undefined
+    };
+  }
+  nodeCosts[startId] = {
+    cost: 0,
+    from: startId
+  };
+  // The visited nodes.
+  const visitedNodes = [startId];
+  // Unvisited nodes.
+  const unvisitedNodes = graph.nodes
+    .filter(({ id }) => id !== startId)
+    .map(({ id }) => id);
+
+  /**
+   * Set the cost of the node if it is lower
+   */
+  function setCostIfLower(nodeId: string, fromNodeId: string, cost: number) {
+    if (cost < nodeCosts[nodeId].cost) {
+      nodeCosts[nodeId] = {
+        cost,
+        from: fromNodeId
+      };
+    }
+  }
+
+  function getUnvisitedNeighbours(nodeId: string) {
+    return getNeighbours(nodeId).filter(target =>
+      unvisitedNodes.includes(target)
+    );
+  }
+
+  function getNeighbours(nodeId: string) {
+    return getEdgesOf(nodeId, graph).map(({ target }) => target);
+  }
+
+  function getEdgeCost(sourceId: string, targetId: string) {
+    return graph.edges.find(
+      ({ source: s, target: t }) => s === sourceId && t === targetId
+    )?.metadata?.weight || Infinity;
+  }
+
+  function computeNeighboursCost(nodeId: string) {
+    // Update cost to all neighbours.
+    getNeighbours(nodeId).forEach(id => {
+      const edgeCost = getEdgeCost(nodeId, id);
+      // Cost equals to the cost of the current node plus the cost of the edge
+      // to the neighbourg
+      setCostIfLower(id, nodeId, nodeCosts[nodeId].cost + edgeCost);
+    });
+  }
+
+  const path = [startId];
+
+  // From the start
+  function step(currentNodeId: string) {
+    computeNeighboursCost(currentNodeId);
+
+    // Visite each unvisited neighbour and computed their neighbours tentative distance
+    getUnvisitedNeighbours(currentNodeId)
+      .sort((a, b) => nodeCosts[a].cost - nodeCosts[b].cost)
+      .forEach(nodeId => {
+        computeNeighboursCost(nodeId);
+        // Mark the node as visited
+        visitedNodes.push(nodeId);
+        unvisitedNodes.splice(unvisitedNodes.indexOf(nodeId), 1);
+      });
+    if (visitedNodes.includes(goalId)) {
+      path.push(currentNodeId);
+      path.push(goalId);
+    } else {
+      // From there, we need to choose from the new visited node, which one to pick
+      // We look up on the unvisited node with the lowest tentative value.
+      // Then we look up the node which this cost comes from.
+      const nextNodeId = unvisitedNodes
+        .filter(nodeId => nodeCosts[nodeId].cost !== Infinity)
+        .reduce(function(lowest, neighbourId) {
+          return nodeCosts[lowest]?.cost < nodeCosts[neighbourId].cost
+            ? lowest
+            : neighbourId;
+        }, undefined);
+
+      path.push(nodeCosts[nextNodeId].from);
+      visitedNodes.push(nextNodeId);
+      unvisitedNodes.splice(unvisitedNodes.indexOf(nextNodeId), 1);
+      // console.log(`Next node is now be ${nextNodeId}`);
+      step(nextNodeId);
+    }
+  }
+
+  step(startId);
+  
+  return path
 }
 
 function hasOneParent({
@@ -125,63 +237,167 @@ export function removeNodeEdges({
 
 /**
  * A depth first traversal implementation.
- * 
+ *
  * onNode(nodeId: string): void
- * Called on each step
- * 
+ * Called on each step.
+ * Return true to stop the crawl.
+ *
  * onFork(): void
  * Called each time the crawler reaches a fork.
- * 
+ * Return true to stop the crawl.
+ *
  * onLeaf(): void
- * Called each time the crawler reaches a leaf. 
+ * Called each time the crawler reaches a leaf.
  *
  * onStepBack(): void
  * Called when the crawler step back to the previous node.
  */
-function crawlDepthFirst({
-  sourceId,
+function crawlDepthFirst<T>({
+  fromId,
   graph,
   onNode,
   onFork,
   onLeaf,
-  onStepBack
+  onStepBack,
+  stopCrawlThisBranch
 }: {
-  sourceId: string
-  graph: Graph<any>
-  onNode?: (nodeId: string) => void
-  onFork?:() => void
-  onLeaf?:() => void
-  onStepBack?:() => void
+  fromId: string
+  graph: Graph<T>
+  onNode?: (nodeId: string) => boolean | void
+  onFork?:(nodeId: string) => boolean
+  onLeaf?:(nodeId: string) => void
+  onStepBack?:(nodeId: string) => void,
+  stopCrawlThisBranch?:(nodeId: string) => boolean
 }): void {
-  function step(currentNodeId: string): void {
-      const nodeIds = getTargetIds({sourceId: currentNodeId, graph})
+  // Track visited to prevent circular deps
+  const visited: string[] = [];
 
-      onNode?.(currentNodeId)
+  /**
+   * If return true: stop the graph crawl
+   * If return false | undefined: stop crawling the current branch.
+   */
+  function step(currentNodeId: string): boolean {
+    let stop: boolean 
+    if (!currentNodeId) {
+      throw new Error(`[GRAPH] crawlDepthFirst Unknown node with id ${currentNodeId}`)
+    }
+   
+    // Node is already visited, skip.
+    if (
+      visited.includes(currentNodeId) ||
+      (stopCrawlThisBranch && stopCrawlThisBranch(currentNodeId))
+    ) {
+      return false; // will stop crawling this branch
+    }
+    visited.push(currentNodeId);
 
-      // Found a fork
-      if (nodeIds.length > 1) {
-        onFork?.()
+    const sourceIds = getSourceIds(currentNodeId, graph);
+
+    stop = !!onNode?.(currentNodeId);
+
+    if (stop) {
+      return true; // will stop the graph crawl
+    }
+
+    // Found a fork
+    if (sourceIds.length > 1) {
+      onFork && onFork(currentNodeId);
+    }
+
+    // Found a leaf
+    if (!sourceIds.length) {
+      onLeaf && onLeaf(currentNodeId);
+    }
+
+    // Crawl through each fork branch
+    for (let i = 0; i < sourceIds.length; i++) {
+      const isLastBranch = i === sourceIds.length - 1;
+      stop = step(sourceIds[i]);
+
+      // Stop the recursion
+      if (stop) {
+        return true;
       }
 
-      // Found a leaf
-      if (!nodeIds.length) {
-        onLeaf?.()
+      // This was the last branch of the fork. Step back
+      // to previous node.
+      if (isLastBranch) {
+        onStepBack && onStepBack(currentNodeId);
       }
+    }
+    return false
+  }
+  step(fromId);
+}
 
-      // Crawl through each fork branch
-      for (let i = 0; i < nodeIds.length; i++) {
-        const isLastBranch = i === nodeIds.length - 1
-        const nodeId = nodeIds[i]
-        step(nodeId);
+/**
+ * Search a node in the graph which matchs the given predicate
+ * by using a depth first crawler, starting from the given fromId node.
+ * Return undefined if not found.
+ * @param graph 
+ * @param targetId 
+ */
+export function searchDFS(graph: Graph<any>, predicate: (nodeId: string) => boolean, fromId: string): string | undefined {
+  let result: string | undefined
+  crawlDepthFirst({
+    graph,
+    fromId,
+    onNode(nodeId) {
+      if (predicate(nodeId)) {
+        result = nodeId
+        return true  
+      }
+      return false
+    } 
+  });
+  return result
+}
 
-        // This was the last branch of the fork. Step back
-        // to previous node.
-        if (isLastBranch) {
-          onStepBack?.()
+/**
+ * Sort the graph in a topological order. Starting from the first
+ * target id of the edge list.
+ * @param graph 
+ */
+export function topologicalSort(graph: Graph<any>) {
+  const stack: string[] = [];
+  const visited: string[] = [];
+  while (stack.length < graph.nodes.length) {
+    const fromId = graph.edges.find(({ target }) => !stack.includes(target))?.target;
+    if (fromId === undefined) {
+      throw new Error(`[Graph] topologicalSort fromId is undefined`)
+    }
+    crawlDepthFirst({
+      graph,
+      fromId,
+      stopCrawlThisBranch: nodeId => {
+        const isVisited = visited.includes(nodeId);
+        if (!isVisited) {
+          visited.push(nodeId);
+        }
+        return isVisited;
+      },
+      onLeaf: nodeId => {
+        if (!stack.includes(nodeId)) {
+          stack.push(nodeId);
+        }
+      },
+      onStepBack: nodeId => {
+        if (!stack.includes(nodeId)) {
+          stack.push(nodeId);
         }
       }
+    });
   }
-  step(sourceId);
+  return stack;
+}
+
+/**
+ * Return source ids of a target
+ */
+function getSourceIds(targetId: string, graph: Graph<any>) {
+  return graph.edges
+    .filter(edge => edge.target === targetId)
+    .map(({ source }) => source);
 }
 
 export function getAllPathsFrom<T>({
@@ -195,7 +411,7 @@ export function getAllPathsFrom<T>({
   const completePaths: string[][] = []
 
   crawlDepthFirst({
-    sourceId,
+    fromId: sourceId,
     graph,
     onNode(nodeId) {
       crawlerState.push(nodeId)
@@ -233,19 +449,4 @@ export function getAllPathsTo<T>({
     sourceId: targetId,
     graph: inversedGraph
   }).map(path => path.reverse())
-}
-
-/**
- * Return targets of a source
- */
-function getTargetIds({
-  sourceId,
-  graph
-}: {
-  sourceId: string
-  graph: Graph<any>
-}): string[] {
-  return graph.edges.filter(
-    edge => edge.source === sourceId
-  ).map(({target}) => target)
 }

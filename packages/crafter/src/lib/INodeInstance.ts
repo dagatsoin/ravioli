@@ -1,6 +1,5 @@
 import { IObservable } from '../IObservable'
 import { IInstance } from './IInstance'
-import { Migration } from './JSONPatch'
 import { Snapshot } from './Snapshot'
 import { IWithParent } from './IWithParent'
 
@@ -9,8 +8,6 @@ export type DataArray<T> = (IInstance<T> | IInstance<T, string>)[]
 export type DataMap<T> = Map<string, IInstance<T>>
 
 export type DataNode = DataArray<any> | DataObject<any> | DataMap<any>
-
-export type MigrationListener = (migration: Migration) => void
 
 export type RemoveChanges = {
   removed: Snapshot<any>

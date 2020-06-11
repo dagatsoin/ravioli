@@ -151,7 +151,7 @@ export function makePath(...segments: string[]): string {
 
 export function sync<T extends IObservable>(observable: T): T {
   const target = clone(observable)
-  toNode(observable).$addTransactionMigrationListener(m => m.forward.forEach(c => toNode(target).$present(c, true)))
+  toNode(observable).$$container.addMigrationListener(m => m.forward.forEach(c => toNode(target).$present(c, true)))
   return target
 }
 
@@ -196,6 +196,12 @@ export function isUnique<T>(value: T, index: number, array: T[]) {
 export function fail(e: string) {
   if (__DEV__) {
     throw new Error(e)
+  }
+}
+
+export function warn(...msg: string[]) {
+  if (__DEV__) {
+    console.warn(...msg)
   }
 }
 

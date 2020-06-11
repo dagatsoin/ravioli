@@ -58,12 +58,6 @@ export class Computed<T> extends Observer implements IComputed<T> {
       : toInstance(this.value).$id
   }
 
-  public $transactionDidEnd(): void {
-    if (isInstance(this.value) && !isNode(this.value)) {
-      this.migration = {backward:[], forward: []}
-    }
-  }
-
   public get $migration(): Migration {
     return isNode(this.value)
       ? this.value.$migration

@@ -11,6 +11,12 @@ test("factory", function() {
   expect(unbox(toInstance(bool))).toBeFalsy()
 })
 
+test("mutation", function() {
+  const str = string("Fraktar").create()
+  getContext(toInstance(str)).transaction(() => toInstance(str).$present([{op: Operation.replace, value: "Fraktos", path: "/"}]))
+  expect(unbox(toInstance(str))).toBe("Fraktos")
+})
+
 test("reactivity", function() {
   const str = string("Fraktar").create()
   const dispose = autorun(function({isFirstRun}) {

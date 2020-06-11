@@ -1,9 +1,7 @@
-import { isRoot } from '../helpers'
 import { IInstance } from './IInstance'
 import {
   DataNode,
-  INodeInstance,
-  MigrationListener,
+  INodeInstance
 } from './INodeInstance'
 import { Instance } from './Instance'
 import { Command } from './JSONPatch'
@@ -40,7 +38,6 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   private $$nativeTypeKeys: string[]
   private $snapshotComputation: (data: DataNode, context: IContainer) => SNAPSHOT
   private $valueComputation: (data: DataNode, context: IContainer) => TYPE
-  private $transactionMigrationListeners: MigrationListener[] = []
   private $prevValue: TYPE = (undefined as unknown) as TYPE
   private $prevSnapshot: SNAPSHOT = (undefined as unknown) as SNAPSHOT
   constructor(
@@ -99,19 +96,6 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
 
   public $createNewSnapshot(): void {
     this.$prevSnapshot = this.$snapshotComputation(this.$data, this.$$container)
-  }
-
-  public $transactionDidEnd(): void {
-    if (isRoot(this)) {
-      this.$transactionMigrationListeners.forEach(l => l(this.$migration))
-      this.$migration = { forward: [], backward: [] }
-    } else if (this.$parent) {
-      this.$parent.$transactionDidEnd()
-    }
-  }
-
-  public $addTransactionMigrationListener(migrationListener: MigrationListener): void {
-    this.$transactionMigrationListeners.push(migrationListener)
   }
 
   private $computeValue(): void {

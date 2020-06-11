@@ -5,7 +5,7 @@ import { InputValidator } from './TypeChecker'
 import { TypeFlag } from './TypeFlag'
 import { IContainer } from '../IContainer'
 import { ILeafInstance } from './ILeafInstance'
-import { fail, makePath, getRoot } from '../helpers'
+import { makePath, getRoot } from '../helpers'
 import { createReplaceMigration } from './mutators'
 import { ReplaceCommand, Operation } from './JSONPatch'
 
@@ -79,28 +79,34 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
   }
 
   public $present (patchProposal: ReplaceCommand[], addMigration = true): void {
-    const proposalMigration = {
-      forward: [],
-      backward: []
-    }
+    const acceptedCommands = []
     for (const command of patchProposal) {
       if (command.op === Operation.replace){
         const didChange = this.$setValue(command.value)
         if (didChange) {
-          this.$$container.addUpdatedObservable(this)
-          if (addMigration) {
-            mergeMigrations(createReplaceMigration(command, {replaced: this.$snapshot}), proposalMigration)
-          }
+          acceptedCommands.push(command)
         }
       }
     }
+    this.next(acceptedCommands, addMigration)
   }
-  public $transactionDidEnd(): void {}
 
   public $setValue(value: T): boolean {
     const backup = this.$snapshot
     this.setter(value)
     return backup !== this.$data
+  }
+
+  private next (acceptedCommands: ReplaceCommand[], addMigration: boolean){
+    this.$$container.addUpdatedObservable(this)
+    if (addMigration) {
+      const proposalMigration = {
+        forward: [],
+        backward: []
+      }
+      acceptedCommands.forEach(command => mergeMigrations(createReplaceMigration(command, {replaced: this.$snapshot}), proposalMigration))
+      this.$$container.addMigration(proposalMigration)
+    }
   }
 }
 

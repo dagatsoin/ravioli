@@ -16,7 +16,7 @@ export class Tracker implements IObservable, ITracker {
     forward: [],
     backward: [],
   }
-
+  public $path: string
   private context: IContainer
   private id: string
   public get $id(): string {
@@ -26,11 +26,8 @@ export class Tracker implements IObservable, ITracker {
   constructor(idPrefix: string = 'Tracker', context?: IContainer) {
     this.context = context || getGlobal().$$crafterContext
     this.id = this.context.getUID(idPrefix + '#')
+    this.$path = makePath(this.id)
     this.context.useUID(this.id)
-  }
-
-  public $transactionDidEnd(): void {
-    this.$migration.forward = []
   }
 
   public reportObserved(): void {

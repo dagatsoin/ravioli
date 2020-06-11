@@ -2,14 +2,28 @@ import { INodeInstance } from "./lib/INodeInstance"
 import { IObserver, ObserverType } from "./observer/Observer"
 import { Graph } from "./Graph"
 import { IObservable as IInstance, IObservable } from "./IObservable"
-import { Command, BasicCommand } from "./lib/JSONPatch"
+import { Command, BasicCommand, Migration } from "./lib/JSONPatch"
 import { IComputed } from "./observer/IDerivation"
 
 export type ContextListener = (migration: [string, BasicCommand[]][]) => void
 
+export type MigrationListener = (migration: Migration) => void
+
+export enum ControlState {
+  READY,
+  MUTATION,
+  STALE,
+}
+
 export type State = {
-  // Is writtable
+  // The migration for the current transaction
+  migration: Migration
+
+  // Can the models of this context be mutated?
   isWrittable: boolean
+  
+  // Current control state of the model in the SAM lifecyle 
+  controlState: ControlState
 
   // List of used ids (used for generate UID)
   uids: string[]
@@ -177,4 +191,27 @@ export interface IContainer {
    * You need to specify the ID of the observable the migration comes from.
    */
   presentPatch(migration: Command[]): void
+
+  /**
+   * Add a migration listener which is triggered at the end of a transaction
+   * The listener will have the migration as an argument
+   */
+  addMigrationListener(listener: MigrationListener): void
+
+  /**
+   * Remove a migration listener
+   */
+  removeTransactionMigrationListener(listener: MigrationListener): void
+
+  /**
+   * Add some operations to the current transaction migration
+   */
+  addMigration(migration: Migration): void
+
+  onStepStart(): void
+  onModelDidUpdate(): void
+  onModelWillRollback(): void
+  onModelDidRollback(): void
+  onChangeWillBePropagated(): void
+  onStepWillEnd(migration: Migration): void
 }

@@ -1,17 +1,20 @@
-import { toNode, getRoot, getSnapshot, unique, isUnique, noop, toInstance, isRoot } from './helpers'
+import { toNode, getRoot, getSnapshot, unique, isUnique, toInstance, isRoot, warn, noop } from './helpers'
 import { IObservable } from './IObservable'
-import { Command, isDependent, Migration } from './lib/JSONPatch'
+import { Command, Migration } from './lib/JSONPatch'
 import { IObserver, isObserver, isReaction, isDerivation, ObserverType } from './observer/Observer'
-import { Graph, removeNode, removeNodeEdges, getGraphEdgesFrom, Edge, getAllPathsTo, getEdgesOf, hasEdge, isSameEdge } from './Graph'
+import { Graph, removeNode, removeNodeEdges, getGraphEdgesFrom, Edge, getAllPathsTo, getEdgesOf, hasEdge, isSameEdge, topologicalSort } from './Graph'
 import { INodeInstance } from './lib/INodeInstance'
-import { State, IContainer, ContextListener } from './IContainer'
+import { State, IContainer, ContextListener, ControlState, MigrationListener } from './IContainer'
 import { IComputed } from "./observer/IDerivation"
 import { isNode } from './lib/isNode'
 import { isObservable } from './lib/observable'
+import { mergeMigrations } from './utils/utils'
 
 function getInitState(): State {
   return {
+    migration: {forward: [], backward: []},
     isWrittable: true,
+    controlState: ControlState.READY,
     uids: [],
     spiedObserversDependencies: new Map(),
     spyReactionQueue: [],
@@ -36,7 +39,9 @@ function getInitState(): State {
 export class CrafterContainer implements IContainer {
   public get snapshot(): State {
     return {
+      migration: {forward: this.state.migration.forward.map(op => ({...op})), backward: this.state.migration.backward.map(op => ({...op}))},
       isWrittable: this.state.isWrittable,
+      controlState: this.state.controlState,
       uids: [...this.state.uids],
       referencableNodeInstances: new Map(this.state.referencableNodeInstances),
       spiedObserversDependencies: new Map(this.state.spiedObserversDependencies),
@@ -57,9 +62,15 @@ export class CrafterContainer implements IContainer {
       updatedObservables: [...this.state.updatedObservables]
     }
   }
+  public onStepStart: () => void = noop
+  public onModelDidUpdate: () => void = noop
+  public onModelWillRollback: () => void = noop
+  public onModelDidRollback: () => void = noop
+  public onChangeWillBePropagated: () => void = noop
+  public onStepWillEnd: (migration: Migration) => void = noop
 
   public get isWrittable(): boolean {
-    return this.state.isTransaction || this.state.isComputingNextState
+    return this.state.controlState === ControlState.MUTATION || this.state.controlState === ControlState.STALE
   }
   
   public get isTransaction(): boolean {
@@ -72,7 +83,7 @@ export class CrafterContainer implements IContainer {
   }
 
   private state: State = getInitState()
-
+  private migrationListeners: MigrationListener[] = []
   private isSpyingPaused: boolean = false
   private get isSpying() {
     return !this.isSpyingPaused && (this.state.spyReactionQueue.length > 0)
@@ -88,7 +99,7 @@ export class CrafterContainer implements IContainer {
     reaction.runAndUpdateDeps() 
   }
 
-  public notifyRead(instance: IObservable | IComputed<any>, observedPath: string): void {
+  public notifyRead(instance: IObservable, observedPath: string): void {
     if (!this.isSpying) {
       return
     }    
@@ -128,77 +139,100 @@ export class CrafterContainer implements IContainer {
     }
   }
 
+  public get isLocked(): boolean{
+    return this.state.controlState === ControlState.MUTATION
+  }
+
   /**
    * A transaction is the smallest unit of work of Crafter app.
    * This tends to be as ACID as possible. (mainly from wikipedia)
    * Atomicity: A transaction's changes to the model state are atomic: either all happen or none happen.
    * Consistency: A transaction is a correct transformation of the model state. It is the responsability of the model to accept, reject or throw to any changes.
-   *  Also, the system will rollback to the previous stable state if it throws during transaction.
+   * Also, the system will rollback to the previous stable state if it throws during transaction.
    * Isolation: The transaction execution is syncrhronous. It is no possible to have async command during transaction or having two transactions in the same times.
    * Durability: Once a transaction completes successfully, its changes are saved as migration (with rollback/forward command list) and a snapshot of the new model.
+   * 
+   * A transaction begins when a proposal is presented to the model.
+   * 1- the model context is locked. No proposal can be accepted as long the transaction is running.
+   * 2- the model context enters the MUTATION state
+   * 3- The model accepts a part or the whole proposal.
+   * 4- the model context enters the STALE state.
+   * 5- the model context enters the READY state
+   * 6- the modem context is unlocked
    */
   public transaction(fun: () => any): any {
-    const id = this.getUID('Transaction#')
-    const isRootTransactionStart = !this.state.rootTransactionId
-    const managerStateBackup = isRootTransactionStart ? this.snapshot : undefined
-
-    // There is no running transaction yet. This transaction is now the root transaction.
-    if (isRootTransactionStart) {
-      this.state.rootTransactionId = id
-      this.state.isTransaction = true
+    /* 1 */
+    // Reject if a transaction is already running
+    if (this.state.controlState !== ControlState.READY) {
+      warn('[CRAFTER] A transaction is already running')
+      return
     }
+    this.onStepStart()
+    /* 2 */
+    // Lock the model
+    this.state.controlState = ControlState.MUTATION
+    
+    const managerStateBackup = ControlState.READY ? this.snapshot : undefined
+
     let result: any
-    // Execute the transaction changes.
+    /* 3 */
+    // Proposal presentation.
+    // The mutation function is passed down to the model.
     // If it throws, the system will rollback to a stable version
     try {
-      if (!this.state.isWrittable) {
-        throw new Error('Transaction are not allowed here.')
-      }
       this.pauseSpies()
       result = fun()
       this.resumeSpies()
+      this.onModelDidUpdate()
     } catch (e) {
-      // Bubble the error up until reaching the root transaction
-      if (this.state.rootTransactionId !== id) {
-        console.error(e)
+      this.onModelWillRollback()
+      this.rollback(managerStateBackup)
+      this.onModelDidRollback()
+      this.resumeSpies()
+      this.state.controlState = ControlState.READY
+      if (__DEV__) {
         throw e
       }
-      // Error has reached the root transaction, rollback the model.
-      else {
-        this.rollback(managerStateBackup)
-        if (__DEV__) {
-          throw e
-        }
-        return
-      }
+      return
     }
 
-    // Transaction is finished, some observable may stale.
-    if (this.state.rootTransactionId === id) {
-      // Invalidate snapshot.
-      // Their next computation will be triggered lazily.
-      this.state.updatedObservables.forEach((o: IObservable) => {
-        // It is a tracker
-        if ((o as any).isTracker) {
-          return
-        } else {
-          if (isNode(o)) {
-            invalidateSnapshot(toNode(o))
-          } else if (!isRoot(toInstance(o))) {
-            invalidateSnapshot(toNode(toInstance(o).$parent))
-          }
+    // Mutation is finished, some observable may be stale.
+    this.state.controlState = ControlState.STALE      
+   
+    this.onChangeWillBePropagated()
+    // Invalidate snapshot.
+    // Their next computation will be triggered lazily.
+    this.state.updatedObservables.forEach((o: IObservable) => {
+      // It is a tracker
+      if ((o as any).isTracker) {
+        return
+      } else {
+        if (isNode(o)) {
+          invalidateSnapshot(toNode(o))
+        } else if (!isRoot(toInstance(o))) {
+          invalidateSnapshot(toNode(toInstance(o).$parent))
         }
-      })
-      
-      this.nextState(this.state)
-      this.state.isTransaction = false
-      this.state.rootTransactionId = undefined      
-      // During the reactions runs, other observable has been modified.
-      // Relaunch a "fake" to react to the changes
-      if (this.state.updatedObservables.length) {
-        this.transaction(noop)  
-      }  
-    }
+      }
+    })
+
+    // LEARNING PHASE
+    // The observable has been updated.
+    // It is time to notify the derivation that something has changed.
+    
+    this.propagateChange()
+            
+    this.onStepWillEnd(this.state.migration)
+
+    this.clean()
+
+    // All computed values affected by the last observables mutation are now flagged as stale.
+    // Let's run the reaction which uses those computed values.
+    this.runStaleReactions()
+
+    this.state.controlState = ControlState.READY
+
+    // CLEANING PHASE
+    // Reset the state to get ready for a new step
     return result
   }
 
@@ -339,7 +373,7 @@ export class CrafterContainer implements IContainer {
     this.state.contextListeners.splice(this.state.contextListeners.indexOf(listener), 1)
   }
 
-  public presentPatch<O extends Command>(migration: O[]): void {
+  public presentPatch<O extends Command>(_migration: O[]): void {
 /*     const staleObservers: IObserver[] = []
     migration.forEach(({op, path}) => {
       const observers = this.getTargets(makePath(path), op)
@@ -368,6 +402,19 @@ export class CrafterContainer implements IContainer {
    */
   public onObserverError(observer: IObserver): void {
     removeObserver({observer, dependencyGraph: this.state.dependencyGraph})
+  }
+
+  
+  public addMigrationListener(listener: MigrationListener): void {
+    this.migrationListeners.push(listener)
+  }
+
+  public removeTransactionMigrationListener(listener: MigrationListener): void {
+    this.migrationListeners.splice(this.migrationListeners.indexOf(listener), 1)
+  }
+
+  public addMigration(migration: Migration): void {
+    mergeMigrations(migration, this.state.migration)
   }
 
   /**
@@ -429,27 +476,14 @@ export class CrafterContainer implements IContainer {
    * changed by the given command.
    * @param param0
    */
-  private getDirectDependencies(patch: Command[]): IObserver[] {
+/*   private getDirectDependencies(patch: Command[]): IObserver[] {
     return this.state
       .dependencyGraph
       .nodes
       .filter(isObserver)
       .filter(n => patch.some(command => isDependent(n, command, this.state.dependencyGraph.nodes.filter(isObservable))))
   }
-
-  /**
-   * Returns a list of observers directly dependent of this graph
-   * @param param0
-   */
-  private getGraphObservers({
-    target,
-    from
-  }: {
-    target: Graph<IObservable | IObserver | IComputed<any>>,
-    from: Graph<IObservable | IObserver | IComputed<any>>
-  }): IObserver[] {
-    throw new Error("getDirectDependenciesOfGraph not implemented")
-  }
+ */
 
   private getCurrentSpiedObserverId(): {type: ObserverType, id: string} | undefined{
     // Derivation are prioritary because the always run as a child
@@ -498,15 +532,17 @@ export class CrafterContainer implements IContainer {
 
   /**
    * Propagate the changes of the observables into the graph and update all derivations
-   * when necessary to reach a new stable state..
-   * It will return the list of reaction to run.
-   * 1- find all the direct target of the updated observables graph
-   * 2- stale reactions
-   * 3- in the direct targets, find observers which have indirect sources
-   *    in the updated observables graph.
-   *    eg. C0 -> O, C2 -> O, C2 -> C1 // C2 is both a direct and indirect target of O
+   * when necessary to reach a new stable state.
+   * The reactions are not run at this point.
+   * The propagation is done with a topological order. That means that a derivation will
+   * be tested as stale only of all its descendants are ready.
+   * 1- find all the direct observers of the updated observables.
+   * From this selection:
+   * 2- find observers which have also indirect sources in the updated observables.
+   *    eg. C0 -> O, C2 -> O, C2 -> C1 
+   *        C2 is both a direct and indirect target of O
    *        C2 won't be ran until all its dependencies have been run.
-   * 4- run only direct targets which is plain dependant of the updated observables graph
+   * 4- run only direct targets which is plain dependant of the updated observables
    * 5- recall the function with:
    *    - the new updated observables from the ran derivations
    *    - the previous updated observable which are source of indirect observers
@@ -514,24 +550,18 @@ export class CrafterContainer implements IContainer {
    * @param observables
    * @returns the ids of the stale derivations
    */
-  private updateGraph(_ranComputedIds: string[] = []): string[] {   
-    /* 1 */ 
-    const directTargets = this.getGraphObservers({
+/*   private propagateChange(_ranDerivationIds: string[] = []) {   
+    // 1 
+    const directTargets = this.getDirectDependencies({
       target: this.state.dependencyGraph,
       from: this.state.updatedObservablesGraph
-    })
-    // Filter already ran computed
-    .filter(({id}) => !_ranComputedIds.includes(id))
+    }) 
+    // Keep only derivations
+    .filter(isDerivation)
+    // Filter already ran derivations
+    .filter(({id}) => !_ranDerivationIds.includes(id))
 
-    /* 2 */
-    const reactions = directTargets
-      .filter(o => isReaction(o.type))
-      .filter(r => !r.isStale)
-
-    // Stale reactions
-    reactions.forEach(r => r.stale())
-
-    /* 3 */
+    // 3
     // Find the observers of the updated observables graph which are directly AND indirectly dependent
     // of the updated observables graph.
     const notReadyToRunDerivations: IObserver[] = [] 
@@ -549,7 +579,7 @@ export class CrafterContainer implements IContainer {
       return !notReadyToRunDerivations.includes(derivation)
     }
           
-    /* 5 */
+    //4
     const readyToRunDerivation = directTargets
       .filter(isDerivation)
       .filter(isReady)
@@ -561,15 +591,33 @@ export class CrafterContainer implements IContainer {
         ranComputedIds.push(derivation.id)
       })
 
-    const newReactionIds = reactions.map(({id}) => id)
-
-    /* 7 */
+    //5
     // Recursive call returning the reactions to run.
     if (this.state.updatedObservablesGraph.nodes.length) {
-      this.updateGraph(ranComputedIds)
+      this.propagateChange(ranComputedIds)
     }
-    
-    return newReactionIds.concat()
+  } */
+
+  /**
+   * Propagate the changes of the observables into the graph and update all derivations
+   * when necessary to reach a new stable state.
+   * The reactions are not run at this point.
+   * The propagation is done with a topological order. That means that a derivation will
+   * be tested as stale only of all its descendants are ready.
+   * 1- get the topological order from the updated observables to the reaction
+   * 2- run the derivation if necessary
+   */
+  private propagateChange() {
+    topologicalSort(this.state.dependencyGraph)
+    .map(id => getGraphNode(id, this.state.dependencyGraph))
+    .filter(isDerivation)
+    .forEach(derivation => {
+      // Notify the observer. It will re run if it becomes stale.
+      // If it generates an observable, the observable changes will be added
+      // to the current context changes (updatedObservables), allowing the test of the next derivation.
+      // We rely to the oplog to gather the stack of changes.
+      derivation.notifyChanges(this.state.migration.forward, this.state.updatedObservables.map(({$path}) => $path))
+    })
   }
 
   /**
@@ -577,35 +625,30 @@ export class CrafterContainer implements IContainer {
    * It is time to notify the derivation that something has changed.
    * We stale all the derivations which depends of the model.
    */
-  private nextState(state: State): void {
-    state.isComputingNextState = true
-    // List all observers which are dependant of the observale mutated during the transaction.
-    const staleReactions = this.updateGraph()
-      .map(id => getGraphNode(id, this.state.dependencyGraph) as IObserver)
-
-    // Do something with the transaction migration
-    collectTransactionPatches(state.updatedObservables)
-
-    // The learning phase is over. Prepare the the state for the next step.
-    state.updatedObservables = []
-
-    state.isComputingNextState = false
-
-    // All computed values affected by the last observables mutation are now flagged as stale.
-    // Let's run the reaction which uses those computed values.
-    this.runReactions(staleReactions)
+  private clean(): void {
+    // Delete migration data
+    this.state.migration.forward.length = 0
+    this.state.migration.backward.length = 0
+    
+    // Delete updated observable
+    this.state.updatedObservables = []
   }
 
   /**
    * Recompute observers and update dependency graph if needed
    */
-  private runReactions(staleReactions: IObserver[]): void {
-    staleReactions.forEach(reaction => {
-      // Run the stale reaction
-      // Meanwhile, compare each child derivation poping out
-      // and remove the ones which are not used anymore
-      reaction.runAndUpdateDeps()
-    })
+  private runStaleReactions(): void {
+    this.state.updatedObservables
+      .map(({$id}) => getAllPathsTo({targetId: $id, graph: this.state.dependencyGraph}))
+      .flatMap(paths => paths.map(path => getGraphNode(path.pop()!, this.state.dependencyGraph)))
+      .filter(isObserver)
+      .filter(isReaction)
+      .forEach(reaction => {
+        // Run the stale reaction
+        // Meanwhile, compare each child derivation poping out
+        // and remove the ones which are not used anymore
+        reaction.runAndUpdateDeps()
+      })
   }
 
   private rollback(managerStateBackup: State | undefined): void {
@@ -766,19 +809,6 @@ function onDisposeObserver(observer: IObserver, state: State): void {
     })
   // Remove edges from the graph
   graph.edges = graph.edges.filter(edge => !tree.edges.some(treeEdge => isSameEdge(edge, treeEdge))) 
-}
-
-function collectTransactionPatches(
-  updatedObservables: IObservable[]
-): [string, Migration][] {
-  const transactionPatches: [string, Migration][] = []
-  updatedObservables.forEach(observable => {
-    if (observable.$migration.forward.length) {
-      transactionPatches.push([observable.$id, observable.$migration])
-      observable.$transactionDidEnd()
-    }
-  })
-  return transactionPatches
 }
 
 /**

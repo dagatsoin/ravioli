@@ -1,15 +1,14 @@
 import { IContainer } from '../IContainer'
 import { getGlobal } from '../utils/utils'
 import { IComputed } from './IDerivation';
+import { isDependent, Patch } from '../lib';
 
 export interface IObserver {
   id: string
   dependencies: string[]
-  readonly isStale: boolean
-  readonly isObserver: true
   type: ObserverType
   dispose: () => void
-  stale(): void
+  notifyChanges(patch: Patch<any>, updatedObservablePaths: string[]): void
   runAndUpdateDeps(): void
 }
 
@@ -26,11 +25,9 @@ export abstract class Observer implements IObserver {
   public dependencies: string[] = [];
   public isObserver: true = true
   protected context: IContainer
-  protected _isStale = true
+  protected isStale = true
   private _id: string  
   
-
-  public abstract isStale: boolean;
   public abstract type: ObserverType;
 
   constructor({
@@ -53,8 +50,12 @@ export abstract class Observer implements IObserver {
     }
     this.context.useUID(this.id)
   }
-  public stale(): void {
-    this._isStale = true
+
+  public notifyChanges(patch: Patch<any>, updatedObservablePaths: string[]) {
+    this.isStale = patch.some(command => isDependent(this, command, updatedObservablePaths))
+    if (this.isStale) {
+      this.runAndUpdateDeps()
+    }
   }
 
   public abstract dispose(): void
@@ -66,8 +67,8 @@ export abstract class Observer implements IObserver {
  * - autorun
  * - reaction
  */
-export function isReaction(type: ObserverType): boolean {
-  return type === ObserverType.Autorun || type === ObserverType.Reaction
+export function isReaction(observer: any): boolean {
+  return observer.type === ObserverType.Autorun || observer.type === ObserverType.Reaction
 }
 
 export function isDerivation(observer: any): observer is IComputed<any> {
