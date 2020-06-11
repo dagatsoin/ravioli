@@ -1,5 +1,5 @@
 import { Migration } from '../lib/JSONPatch';
-import { IObserver } from './Observer';
+import { IObserver } from "./IObserver";
 
 export interface IComputed<T> extends IObserver {
   id: string

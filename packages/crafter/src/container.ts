@@ -1,7 +1,8 @@
-import { toNode, getRoot, getSnapshot, unique, isUnique, toInstance, isRoot, warn, noop } from './helpers'
+import { toNode, getRoot, getSnapshot, unique, isUnique, toInstance, warn, noop } from './helpers'
 import { IObservable } from './IObservable'
 import { Command, Migration } from './lib/JSONPatch'
-import { IObserver, isObserver, isReaction, isDerivation, ObserverType } from './observer/Observer'
+import { isObserver, isReaction, isDerivation } from './observer/Observer'
+import { IObserver, ObserverType } from "./observer/IObserver"
 import { Graph, removeNode, removeNodeEdges, getGraphEdgesFrom, Edge, getAllPathsTo, getEdgesOf, hasEdge, isSameEdge, topologicalSort } from './Graph'
 import { INodeInstance } from './lib/INodeInstance'
 import { State, IContainer, ContextListener, ControlState, MigrationListener } from './IContainer'
@@ -202,7 +203,7 @@ export class CrafterContainer implements IContainer {
     this.onChangeWillBePropagated()
     // Invalidate snapshot.
     // Their next computation will be triggered lazily.
-    this.state.updatedObservables.forEach((o: IObservable) => {
+    /* this.state.updatedObservables.forEach((o: IObservable) => {
       // It is a tracker
       if ((o as any).isTracker) {
         return
@@ -213,7 +214,7 @@ export class CrafterContainer implements IContainer {
           invalidateSnapshot(toNode(toInstance(o).$parent))
         }
       }
-    })
+    }) */
 
     // LEARNING PHASE
     // The observable has been updated.
@@ -814,10 +815,10 @@ function onDisposeObserver(observer: IObserver, state: State): void {
 /**
  * Invalidate the snaphsot of each node/leaf of the ascendants of an observable.
  */
-function invalidateSnapshot(o: INodeInstance<any>): void {
+/* function invalidateSnapshot(o: INodeInstance<any>): void {
   o.$invalidateSnapshot()
   const parent = o.$parent
   if (parent) {
     invalidateSnapshot(parent)
   }
-}
+} */

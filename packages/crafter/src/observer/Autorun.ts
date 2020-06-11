@@ -1,4 +1,5 @@
-import { ObserverType, Observer, IObserver } from './Observer'
+import { Observer } from './Observer'
+import { IObserver, ObserverType } from "./IObserver"
 import { IContainer } from '../IContainer'
 
 type AutorunFunction = (p:{isFirstRun: boolean, dispose: () => void}) => void

@@ -3,13 +3,18 @@ import { IType } from './IType'
 import { IContainer } from '../IContainer'
 import { getGlobal } from '../utils/utils'
 import { makePath } from '../helpers'
-import { Command } from './JSONPatch'
+import { Command, Operation, Migration } from './JSONPatch'
 
 export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
   
   abstract get $value(): T
   abstract get $id(): string
   
+  public get $state() {
+    return {
+      migration: this.$migration
+    }
+  }
   public $isInstance: true = true
   public $isObservable: true = true
   public $$container: IContainer
@@ -21,18 +26,15 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
   }
   protected $$id!: string
   protected $hasStaleSnapshot = true
+  private $migration: Migration = { forward: [], backward: []}
 
   public abstract $snapshot: Input
-  public abstract $data: any
   public abstract $type: IType<T, Input>
-
+  protected abstract $data: any
+  
   constructor(context?: IContainer) {
     this.$$container = context || getGlobal().$$crafterContext
   } 
-
-  public $invalidateSnapshot(): void {
-    this.$hasStaleSnapshot = true
-  }
 
   public $kill(): void {
     this.$$container.removeUID(this.$$id)
@@ -52,10 +54,16 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
 
   public $applySnapshot(snapshot: Input): void {
     if (this.$type.isValidSnapshot(snapshot)) {
-      this.$setValue(snapshot)
+      //this.$setValue(snapshot)
+      this.$present([{op: Operation.replace, value: snapshot, path: this.$path}], false)
     }
   }
-  public abstract $setValue(value: Input): boolean
+
+  protected $invalidateSnapshot(): void {
+    this.$hasStaleSnapshot = true
+  }
+
+ // public abstract $setValue(value: Input): boolean
   public abstract $present(proposal: Command[], shouldAddMigration: boolean): void
 }
 

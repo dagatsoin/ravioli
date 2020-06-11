@@ -2,19 +2,22 @@ import { IType } from './IType'
 import { IContainer } from '../IContainer'
 import { IWithParent } from './IWithParent'
 import { IObservable } from '../IObservable'
-import { Command } from './JSONPatch'
+import { Command, Migration } from './JSONPatch'
 
 export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent, IObservable{
   readonly $id: string
   $$container: IContainer
   $isInstance: true
   $type: IType<TYPE, SNAPSHOT>
-  $data: any
+//  $data: any
+  readonly $state: {
+    migration: Migration
+  }
   $snapshot: SNAPSHOT
-  $value: TYPE
+  readonly $value: TYPE
   $applySnapshot(snapshot: SNAPSHOT): void
-  $invalidateSnapshot(): void
-  $setValue(value: SNAPSHOT): boolean
+//  $invalidateSnapshot(): void
+//  $setValue(value: SNAPSHOT): boolean
   $kill(): void
   /**
    * Present an JSON command list to the instance.

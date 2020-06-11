@@ -17,7 +17,7 @@ export type Options = {
 }
 
 export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> {
-  public $data: any
+  public $data: T
   public $isLeaf: true = true
   public $type: ILeafType<T>
 
@@ -74,6 +74,7 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
     this.$$container.notifyRead(this, makePath(getRoot(this).$id, this.$path))
     return this.$data
   }
+
   public get $id(): string {
     return this.$$id
   }
@@ -82,30 +83,35 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
     const acceptedCommands = []
     for (const command of patchProposal) {
       if (command.op === Operation.replace){
-        const didChange = this.$setValue(command.value)
+        const didChange = this.setValue(command.value)
         if (didChange) {
           acceptedCommands.push(command)
         }
       }
     }
-    this.next(acceptedCommands, addMigration)
+    this.updateState(acceptedCommands, addMigration)
   }
 
-  public $setValue(value: T): boolean {
+  public setValue(value: T): boolean {
     const backup = this.$snapshot
     this.setter(value)
     return backup !== this.$data
   }
 
-  private next (acceptedCommands: ReplaceCommand[], addMigration: boolean){
-    this.$$container.addUpdatedObservable(this)
+  private updateState(acceptedCommands: ReplaceCommand[], addMigration: boolean){
     if (addMigration) {
-      const proposalMigration = {
-        forward: [],
-        backward: []
+      acceptedCommands.forEach(command => mergeMigrations(createReplaceMigration(command, {replaced: this.$snapshot}), this.$state.migration))
+    }
+    this.next(acceptedCommands.length > 0, addMigration)
+  }
+
+  private next(isStale: boolean, addMigration: boolean) {
+    if (isStale) {
+      this.$$container.addUpdatedObservable(this)
+      this.$invalidateSnapshot();
+      if (addMigration) {
+        this.$$container.addMigration(this.$state.migration)
       }
-      acceptedCommands.forEach(command => mergeMigrations(createReplaceMigration(command, {replaced: this.$snapshot}), proposalMigration))
-      this.$$container.addMigration(proposalMigration)
     }
   }
 }
@@ -129,9 +135,8 @@ function setWitchCheck(
 function setWithNoCheck(instance: LeafInstance<any>) {
   return function(value: any) {
     instance.$data = isInstance(value)
-      ? value.$data
+      ? value.$value
       : value
-    instance.$$container.addUpdatedObservable(instance)
   }
 }
 

@@ -1,5 +1,5 @@
 import { INodeInstance } from "./lib/INodeInstance"
-import { IObserver, ObserverType } from "./observer/Observer"
+import { IObserver, ObserverType } from "./observer/IObserver"
 import { Graph } from "./Graph"
 import { IObservable as IInstance, IObservable } from "./IObservable"
 import { Command, BasicCommand, Migration } from "./lib/JSONPatch"

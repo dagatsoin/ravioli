@@ -1,22 +1,8 @@
 import { IContainer } from '../IContainer'
 import { getGlobal } from '../utils/utils'
 import { IComputed } from './IDerivation';
-import { isDependent, Patch } from '../lib';
-
-export interface IObserver {
-  id: string
-  dependencies: string[]
-  type: ObserverType
-  dispose: () => void
-  notifyChanges(patch: Patch<any>, updatedObservablePaths: string[]): void
-  runAndUpdateDeps(): void
-}
-
-export enum ObserverType {
-  Autorun,
-  Computed,
-  Reaction
-}
+import { Patch, isDependent } from '../lib/JSONPatch';
+import { IObserver, ObserverType } from './IObserver';
 
 export abstract class Observer implements IObserver {
   public get id(): string {
