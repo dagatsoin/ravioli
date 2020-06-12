@@ -1,11 +1,11 @@
-/* import { IType } from '../lib/IType'
+import { IType } from '../lib/IType'
 import { NodeType } from '../lib/NodeType'
 import { ObjectFactoryInput, ObjectFactoryOutput } from './factory'
 import { ObjectInstance } from './instance'
 import { Props } from './Props'
 import { IContainer } from '../IContainer'
-import { Computed } from '../observer/Computed'
 import { isInstance } from '../lib/Instance'
+import { isDerivation } from '../observer'
 
 export class ObjectType<
   TYPE extends {},
@@ -31,7 +31,7 @@ export class ObjectType<
   public isValidSnapshot = (value?: any): value is INPUT => (
       typeof value === 'object' &&
       Object.keys(this.properties).every(key => {
-        if (this.properties[key]  instanceof Computed) {
+        if (isDerivation(this.properties[key])) {
           return true
         }
         return (this.properties[key] as IType<OUTPUT, INPUT>).isValidSnapshot(
@@ -44,7 +44,7 @@ export class ObjectType<
     isInstance(value)
       ? value.$type === this && Object.keys(this.properties)
         .every(key => {
-          if (this.properties[key]  instanceof Computed) {
+          if (isDerivation(this.properties[key])) {
             return true
           }
           return (this.properties[key] as IType<OUTPUT, INPUT>).isValidValue(
@@ -53,7 +53,7 @@ export class ObjectType<
         })
       : Object.keys(this.properties)
         .every(key => {
-          if (this.properties[key]  instanceof Computed) {
+          if (isDerivation(this.properties[key])) {
             return true
           }
           return (this.properties[key] as IType<OUTPUT, INPUT>).isValidValue(
@@ -62,4 +62,4 @@ export class ObjectType<
         })
   )
  
-} */
+}

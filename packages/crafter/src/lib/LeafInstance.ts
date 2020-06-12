@@ -7,7 +7,7 @@ import { IContainer } from '../IContainer'
 import { ILeafInstance } from './ILeafInstance'
 import { makePath, getRoot } from '../helpers'
 import { createReplaceMigration } from './mutators'
-import { ReplaceCommand, Operation } from './JSONPatch'
+import { ReplaceCommand } from './JSONPatch'
 
 export type Options = {
   id?: string,
@@ -79,17 +79,11 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
     return this.$$id
   }
 
-  public $present (patchProposal: ReplaceCommand[], addMigration = true): void {
-    const acceptedCommands = []
-    for (const command of patchProposal) {
-      if (command.op === Operation.replace){
-        const didChange = this.setValue(command.value)
-        if (didChange) {
-          acceptedCommands.push(command)
-        }
-      }
-    }
-    this.updateState(acceptedCommands, addMigration)
+  public $present (proposal: ReplaceCommand[], addMigration = true): void {
+    // As a leaf instance only support replace command, we just treat the last command
+    const command = proposal[proposal.length-1]
+    const didChange = this.setValue(command.value)
+    this.updateState(command, didChange, addMigration)
   }
 
   public setValue(value: T): boolean {
@@ -98,11 +92,16 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
     return backup !== this.$data
   }
 
-  private updateState(acceptedCommands: ReplaceCommand[], addMigration: boolean){
+  private updateState(command: ReplaceCommand, didChange: boolean, addMigration: boolean){
     if (addMigration) {
-      acceptedCommands.forEach(command => mergeMigrations(createReplaceMigration(command, {replaced: this.$snapshot}), this.$state.migration))
+      this.$state = {
+        hasAcceptedWholeProposal: didChange,
+        migration: mergeMigrations(createReplaceMigration(command, {replaced: this.$snapshot}), this.$state.migration)
+      }  
     }
-    this.next(acceptedCommands.length > 0, addMigration)
+    // The data has changed, this instance is now stale
+    const isStale = didChange
+    this.next(isStale, addMigration)
   }
 
   private next(isStale: boolean, addMigration: boolean) {

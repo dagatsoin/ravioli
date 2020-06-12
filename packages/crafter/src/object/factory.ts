@@ -1,4 +1,4 @@
-/* import { INodeType } from '../lib'
+import { INodeType } from '../lib'
 import { FactoryInput, FactoryOutput } from '../lib/IFactory'
 import { Props } from './Props'
 import { ObjectType } from './type'
@@ -17,4 +17,3 @@ export type ObjectFactoryInput<P extends Props<any>> = {
 export type ObjectFactoryOutput<P extends Props<any>> = {
   [K in keyof P]: FactoryOutput<P[K]>
 }
- */

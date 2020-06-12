@@ -125,9 +125,9 @@ export function getTargetKey(_path: string): string {
  * @param nodePath
  * @param path 
  */
-export function getChildKey(nodePath: string, _path: string): string | undefined{
+export function getChildKey<T>(nodePath: string, _path: string): keyof T | undefined{
   const nodePathDepth = nodePath.split('/').filter(s => !!s.length).length
-  return _path.split('/').filter(s => !!s.length)[nodePathDepth]
+  return _path.split('/').filter(s => !!s.length)[nodePathDepth] as keyof T
 }
 
 /**
@@ -165,8 +165,15 @@ export function isOwnLeafPath(nodePath: string, _path: string): boolean {
 /**
  * Return true if it is the node path
  */
-export function isNodePath(nodePath: string, _path: string): boolean {
-  return nodePath === _path
+export function isNodePath(nodePath: string, path: string): boolean {
+  return nodePath === path
+}
+
+/**
+ * Return true id the path target a grand child
+ */
+export function isGrandChildPath(commandPath: string, nodePath: string) {
+  return !isOwnLeafPath(nodePath, commandPath) && !isNodePath(nodePath, commandPath)
 }
 
 export function isChildPath(nodePath: string, _path: string): boolean {

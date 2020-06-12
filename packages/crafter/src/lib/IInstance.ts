@@ -4,15 +4,23 @@ import { IWithParent } from './IWithParent'
 import { IObservable } from '../IObservable'
 import { Command, Migration } from './JSONPatch'
 
+export type ProposalResult = [Command, Readonly<{
+  rejected: boolean;
+  migration: Readonly<Migration<any, any>>;
+}>][]
+
+export type State = Readonly<{
+  hasAcceptedWholeProposal: boolean
+  migration: Migration
+}>
+
 export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent, IObservable{
   readonly $id: string
   $$container: IContainer
   $isInstance: true
   $type: IType<TYPE, SNAPSHOT>
-//  $data: any
-  readonly $state: {
-    migration: Migration
-  }
+  $data: any
+  $state: State
   $snapshot: SNAPSHOT
   readonly $value: TYPE
   $applySnapshot(snapshot: SNAPSHOT): void
