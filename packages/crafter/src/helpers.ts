@@ -125,7 +125,7 @@ export function getTargetKey(_path: string): string {
  * @param nodePath
  * @param path 
  */
-export function getChildKey<T>(nodePath: string, _path: string): keyof T | undefined{
+export function getChildKey<T = any>(nodePath: string, _path: string): keyof T | undefined{
   const nodePathDepth = nodePath.split('/').filter(s => !!s.length).length
   return _path.split('/').filter(s => !!s.length)[nodePathDepth] as keyof T
 }

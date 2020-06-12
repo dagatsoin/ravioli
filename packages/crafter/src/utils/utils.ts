@@ -36,7 +36,9 @@ export function addHiddenProp(object: any, propName: PropertyKey, value: any): v
   })
 }
 
-export function mergeMigrations(source: Migration<any, any>, target: Migration<any, any>) {
-  target.forward.push(...source.forward)
-  target.backward.push(...source.backward)
+export function mergeMigrations(source: Migration<any, any>, target: Migration<any, any>): Migration<any, any> {
+  return {
+    forward: [...target.forward, ...source.forward],
+    backward: [...target.backward, ...source.backward]
+  }
 }

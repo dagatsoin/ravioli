@@ -15,7 +15,7 @@ export enum ControlState {
   STALE,
 }
 
-export type State = {
+export type ContainerState = {
   // The migration for the current transaction
   migration: Migration
 
@@ -84,7 +84,7 @@ export type State = {
 }
 
 export interface IContainer {
-  snapshot: State
+  snapshot: ContainerState
   isWrittable: boolean
   isTransaction: boolean
   isRunningReaction: boolean

@@ -1,4 +1,4 @@
-import { toInstance } from '../../helpers'
+/* import { toInstance } from '../../helpers'
 import { IType } from '../IType'
 import { NodeType } from '../NodeType'
 import { ContainerInstance } from './instance'
@@ -22,3 +22,4 @@ export class ContainerType<TYPE> extends NodeType<TYPE, TYPE> {
 
   public isValidSnapshot = (value?: any): value is TYPE => this.targetType.isValidSnapshot(value)
 }
+ */

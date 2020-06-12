@@ -11,7 +11,7 @@ export function isBasicCommand<C extends Command>(proposal: C): boolean {
   )
 }
 
-function isExpendSizeCommand(op: Operation): boolean {
+function isExpendSizeOperation(op: Operation): boolean {
   return (
     // Basic
     op === Operation.add ||
@@ -23,7 +23,7 @@ function isExpendSizeCommand(op: Operation): boolean {
   )
 }
 
-function isShrinkSizeCommand(op: Operation): boolean {
+function isShrinkSizeOperation(op: Operation): boolean {
   return (
     // Basic
     op === Operation.remove ||
@@ -159,7 +159,7 @@ export function isDependent(observer: IObserver, {op, value}: Command, updatedOb
     /* 3 */
     (
       (Array.isArray(value) || value instanceof Map) &&
-      isShapeMutationCommand(op) &&
+      isShapeMutationOperation(op) &&
       hasPath(observer, updatedObservablePaths)
     )
   )
@@ -177,6 +177,6 @@ export function hasPath(node: IObserver, paths: string[]): boolean {
 /**
  * Return true if the operation has an incidence on the lenght/size of the array/map
  */
-export function isShapeMutationCommand(op: Operation): boolean {
-  return isShrinkSizeCommand(op) || isExpendSizeCommand(op)
+export function isShapeMutationOperation(op: Operation): boolean {
+  return isShrinkSizeOperation(op) || isExpendSizeOperation(op)
 }

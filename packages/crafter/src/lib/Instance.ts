@@ -24,8 +24,8 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
     return this.$parent ? makePath(this.$parent.$path, this.$parentKey?.toString() ?? '') : '/'
   }
   protected $$id!: string
-  protected $hasStaleSnapshot = true
 
+  public $hasStaleSnapshot = true
   public abstract $snapshot: Input
   public abstract $type: IType<T, Input>
   public abstract $data: T
@@ -56,8 +56,11 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
     }
   }
 
-  protected $invalidateSnapshot(): void {
+  public $invalidateSnapshot(): void {
     this.$hasStaleSnapshot = true
+    if (this.$parent && !this.$parent.$hasStaleSnapshot) {
+      this.$parent.$invalidateSnapshot()
+    }
   }
 
   public abstract $present(proposal: Command[], addMigration: boolean): void

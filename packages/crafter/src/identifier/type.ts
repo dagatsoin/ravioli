@@ -1,4 +1,4 @@
-/* import { Type } from '../lib/Type'
+import { Type } from '../lib/Type'
 import { TypeFlag } from '../lib/TypeFlag'
 import { IContainer } from '../IContainer'
 import { IdentifierInstance } from './instance'
@@ -30,4 +30,3 @@ export class IdentifierType<T extends string = string> extends Type<T, T> {
 export function isIdentifierType(thing: any): boolean {
   return (thing as IdentifierType).type === TypeFlag.identifier
 }
- */

@@ -1,9 +1,9 @@
-import { getChildKey, isOwnLeafPath } from '../../helpers'
+/* import { getChildKey, isOwnLeafPath } from '../../helpers'
 import { setNonEnumerable } from '../../utils/utils'
 import { IInstance } from '../IInstance'
 import { INodeInstance } from '../INodeInstance'
 import { INodeType } from '../INodeType'
-import { Command, isShapeMutationCommand } from '../JSONPatch'
+import { Command, isShapeMutationOperation } from '../JSONPatch'
 import { NodeInstance } from '../NodeInstance'
 import { isNode } from "../isNode"
 import { ArrayInstance } from '../../array/instance'
@@ -59,7 +59,7 @@ export class ContainerInstance<TYPE> extends NodeInstance<TYPE, any>
             delete this[childKey]
           }
         }
-      } else if (isShapeMutationCommand(command)) {
+      } else if (isShapeMutationOperation(command)) {
         // Depending on the type, we reflect the key index changes
         if (this.$targetInstance instanceof ArrayInstance) {
           const thisLength = Object.keys(this).filter(k => !isNaN(Number(k))).length
@@ -154,3 +154,4 @@ function addGetterSetter(
     configurable: true,
   })
 }
+ */

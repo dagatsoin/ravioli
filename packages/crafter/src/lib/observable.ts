@@ -1,4 +1,4 @@
-import { IObservable } from '../IObservable'
+/* import { IObservable } from '../IObservable'
 import { IContainer } from '../IContainer'
 import { getTypeFromValue } from './getTypeFromValue'
 
@@ -26,3 +26,4 @@ export function getObservable<T>(thing: T): IObservable {
 }
 
 
+ */

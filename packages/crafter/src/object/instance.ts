@@ -10,10 +10,10 @@ import {
   makePath,
   isGrandChildPath,
 } from '../helpers'
-import { IInstance, ProposalResult, State } from '../lib/IInstance'
+import { IInstance, ProposalResult, State, CommandResult } from '../lib/IInstance'
 import { DataObject, INodeInstance } from '../lib/INodeInstance'
 import { isInstance } from '../lib/Instance'
-import { BasicCommand, Migration, isShapeMutationCommand, Operation, Command } from '../lib/JSONPatch'
+import { BasicCommand, Migration, isShapeMutationOperation as isShapeMutationOperation, Operation, Command } from '../lib/JSONPatch'
 import {
   add,
   createCopyMigration,
@@ -34,7 +34,7 @@ import { ReferenceValue, isReferenceType } from '../lib/reference'
 import { IContainer } from '../IContainer'
 import { isIdentifierType } from '../identifier'
 import { isDerivation } from '../observer'
-import { getTypeFromValue } from '../lib/getTypeFromValue'
+//import { getTypeFromValue } from '../lib/getTypeFromValue'
 import { isNode } from '../lib/isNode'
 
 /**
@@ -112,7 +112,7 @@ export class ObjectInstance<
       this.$data[prop].$kill()
     })
   }
-  public $applyCommand = <O extends Command>(
+  /* public $applyCommand = <O extends Command>(
     command: O & BasicCommand,
     shouldEmitPatch: boolean = false
   ): void => {
@@ -132,12 +132,16 @@ export class ObjectInstance<
         toInstance(this.$data[childKey])
       ).$applyCommand(command, shouldEmitPatch)
     }
-  }
+  } */
   
+  public $setValue(value: TYPE, addMigration: boolean) {
+    this.$present([{op: Operation.replace, value, path: this.$path}], addMigration)
+  }
+
   /**
    * Accept the value if the model is writtable
    */
-  public $present(proposal: Proposal, shouldAddMigration: boolean): void {
+  public $present(proposal: Proposal, addMigration: boolean): void {
     // No direct manipulation. Mutations must occure only during a transaction.
     if (!this.$$container.isWrittable) {
       fail(`Crafter Object. Tried to mutate an object while model is locked.`)
@@ -159,7 +163,7 @@ export class ObjectInstance<
       if (isGrandChildPath(command.path, this.$path)) {
         toNode(
           toInstance(this.$data[childKey])
-        ).$present([command], shouldAddMigration)
+        ).$present([command], addMigration)
       }
       // Replace the entire value
       else if (command.op === Operation.replace) {
@@ -213,28 +217,20 @@ export class ObjectInstance<
           if (changes) {
             mergeMigrations(createCopyMigration(command, changes), this.$state.migration)
           } 
-        }*/ else if (command.op === 'move') {
+        } else if (command.op === 'move') {
           const changes = move(this, command)
           if (changes) {
             mergeMigrations(createMoveMigration(command, changes), this.$state.migration)
           }
-        } else {
+        } */else {
           throw new Error(`Crafter Array.$applyOperation: ${
             (proposal as any).op
           } is not a supported command. This error happened
             during a migration command. The transaction is cancelled and the model is reset to its previous value.`)
         }
       }
-/*     // Those commands update the shape of the model
-    if (proposalMigration.forward.some(isShapeMutationCommand)) {
-      this.$$container.addUpdatedObservable(this)
-    } if (shouldAddMigration) {
-      this.$addMigration(proposalMigration)
-    } */
-    this.$updateState(proposalResult)
+    this.$updateState(proposalResult, addMigration)
   }
-
-  
 
   public $addInterceptor(index: string): void {
     addPropGetSet(this, index)
@@ -265,28 +261,33 @@ export class ObjectInstance<
     ) as any
   }
 
-  private $updateState(proposalResult: ProposalResult) {
-    // Clear previous state
-    const state: State = {
-      
-    }
-    proposalResult.forEach(([command, accepted]) => {
-      if (command.op === Operation.replace) {
-        // In a case of a replace command of an object, a partial acceptation is marked as rejected.
-        // In this case, the migration will be the aggregation of the accepted sub commands.
-        
-         const child = getChildAt(this, command.path)
-        
-        // The command was entirely accepted, merge directly the replace command.
-        if (accepted) {
-          mergeMigrations(createReplaceMigration(command, {replaced: this.$snapshot}), this.$state.migration)
-        }
-        // The command was partially accepted or rejected, merge accepted sub commands if any
-        else {
-          mergeMigrations(createReplaceMigration(command, {replaced: this.$snapshot}), this.$state.migration)
+  private $updateState(proposalResult: ProposalResult, addMigration: boolean){
+    if (addMigration) {
+      this.$state = {
+        hasAcceptedWholeProposal: proposalResult.every(isAccepted),
+        migration: {
+          forward: proposalResult.map(([_, commandResult]) => commandResult.migration.forward),
+          backward: proposalResult.map(([_, commandResult]) => commandResult.migration.backward)
         }
       }
-    })
+    }
+    // The node is stale only when its shape has been modified
+    const isStale = proposalResult.some(r => (
+      isAccepted(r) &&
+      didUpdateShape(r, this.$path)
+    ))
+    
+    this.next(isStale, addMigration)
+  }
+
+  private next(isStale: boolean, addMigration: boolean) {
+    // The proposal has updated the shape of the model
+    if (isStale) {
+      this.$$container.addUpdatedObservable(this)
+      this.$invalidateSnapshot();
+    } if (addMigration) {
+      this.$$container.addMigration(this.$state.migration)
+    }
   }
 
  /*  private $setValue(value: INPUT): boolean {
@@ -388,9 +389,9 @@ function build(obj: ObjectInstance<any, any, any, any>, value = {}): void {
         })
       }
       else {
-        present(obj, [
+        obj.$present([
           { op: Operation.add, path: makePath(obj.$path, key), value: value[key] },
-        ])
+        ], false)
       }
     })
   })
@@ -410,9 +411,11 @@ function addPropGetSet(
         return instance
       },
       set(value: any) {
-        obj.$$container.getReferenceTarget(obj.$data[propName].$value).$setValue(
+        obj.$$container.getReferenceTarget(obj.$data[propName].$value).$present([{
+          op: Operation.replace,
+          path: makePath(obj.$path, propName),
           value
-        )
+        }])
       },
       enumerable: true,
       configurable: true,
@@ -433,14 +436,7 @@ function addPropGetSet(
       },
       set(value: any) {
         // If the value is an object, cut it down in atomic JSON command
-        const needToCutDown = isObject(value)
-        if (needToCutDown) {
-          present(obj, [{ op: Operation.replace, value: value instanceof Map ? Array.from(value.entries()) : value, path: makePath(obj.$path, propName) }])
-    //      const proposal = cutDownUpdateOperation(value, makePath(propName.toString()) )
-    //      present(obj, proposal)
-        } else {
-          present(obj, [{ op: Operation.replace, value: value instanceof Map ? Array.from(value.entries()) : value, path: makePath(obj.$path, propName) }])
-        }
+        obj.$present([{ op: Operation.replace, value: value instanceof Map ? Array.from(value.entries()) : value, path: makePath(obj.$path, propName) }], true)
       },
       enumerable: true,
       configurable: true,
@@ -529,4 +525,12 @@ function getChildAt(node: INodeInstance<any>, path: string): INodeInstance<any> 
   if (childKey) {
     return node.$data[childKey]
   }
+}
+
+function isAccepted([_, {rejected}]: [Command, CommandResult]) {
+  return !rejected
+}
+
+function didUpdateShape([command, {rejected}]: [Command, CommandResult], nodePath: string) {
+  return !rejected && isShapeMutationOperation(command.op) && command.path === nodePath
 }

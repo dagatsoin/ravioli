@@ -1,7 +1,9 @@
-/* import { IType } from "../lib/IType"
+import { IType } from "../lib/IType"
 import { Instance } from "../lib/Instance"
 import { IContainer } from "../IContainer"
 import { setNonEnumerable } from '../utils/utils'
+import { Command } from '../lib/JSONPatch'
+import { warn } from '../helpers'
 
 
 export class IdentifierInstance<T extends string> extends Instance<T, T> {
@@ -35,10 +37,15 @@ export class IdentifierInstance<T extends string> extends Instance<T, T> {
   public get $id(): string {
     return this.$$id
   }
+  public $present(proposal: Command[], addMigration: boolean): void {
+    if (__DEV__) {
+      warn(`[CRAFTER] Identifier: attempt to present a proposal to an identifier.`, proposal)
+    }
+  }
   // Implementation will be chosen by the constructor
   public $setValue(v: T): void {
     if (v !== this.$$id) {
       throw new Error (`[CRAFTER] Identifier: attempt to mutate an identifier.`)
     }
   }
-} */
+}

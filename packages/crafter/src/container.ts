@@ -5,13 +5,13 @@ import { isObserver, isReaction, isDerivation } from './observer/Observer'
 import { IObserver, ObserverType } from "./observer/IObserver"
 import { Graph, removeNode, removeNodeEdges, getGraphEdgesFrom, Edge, getAllPathsTo, getEdgesOf, hasEdge, isSameEdge, topologicalSort } from './Graph'
 import { INodeInstance } from './lib/INodeInstance'
-import { State, IContainer, ContextListener, ControlState, MigrationListener } from './IContainer'
+import { ContainerState, IContainer, ContextListener, ControlState, MigrationListener } from './IContainer'
 import { IComputed } from "./observer/IDerivation"
 import { isNode } from './lib/isNode'
 import { isObservable } from './lib/observable'
 import { mergeMigrations } from './utils/utils'
 
-function getInitState(): State {
+function getInitState(): ContainerState {
   return {
     migration: {forward: [], backward: []},
     isWrittable: true,
@@ -38,7 +38,7 @@ function getInitState(): State {
 }
 
 export class CrafterContainer implements IContainer {
-  public get snapshot(): State {
+  public get snapshot(): ContainerState {
     return {
       migration: {forward: this.state.migration.forward.map(op => ({...op})), backward: this.state.migration.backward.map(op => ({...op}))},
       isWrittable: this.state.isWrittable,
@@ -83,7 +83,7 @@ export class CrafterContainer implements IContainer {
     return current && isReaction(current.type)
   }
 
-  private state: State = getInitState()
+  private state: ContainerState = getInitState()
   private migrationListeners: MigrationListener[] = []
   private isSpyingPaused: boolean = false
   private get isSpying() {
@@ -652,7 +652,7 @@ export class CrafterContainer implements IContainer {
       })
   }
 
-  private rollback(managerStateBackup: State | undefined): void {
+  private rollback(managerStateBackup: ContainerState | undefined): void {
     const rootIds: string[] = []
     this.state.updatedObservables.forEach(function (o) {
       if (!isNode(o)) {
@@ -780,7 +780,7 @@ function extractNodeId(edge: Edge): [string, string] {
   return [edge.target, edge.source]
 }
 
-function onDisposeObserver(observer: IObserver, state: State): void {
+function onDisposeObserver(observer: IObserver, state: ContainerState): void {
   // Get all the observers dependent of the caller.
   // An observer wich is also a dependeny on other top level observer will stay untouched.
   const graph = state.dependencyGraph

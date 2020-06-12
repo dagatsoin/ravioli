@@ -1,21 +1,22 @@
-import { map } from '../map/factory';
+/* //import { map } from '../map/factory';
 import { object } from '../object/factory';
-import { optional } from '../optional';
+//import { optional } from '../optional';
 import { boolean, number, string, timeStamp, unknown } from '../Primitive';
 import { IInstance } from './IInstance';
 import { isInstance } from './Instance';
 import { IType } from './IType';
-import { array } from '../array/factory';
+//import { array } from '../array/factory';
 
 export function getTypeFromValue<T extends string | number | object | any[] | Map<any, any> | IInstance<any>>(value: T, isStrict: boolean = false): IType<any> {
   if (isInstance(value)) {
     return value.$type;
   }
   if (value instanceof Map) {
-    const hasValue = getTypeFromValue(value.size, isStrict);
-    return hasValue
-      ? map(getTypeFromValue(value.values().next().value, isStrict))
-      : map(unknown());
+    throw new Error("not implemented")
+  //  const hasValue = getTypeFromValue(value.size, isStrict);
+  //  return hasValue
+  //    ? map(getTypeFromValue(value.values().next().value, isStrict))
+  //    : map(unknown());
   }
   if (typeof value === 'undefined') {
     return unknown();
@@ -33,8 +34,9 @@ export function getTypeFromValue<T extends string | number | object | any[] | Ma
     return boolean(value);
   }
   if (Array.isArray(value)) {
-    const hasValue = !!value.length;
-    return hasValue ? array(getTypeFromValue(value[0], isStrict)) : array(unknown());
+    throw new Error("not implemented")
+//    const hasValue = !!value.length;
+//    return hasValue ? array(getTypeFromValue(value[0], isStrict)) : array(unknown());
   }
   // Else it is an object
   else {
@@ -47,3 +49,4 @@ export function getTypeFromValue<T extends string | number | object | any[] | Ma
     return object(properties);
   }
 }
+ */
