@@ -90,16 +90,16 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   }
 
   public $computeSnapshot(): void {
-    this.$prevSnapshot = this.$snapshotComputation(this.$data, this.$$container)
+    this.$prevSnapshot = this.$snapshotComputation(this.$data as any, this.$$container)
     this.$hasStaleSnapshot = false
   }
 
   public $createNewSnapshot(): void {
-    this.$prevSnapshot = this.$snapshotComputation(this.$data, this.$$container)
+    this.$prevSnapshot = this.$snapshotComputation(this.$data as any, this.$$container)
   }
 
   private $computeValue(): void {
-    this.$prevValue = this.$valueComputation(this.$data, this.$$container)
+    this.$prevValue = this.$valueComputation(this.$data as any, this.$$container)
   }
   
   public abstract $present(proposal: Command[], shouldAddMigration: boolean): void

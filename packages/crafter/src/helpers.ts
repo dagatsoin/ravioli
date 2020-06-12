@@ -206,7 +206,7 @@ export function fail(e: string) {
   }
 }
 
-export function warn(...msg: string[]) {
+export function warn(...msg: any[]) {
   if (__DEV__) {
     console.warn(...msg)
   }

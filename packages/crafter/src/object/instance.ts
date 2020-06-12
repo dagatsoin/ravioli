@@ -52,7 +52,8 @@ export class ObjectInstance<
   INPUT extends ObjectFactoryInput<PROPS>
 > extends NodeInstance<OUTPUT, INPUT> {
   public $type: ObjectType<TYPE, PROPS, OUTPUT, INPUT>
-  public $data: DataObject<OUTPUT> = {} as DataObject<OUTPUT>
+  //public $data: DataObject<OUTPUT> = {} as DataObject<OUTPUT>
+  public $data: any = {}
   private identifierKey?: string
 
   constructor({

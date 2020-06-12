@@ -1,5 +1,5 @@
-/* import { IObservable } from '../IObservable'
-import { IContainer } from '../IContainer'
+ import { IObservable } from '../IObservable'
+/*import { IContainer } from '../IContainer'
 import { getTypeFromValue } from './getTypeFromValue'
 
 export function observable<T>(value: T, options?: {id?: string, context?: IContainer, isStrict?: boolean}): T & IObservable {
@@ -12,7 +12,7 @@ export function observable<T>(value: T, options?: {id?: string, context?: IConta
     throw new Error("Can't infer Type from value. " + JSON.stringify(value))
   }
   return _type.create(value, options)
-}
+}*/
 
 export function isObservable(thing: any): thing is IObservable {
   return thing.$isObservable === true
@@ -26,4 +26,4 @@ export function getObservable<T>(thing: T): IObservable {
 }
 
 
- */
+ 
