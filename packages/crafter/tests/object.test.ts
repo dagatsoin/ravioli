@@ -1,6 +1,6 @@
 //import { array } from '../src/array/factory'
 import { getSnapshot, toInstance, toNode, getContext } from '../src/helpers'
-import { isInstance, isLeafType, isNodeType } from '../src/lib'
+import { isInstance, isLeafType, isNodeType, Operation } from '../src/lib'
 import { object } from '../src/object'
 import { number, string } from '../src/Primitive'
 import { getGlobal } from '../src/utils/utils'
@@ -62,6 +62,19 @@ describe('factory', function() {
       health: 4,
     })
     expect(Object.keys(player1.stats).sort()).toEqual(['force', 'health'])
+  })
+})
+
+describe('JSON commands', function(){
+  const player = object({
+    name: string('Fraktar'),
+    level: number(100)
+  }).create()
+  const instance = toInstance(player)
+  const context = getContext(instance)
+  test('add', function() {
+    context.step(() => instance.$present([{op: Operation.add, path: '/isAdmin', value: true}]))
+    expect((player as any).isAdmin).toBeTruthy()
   })
 })
 /*

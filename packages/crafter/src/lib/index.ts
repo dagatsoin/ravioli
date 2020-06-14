@@ -1,4 +1,5 @@
-export * from './container'
+//export * from './container'
+export * from './getTypeFromValue'
 export * from './Instance'
 export * from './IInstance'
 export * from './ILeafInstance'

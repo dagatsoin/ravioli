@@ -15,7 +15,6 @@ import { DataObject, INodeInstance } from '../lib/INodeInstance'
 import { isInstance } from '../lib/Instance'
 import { BasicCommand, Migration, isShapeMutationOperation as isShapeMutationOperation, Operation, Command } from '../lib/JSONPatch'
 import {
-  add,
   createCopyMigration,
   createMoveMigration,
   createRemoveMigration,
@@ -32,11 +31,12 @@ import { ObjectFactoryInput, ObjectFactoryOutput } from './factory'
 import { Props } from './Props'
 import { ObjectType } from './type'
 import { ReferenceValue, isReferenceType } from '../lib/reference'
-import { IContainer } from '../IContainer'
+import { IContainer, Proposal } from '../IContainer'
 import { isIdentifierType } from '../identifier'
 import { isDerivation } from '../observer'
 //import { getTypeFromValue } from '../lib/getTypeFromValue'
 import { isNode } from '../lib/isNode'
+import { getTypeFromValue } from '../lib/getTypeFromValue'
 
 /**
  * Data flow
@@ -469,7 +469,7 @@ export function cutDownUpdateOperation(value: any, opPath: string): Proposal {
     })]
 }
 
-type Proposal = BasicCommand[]
+
 
 function getObjectKey(model: INodeInstance<any>, op: BasicCommand): string {
   const index = String(getChildKey(model.$path, op.path))
@@ -539,4 +539,19 @@ function isAccepted([_, {rejected}]: [Command, CommandResult]) {
 
 function didUpdateShape([command, {rejected}]: [Command, CommandResult], nodePath: string) {
   return !rejected && isShapeMutationOperation(command.op) && command.path === nodePath
+}
+
+/**
+ * Add a child to a model at a given key/index
+ *
+ */
+export function add(model: ObjectInstance<any, any, any, any>, value: any, index: string): void {
+  // Create props key if needed
+  if (!(index in model.$type.properties)) {
+    model.$type.properties[index] = getTypeFromValue(value)
+  }
+  const instance = model.$createChildInstance(value, index)
+  model.$data[index] = instance
+  model.$addInterceptor(index)
+  instance.$attach(model, index)
 }

@@ -83,6 +83,8 @@ export type ContainerState = {
   updatedObservables: IInstance[]
 }
 
+export type Proposal = BasicCommand[]
+
 export interface IContainer {
   snapshot: ContainerState
   isWrittable: boolean

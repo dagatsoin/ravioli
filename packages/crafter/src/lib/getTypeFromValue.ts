@@ -1,4 +1,4 @@
-/* //import { map } from '../map/factory';
+//import { map } from '../map/factory';
 import { object } from '../object/factory';
 //import { optional } from '../optional';
 import { boolean, number, string, timeStamp, unknown } from '../Primitive';
@@ -43,10 +43,9 @@ export function getTypeFromValue<T extends string | number | object | any[] | Ma
     // build object
     const keys = Object.keys(value);
     const properties = {};
-    keys.forEach(key => (properties[key] = isStrict
+    keys.forEach(key => (properties[key] = getTypeFromValue(value[key]))/* isStrict
       ? getTypeFromValue(value[key], isStrict)
-      : optional(getTypeFromValue(value[key]))));
+      : optional(getTypeFromValue(value[key]))) */);
     return object(properties);
   }
 }
- */

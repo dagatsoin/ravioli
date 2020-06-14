@@ -32,17 +32,6 @@ export function createReplaceMigration<T>(
   }
 }
 
-/**
- * Add a child to a model at a given key/index
- *
- */
-export function add(model: INodeInstance<unknown>, value: any, index: string): void {
-  const instance = model.$createChildInstance(value, index)
-  model.$data[index] = instance
-  model.$addInterceptor(index)
-  instance.$attach(model, index)
-}
-
 export function createAddMigration<T>(
   command: AddCommand
 ): Migration<AddCommand, RemoveCommand> {
