@@ -276,10 +276,6 @@ export class ObjectInstance<
     this.$updateState(proposalResult, addMigration)
   }
 
-  public $addInterceptor(index: string): void {
-    addPropGetSet(this, index)
-  }
-
   public $createChildInstance<I, K extends keyof PROPS>(
     item: I,
     key: K
@@ -441,7 +437,7 @@ function build(obj: ObjectInstance<any, any, any, any>, value = {}): void {
   })
 }
 
-function addPropGetSet(
+function addInterceptor(
   obj: ObjectInstance<any, any, any, any>,
   propName: string
 ): void {
@@ -590,6 +586,6 @@ export function add(model: ObjectInstance<any, any, any, any>, value: any, index
   }
   const instance = model.$createChildInstance(value, index)
   model.$data[index] = instance
-  model.$addInterceptor(index)
+  addInterceptor(model, index)
   instance.$attach(model, index)
 }

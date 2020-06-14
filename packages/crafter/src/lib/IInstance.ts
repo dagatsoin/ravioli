@@ -24,7 +24,7 @@ export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent, IObservab
   $data: any
   $state: State
   $snapshot: SNAPSHOT
-  $hasStaleSnapshot: boolean
+  $isStale: boolean
   readonly $value: TYPE
   $createNewSnapshot(): SNAPSHOT
   $applySnapshot(snapshot: SNAPSHOT): void

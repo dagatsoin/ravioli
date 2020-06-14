@@ -31,6 +31,5 @@ export interface INodeInstance<TYPE, SNAPSHOT = TYPE>
   $isNode: true
   $parent: INodeInstance<any, any> | undefined
   $nativeTypeKeys: string[] // The keys of the methods which are specific to the node type (Array, Map) and unumerables
-  $addInterceptor(index: number | string): void // Attach the getter/setter listener on a child
   $createChildInstance<I>(item: I, key: any): IInstance<I>
 }

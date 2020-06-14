@@ -29,7 +29,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
 
   protected $$id!: string
 
-  public $hasStaleSnapshot = true
+  public $isStale = true
   public abstract $type: IType<T, SNAPSHOT>
   public abstract $data: T
   
@@ -64,21 +64,21 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
   }
 
   public $invalidateSnapshot(): void {
-    this.$hasStaleSnapshot = true
-    if (this.$parent && !this.$parent.$hasStaleSnapshot) {
+    this.$isStale = true
+    if (this.$parent && !this.$parent.$isStale) {
       this.$parent.$invalidateSnapshot()
     }
   }
   
   public get $snapshot(): SNAPSHOT {
-    if (this.$hasStaleSnapshot && !this.$$container.isTransaction) {
+    if (this.$isStale) {
       this.$computeSnapshot()
     }
     return this.$prevSnapshot
   }
   public $computeSnapshot(): void {
     this.$prevSnapshot = this.$snapshotComputation(this.$data as any, this.$$container)
-    this.$hasStaleSnapshot = false
+    this.$isStale = false
   }
 
   public $createNewSnapshot(): SNAPSHOT {

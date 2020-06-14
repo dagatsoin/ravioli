@@ -1,9 +1,33 @@
-/* import { getGlobal } from '../src/utils/utils'
-import { observable } from '../src/lib/observable'
-import { toInstance, toLeaf, noop } from '../src/helpers'
-import { autorun, string, Reaction } from '../src'
+import { getGlobal } from '../src/utils/utils'
+//import { observable } from '../src/lib/observable'
+import { toInstance, toLeaf, noop, getSnapshot, getContext } from '../src/helpers'
+//import { autorun, string, Reaction } from '../src'
 import { Graph } from '../src/Graph'
+import { number, object, string } from '../src'
 
+describe('Data im/mutability', function(){
+  const model = object({
+    name: string('Fraktar'),
+    level: number(1),
+    stats: object({
+      force: number(1),
+      health: number(1)
+    })
+  }).create()
+  const context = getContext(toInstance(model))
+  const initialSnapshot = getSnapshot(model)
+  context.step(() => model.stats.force++)
+
+  test('value mutability', function() {
+    expect(model.stats.force).toBe(2)
+  })
+  test('snapshot immutability', function(){
+    expect(getSnapshot(model)).not.toEqual(initialSnapshot)
+  })
+})
+
+
+/*
 test("Crafter tracks leaf accesses", function() {
   const context = getGlobal().$$crafterContext
   context.clearContainer()

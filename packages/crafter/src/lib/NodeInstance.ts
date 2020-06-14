@@ -68,8 +68,7 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   }
 
   public get $value(): TYPE {
-    if (!this.$$container.isTransaction) {
-      // TODO use a computed instead
+    if (this.$isStale) {
       this.$computeValue()
     }
     return this.$prevValue
@@ -84,6 +83,5 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   }
   
   public abstract $present(proposal: Command[], shouldAddMigration: boolean): void
-  public abstract $addInterceptor(index: number | string): void
   public abstract $createChildInstance<I>(item: I, index: any): IInstance<I>
 }

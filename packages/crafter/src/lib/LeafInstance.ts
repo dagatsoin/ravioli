@@ -37,7 +37,7 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
       options?.context
     )
     this.$data = value
-    this.$hasStaleSnapshot = false
+    this.$isStale = false
     this.$type = type
     this.$$id = options?.id || this.$$container.getUID('LeafInstance#')
 
