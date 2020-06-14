@@ -16,7 +16,7 @@ export enum ControlState {
 }
 
 export type ContainerState = {
-  // The migration for the current transaction
+  // The migration for the current step
   migration: Migration
 
   // Can the models of this context be mutated?
@@ -36,7 +36,7 @@ export type ContainerState = {
   // This will be used to clean the graph from unused derivations.
   activeDerivations: Map<string, IObserver>
 
-  // Listeners to migration event triggered after each transaction
+  // Listeners to migration event triggered after each step
   contextListeners: ContextListener[]
 
   /**
@@ -56,15 +56,15 @@ export type ContainerState = {
    */
   spyReactionQueue: {type: ObserverType, id: string}[]
 
-  // Store the top level transaction ID.
-  // Only the top level transaction ID will trigger the learning phase.
-  // So in case of nested transaction, we need to be sure which transaction
+  // Store the top level step ID.
+  // Only the top level step ID will trigger the learning phase.
+  // So in case of nested step, we need to be sure which step
   // has just ended.
-  rootTransactionId: string | undefined
+//  rootTransactionId: string | undefined
 
   // Flags to know at which step the new cycle is.
   // While mutating the model
-  isTransaction: boolean
+//  isTransaction: boolean
 
   // While computing new state
   // Here, the mutation can only come from the computed values setting
@@ -74,11 +74,11 @@ export type ContainerState = {
   // The graph of the observers running in this container.
   dependencyGraph: Graph<IObservable | IObserver | IComputed<any>>
 
-  // The graph of the stale node after a transaction
+  // The graph of the stale node after a step
   updatedObservablesGraph: Graph<IObservable>
 
-  // A list of observables used during a transaction.
-  // Once the transaction is complete, the manager will
+  // A list of observables used during a step.
+  // Once the step is complete, the manager will
   // update the derivations then the reactions which depends on them
   updatedObservables: IInstance[]
 }
@@ -86,7 +86,7 @@ export type ContainerState = {
 export interface IContainer {
   snapshot: ContainerState
   isWrittable: boolean
-  isTransaction: boolean
+//  isTransaction: boolean
   isRunningReaction: boolean
 
   /**
@@ -96,15 +96,15 @@ export interface IContainer {
   initReaction(reaction: IObserver): void
 
   /**
-   * A transaction is the smallest unit of work of Crafter app.
-   * This tends to be as ACID as possible. (mainly from wikipedia)
-   * Atomicity: A transaction's changes to the model state are atomic: either all happen or none happen.
-   * Consistency: A transaction is a correct transformation of the model state. It is the responsability of the model to accept, reject or throw to any changes.
-   *  Also, the system will rollback to the previous stable state if it throws during transaction.
-   * Isolation: The transaction execution is syncrhronous. It is no possible to have async command during transaction or having two transactions in the same times.
-   * Durability: Once a transaction completes successfully, its changes are saved as migration (with rollback/forward command list) and a snapshot of the new model.
+   * A step is the smallest unit of work of Crafter app.
+   * Separation of concern: It is the responsability of the model to accept, reject or throw to any part of the proposal.
+   * The commands passed to the step are not guarantee to success. It is just a proposal.
+   * Consistency: the system will rollback to the previous stable state if it throws during step.
+   * Isolation: The step execution is syncrhronous. It is no possible to have async command during step or having two steps in the same times.
+   * Time based: Once a step completes successfully, its changes are propagated into the context for dependencies to react on.
+   * Also the previous snapshot being immutable, a new snapshot is computed. 
    */
-  transaction(fun: () => any): any
+  step(fun: () => any): any
 
   /**
    * Callback to remove unused observer and dependencies from the state.
@@ -138,7 +138,7 @@ export interface IContainer {
 
   /**
    * Add an updated observable reference to the liste of updated observables
-   * during the current transaction.
+   * during the current step.
    */
   addUpdatedObservable(observable: IInstance): void
 
@@ -193,7 +193,7 @@ export interface IContainer {
   presentPatch(migration: Command[]): void
 
   /**
-   * Add a migration listener which is triggered at the end of a transaction
+   * Add a migration listener which is triggered at the end of a step
    * The listener will have the migration as an argument
    */
   addMigrationListener(listener: MigrationListener): void
@@ -204,7 +204,7 @@ export interface IContainer {
   removeTransactionMigrationListener(listener: MigrationListener): void
 
   /**
-   * Add some operations to the current transaction migration
+   * Add some operations to the current step migration
    */
   addMigration(migration: Migration): void
 

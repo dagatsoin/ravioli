@@ -36,7 +36,7 @@ export class Tracker implements IObservable, ITracker {
 
   public reportChanged(): void {
     this.$migration.forward = [{op: 'replace', path: makePath(this.id), value: ''}]
-    this.context.transaction(() => this.context.addUpdatedObservable(this))
+    this.context.step(() => this.context.addUpdatedObservable(this))
   }
 }
 

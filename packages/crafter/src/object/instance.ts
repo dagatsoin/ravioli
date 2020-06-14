@@ -382,7 +382,7 @@ function generateValue<T>(data: DataObject<T>): T {
 }
 
 function build(obj: ObjectInstance<any, any, any, any>, value = {}): void {
-  obj.$$container.transaction(function() {
+  obj.$$container.step(function() {
     Object.keys(obj.$type.properties).forEach(function(key) {
       // Computed value: bind it to the object
       if (isDerivation(obj.$type.properties[key])) {

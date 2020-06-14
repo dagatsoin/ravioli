@@ -20,11 +20,11 @@ function getInitState(): ContainerState {
     spiedObserversDependencies: new Map(),
     spyReactionQueue: [],
     referencableNodeInstances: new Map(),
-    isTransaction: false,
+    //isTransaction: false,
     contextListeners: [],
     isComputingNextState: false,
     activeDerivations: new Map(),
-    rootTransactionId: undefined,
+ //   rootTransactionId: undefined,
     dependencyGraph: {
       nodes: [],
       edges: [],
@@ -47,11 +47,11 @@ export class CrafterContainer implements IContainer {
       referencableNodeInstances: new Map(this.state.referencableNodeInstances),
       spiedObserversDependencies: new Map(this.state.spiedObserversDependencies),
       spyReactionQueue: [...this.state.spyReactionQueue],
-      isTransaction: this.state.isTransaction,
+   //   isTransaction: this.state.isTransaction,
       contextListeners: [...this.state.contextListeners],
       activeDerivations: this.state.activeDerivations,
       isComputingNextState: this.state.isComputingNextState,
-      rootTransactionId: this.state.rootTransactionId,
+  //    rootTransactionId: this.state.rootTransactionId,
       dependencyGraph: {
         nodes: [...this.state.dependencyGraph.nodes],
         edges: [...this.state.dependencyGraph.edges],
@@ -74,10 +74,10 @@ export class CrafterContainer implements IContainer {
     return this.state.controlState === ControlState.MUTATION || this.state.controlState === ControlState.STALE
   }
   
-  public get isTransaction(): boolean {
+/*   public get isTransaction(): boolean {
     return this.state.controlState !== ControlState.READY
   }
-
+ */
   public get isRunningReaction(): boolean {
     const current = this.state.spyReactionQueue[this.state.spyReactionQueue.length - 1]
     return current && isReaction(current.type)
@@ -145,15 +145,7 @@ export class CrafterContainer implements IContainer {
   }
 
   /**
-   * A transaction is the smallest unit of work of Crafter app.
-   * This tends to be as ACID as possible. (mainly from wikipedia)
-   * Atomicity: A transaction's changes to the model state are atomic: either all happen or none happen.
-   * Consistency: A transaction is a correct transformation of the model state. It is the responsability of the model to accept, reject or throw to any changes.
-   * Also, the system will rollback to the previous stable state if it throws during transaction.
-   * Isolation: The transaction execution is syncrhronous. It is no possible to have async command during transaction or having two transactions in the same times.
-   * Durability: Once a transaction completes successfully, its changes are saved as migration (with rollback/forward command list) and a snapshot of the new model.
-   * 
-   * A transaction begins when a proposal is presented to the model.
+   * A Step begins when a proposal is presented to the model.
    * 1- the model context is locked. No proposal can be accepted as long the transaction is running.
    * 2- the model context enters the MUTATION state
    * 3- The model accepts a part or the whole proposal.
@@ -161,7 +153,7 @@ export class CrafterContainer implements IContainer {
    * 5- the model context enters the READY state
    * 6- the modem context is unlocked
    */
-  public transaction(fun: () => any): any {
+  public step(fun: () => any): any {
     /* 1 */
     // Reject if a transaction is already running
 /*     if (this.state.controlState !== ControlState.READY) {
@@ -288,9 +280,7 @@ export class CrafterContainer implements IContainer {
    * during the current transaction.
    */
   public addUpdatedObservable(observable: IObservable): void {
-    // This is why we need a map for updatedObservables list.
-    // It is quicker to look up with Map.has instead of Array.find
-    if (!this.state.updatedObservables.includes(observable) && this.state.isTransaction) {
+    if (!this.state.updatedObservables.includes(observable)) {
       this.state.updatedObservables.push(observable)
     }
   }

@@ -13,7 +13,7 @@ test("factory", function() {
 
 test("mutation", function() {
   const str = string("Fraktar").create()
-  getContext(toInstance(str)).transaction(() => toInstance(str).$present([{op: Operation.replace, value: "Fraktos", path: "/"}]))
+  getContext(toInstance(str)).step(() => toInstance(str).$present([{op: Operation.replace, value: "Fraktos", path: "/"}]))
   expect(unbox(toInstance(str))).toBe("Fraktos")
 })
 
@@ -22,13 +22,13 @@ test("reactivity", function() {
   const dispose = autorun(function({isFirstRun}) {
     expect(unbox(toInstance(str))).toBe(isFirstRun ? "Fraktar" : "Fraktos")
   })
-  getContext(toInstance(str)).transaction(() => toInstance(str).$present([{op: Operation.replace, value: "Fraktos", path: "/"}]))
+  getContext(toInstance(str)).step(() => toInstance(str).$present([{op: Operation.replace, value: "Fraktos", path: "/"}]))
   dispose()
 })
 
 test("snapshot is consistent during transaction", function() {
   const str = string("Fraktar").create()
-  getContext(toInstance(str)).transaction(() => {
+  getContext(toInstance(str)).step(() => {
     toInstance(str).$present([{op: Operation.replace, value: "Fraktos", path: "/"}])
     expect(toInstance(str).$snapshot).toBe("Fraktar")
   })

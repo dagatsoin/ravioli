@@ -14,7 +14,7 @@ export abstract class Type<T, INPUT> implements IType<T, INPUT> {
     )
   }
   public applySnapshot(instance: IInstance<T, INPUT>, snapshot: INPUT): void {
-    instance.$$container.transaction(() => {
+    instance.$$container.step(() => {
       instance.$applySnapshot(snapshot)
     })
   }
