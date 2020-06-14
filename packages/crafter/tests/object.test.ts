@@ -1,57 +1,70 @@
-/* import { array } from '../src/array/factory'
+//import { array } from '../src/array/factory'
 import { getSnapshot, toInstance, toNode, getContext } from '../src/helpers'
 import { isInstance, isLeafType, isNodeType } from '../src/lib'
 import { object } from '../src/object'
 import { number, string } from '../src/Primitive'
 import { getGlobal } from '../src/utils/utils'
-import { computed } from '../src/observer/Computed'
+//import { computed } from '../src/observer/Computed'
 import { autorun } from '../src/observer/Autorun'
 
-test('Create complexe object Type', function() {
-  const Player = object({
-    name: string(),
-    level: number(),
-    stats: object({
-      force: number(),
-      health: number(),
-    }),
-  })
+describe('factory', function() {
+/*   test('Object Type', function() {
+    const Player = object({
+      name: string(),
+      level: number(),
+      stats: object({
+        force: number(),
+        health: number(),
+      }),
+    })
 
-  expect(isNodeType(Player)).toBeTruthy()
-  expect(isNodeType((Player as any).properties.stats)).toBeTruthy()
-  expect(
-    isLeafType((Player as any).properties.stats.properties.health)
-  ).toBeTruthy()
-})
-
-test('Create instance from a complexe object Type', function() {
-  const Player = object({
-    name: string(),
-    level: number(),
-    stats: object({
-      force: number(),
-      health: number(),
-    }),
+    expect(isNodeType(Player)).toBeTruthy()
+    expect(isNodeType((Player as any).properties.stats)).toBeTruthy()
+    expect(
+      isLeafType((Player as any).properties.stats.properties.health)
+    ).toBeTruthy()
   })
-  const player1 = Player.create({
-    name: 'Fraktar',
-    level: 10,
-    stats: {
+  test("Create instance from simple object type", function() {
+    const Fraktar = object({
+      name: string(),
+      level: number()
+    }).create({
+      name: "Fraktar",
+      level: 1
+    })
+    expect(Fraktar.name).toBe("Fraktar")
+    expect(Fraktar.level).toBe(1)
+  })*/
+
+  test('Create instance from a complexe object Type', function() {
+    const Player = object({
+      name: string(),
+      level: number(),
+      stats: object({
+        force: number(),
+        health: number(),
+      }),
+    })
+    const player1 = Player.create({
+      name: 'Fraktar',
+      level: 10,
+      stats: {
+        force: 1,
+        health: 4,
+      },
+    })
+    expect(isInstance(player1)).toBeTruthy()
+    expect(isInstance(toNode(player1).$data.name)).toBeTruthy()
+    expect(player1.name).toBe('Fraktar')
+    expect(player1.stats.force).toBe(1)
+    expect(player1.stats).toEqual({
       force: 1,
       health: 4,
-    },
+    })
+    expect(Object.keys(player1.stats).sort()).toEqual(['force', 'health'])
   })
-  expect(isInstance(player1)).toBeTruthy()
-  expect(isInstance(toNode(player1).$data.name)).toBeTruthy()
-  expect(player1.name).toBe('Fraktar')
-  expect(player1.stats.force).toBe(1)
-  expect(player1.stats).toEqual({
-    force: 1,
-    health: 4,
-  })
-  expect(Object.keys(player1.stats).sort()).toEqual(['force', 'health'])
 })
-
+/*
 test('value', function() {
   const model = object({
     name: string(),
@@ -107,6 +120,7 @@ test('Validate a snapshot against an object Type', function() {
   ).toBeFalsy()
 })
 
+ 
 test('object can have array member', function() {
   const Player = object({
     name: string(),
@@ -122,7 +136,7 @@ test('object can have array member', function() {
   expect(
     (Player as any).properties.inventory.itemType.properties.itemId
   ).toBeDefined()
-})
+}) */
 
 test('Instance should have a parent', function() {
   const Player = object({
@@ -139,27 +153,12 @@ test('Instance should have a parent', function() {
 })
 
 test('valid value', function() {
-  const Model = object({foo: string(), nested: object({bar: string()})})
+  const Model = object({ foo: string(), nested: object({ bar: string() }) })
   const model = Model.create()
   const snapshot = getSnapshot(toInstance(model))
   expect(Model.isValidValue(snapshot)).toBeTruthy()
   expect(Model.isValidValue(model)).toBeTruthy()
-})
-
-/**
- * In some case (Computed scenario) the value may have more or less key than the previous value.
- * 
- * Example : A Computed value "player"
- * If it is alive its stats are present in the return value. If it is dead the stats field are not present.
- * 
- * After reran the computed expression, Computed will reset the value of its observable container.
- * If the previous value if this observable had a "stats" field, it must be removed.
- * 
- * In short, we must dynamicaly adapt the Computed Type on each run.
- * 
- * To implements that, we need to check, for a given valid value, if the shape of the observable is conform.
- * If not, we need to detect the extra or missing keys in the Type properties and create or remove them.
- *//*
+}) /* 
 test("Reshape an existing type", function() {
   const Model = object({
     stats: object({
@@ -234,3 +233,18 @@ test("replace the value with $setValue", function(){
     }
   })
 }) */
+
+/**
+ * In some case (Computed scenario) the value may have more or less key than the previous value.
+ *
+ * Example : A Computed value "player"
+ * If it is alive its stats are present in the return value. If it is dead the stats field are not present.
+ *
+ * After reran the computed expression, Computed will reset the value of its observable container.
+ * If the previous value if this observable had a "stats" field, it must be removed.
+ *
+ * In short, we must dynamicaly adapt the Computed Type on each run.
+ *
+ * To implements that, we need to check, for a given valid value, if the shape of the observable is conform.
+ * If not, we need to detect the extra or missing keys in the Type properties and create or remove them.
+ */

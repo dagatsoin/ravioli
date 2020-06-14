@@ -36,10 +36,8 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   public $parent: INodeInstance<any> | undefined = undefined  
   
   private $$nativeTypeKeys: string[]
-  private $snapshotComputation: (data: DataNode, context: IContainer) => SNAPSHOT
   private $valueComputation: (data: DataNode, context: IContainer) => TYPE
   private $prevValue: TYPE = (undefined as unknown) as TYPE
-  private $prevSnapshot: SNAPSHOT = (undefined as unknown) as SNAPSHOT
   constructor(
     snapshotComputation: (data: any, context: IContainer) => SNAPSHOT,
     valueComputation: (data: any, context: IContainer) => TYPE,
@@ -49,9 +47,8 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
       context?: IContainer
     }
   ) {
-    super(options?.context)
+    super(snapshotComputation, options?.context)
     this.$$nativeTypeKeys = methodKeys
-    this.$snapshotComputation = snapshotComputation
     this.$valueComputation = valueComputation
 
     if (options?.id) {
@@ -78,24 +75,8 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
     return this.$prevValue
   }
 
-  public get $snapshot(): SNAPSHOT {
-    if (this.$hasStaleSnapshot) {
-      this.$computeSnapshot()
-    }
-    return this.$prevSnapshot
-  }
-
   public get $id(): string {
     return this.$$id
-  }
-
-  public $computeSnapshot(): void {
-    this.$prevSnapshot = this.$snapshotComputation(this.$data as any, this.$$container)
-    this.$hasStaleSnapshot = false
-  }
-
-  public $createNewSnapshot(): void {
-    this.$prevSnapshot = this.$snapshotComputation(this.$data as any, this.$$container)
   }
 
   private $computeValue(): void {

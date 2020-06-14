@@ -32,7 +32,5 @@ export interface INodeInstance<TYPE, SNAPSHOT = TYPE>
   $parent: INodeInstance<any, any> | undefined
   $nativeTypeKeys: string[] // The keys of the methods which are specific to the node type (Array, Map) and unumerables
   $addInterceptor(index: number | string): void // Attach the getter/setter listener on a child
-  $createChildInstance<I>(item: I, key: string): IInstance<I>
-  $createNewSnapshot(): void
-  $applySnapshot(snapshot: SNAPSHOT): void // Override to refine snapshot type
+  $createChildInstance<I>(item: I, key: any): IInstance<I>
 }

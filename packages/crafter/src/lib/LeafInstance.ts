@@ -22,7 +22,6 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
   public $type: ILeafType<T>
 
   private setter: (v: T) => void
-  private $prevSnapshot: T
 
   constructor({
     type,
@@ -33,9 +32,11 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
     value: T
     options?: Options
   }) {
-    super(options?.context)
+    super(
+      (data) => data,
+      options?.context
+    )
     this.$data = value
-    this.$prevSnapshot = value
     this.$hasStaleSnapshot = false
     this.$type = type
     this.$$id = options?.id || this.$$container.getUID('LeafInstance#')
@@ -61,13 +62,7 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
     } else {
       this.setter = setWithNoCheck(this)
     }
-  }
-
-  public get $snapshot(): T {
-    if (this.$hasStaleSnapshot) {
-      this.$data
-    }
-    return this.$prevSnapshot
+    this.$computeSnapshot()
   }
 
   public get $value(): T {

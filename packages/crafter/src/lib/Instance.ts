@@ -5,7 +5,7 @@ import { getGlobal } from '../utils/utils'
 import { makePath } from '../helpers'
 import { Command, Operation } from './JSONPatch'
 
-export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
+export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT> {
   
   abstract get $value(): T
   abstract get $id(): string
@@ -23,16 +23,23 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
     // TODO cache this
     return this.$parent ? makePath(this.$parent.$path, this.$parentKey?.toString() ?? '') : '/'
   }
+
+  private $snapshotComputation: (data: T, context: IContainer) => SNAPSHOT
+  private $prevSnapshot: SNAPSHOT = (undefined as unknown) as SNAPSHOT
+
   protected $$id!: string
 
   public $hasStaleSnapshot = true
-  public abstract $snapshot: Input
-  public abstract $type: IType<T, Input>
+  public abstract $type: IType<T, SNAPSHOT>
   public abstract $data: T
   
-  constructor(context?: IContainer) {
+  constructor(
+    snapshotComputation: (data: any, context: IContainer) => SNAPSHOT,
+    context?: IContainer
+  ) {
     this.$$container = context || getGlobal().$$crafterContext
-  } 
+    this.$snapshotComputation = snapshotComputation
+  }
 
   public $kill(): void {
     this.$$container.removeUID(this.$$id)
@@ -50,7 +57,7 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
     this.$parentKey = ''
   }
 
-  public $applySnapshot(snapshot: Input): void {
+  public $applySnapshot(snapshot: SNAPSHOT): void {
     if (this.$type.isValidSnapshot(snapshot)) {
       this.$present([{op: Operation.replace, value: snapshot, path: this.$path}], false)
     }
@@ -61,6 +68,21 @@ export abstract class Instance<T, Input = T> implements IInstance<T, Input> {
     if (this.$parent && !this.$parent.$hasStaleSnapshot) {
       this.$parent.$invalidateSnapshot()
     }
+  }
+  
+  public get $snapshot(): SNAPSHOT {
+    if (this.$hasStaleSnapshot && !this.$$container.isTransaction) {
+      this.$computeSnapshot()
+    }
+    return this.$prevSnapshot
+  }
+  public $computeSnapshot(): void {
+    this.$prevSnapshot = this.$snapshotComputation(this.$data as any, this.$$container)
+    this.$hasStaleSnapshot = false
+  }
+
+  public $createNewSnapshot(): SNAPSHOT {
+    return this.$snapshotComputation(this.$data as any, this.$$container)
   }
 
   public abstract $present(proposal: Command[], addMigration: boolean): void

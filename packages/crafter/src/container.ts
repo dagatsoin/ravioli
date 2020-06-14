@@ -75,7 +75,7 @@ export class CrafterContainer implements IContainer {
   }
   
   public get isTransaction(): boolean {
-    return this.state.isTransaction
+    return this.state.controlState !== ControlState.READY
   }
 
   public get isRunningReaction(): boolean {
@@ -164,11 +164,11 @@ export class CrafterContainer implements IContainer {
   public transaction(fun: () => any): any {
     /* 1 */
     // Reject if a transaction is already running
-    if (this.state.controlState !== ControlState.READY) {
+/*     if (this.state.controlState !== ControlState.READY) {
       warn('[CRAFTER] A transaction is already running')
       return
     }
-    this.onStepStart()
+ */    this.onStepStart()
     /* 2 */
     // Lock the model
     this.state.controlState = ControlState.MUTATION

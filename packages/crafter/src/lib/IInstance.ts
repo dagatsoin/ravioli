@@ -6,7 +6,7 @@ import { Command, Migration } from './JSONPatch'
 
 export type CommandResult = Readonly<{
   rejected: boolean;
-  migration: Readonly<Migration<any, any>>;
+  migration?: Readonly<Migration<any, any>>;
 }>
 
 export type ProposalResult = [Command, CommandResult][]
@@ -26,8 +26,10 @@ export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent, IObservab
   $snapshot: SNAPSHOT
   $hasStaleSnapshot: boolean
   readonly $value: TYPE
+  $createNewSnapshot(): SNAPSHOT
   $applySnapshot(snapshot: SNAPSHOT): void
   $invalidateSnapshot(): void
+  $applySnapshot(snapshot: SNAPSHOT): void // Override to refine snapshot type
 //  $setValue(value: SNAPSHOT): boolean
   $kill(): void
   /**

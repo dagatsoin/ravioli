@@ -22,7 +22,8 @@ import {
   createReplaceMigration,
   copy,
   move,
-  remove
+  remove,
+  createAddMigration
 } from '../lib/mutators'
 import { NodeInstance } from '../lib/NodeInstance'
 import { setNonEnumerable, mergeMigrations } from '../utils/utils'
@@ -98,7 +99,7 @@ export class ObjectInstance<
     this.$identifierKey = getIdentfierKey(this.$type)
     Object.keys(this).forEach(key => setNonEnumerable(this, key))
     build(this, value)
-    this.$updateSnapshot()
+    this.$computeSnapshot()
   }
 
   public $attach(parent: INodeInstance<any>, key: string): void {
@@ -201,18 +202,22 @@ export class ObjectInstance<
           if (changes) {
             mergeMigrations(createRemoveMigration(command, changes), this.$state.migration)
           }
-        } else if (command.op === 'add') {
-          const index = getObjectKey(this, command)
+        }*/ else if (command.op === 'add') {
+          let rejected = false
+          const key = getObjectKey(this, command)
           // Is an alias of replace
-          if (this.$data[index] !== undefined) {
-            throw new Error('not implemented yet')
-    //        present(model, [{ ...command, op: Operation.replace }])
-          } else { 
-            add(this, command.value, index)*/
-        /*    if (willEmitPatch) {
-              addAddPatch(model, command)
-            } */
-          /* }
+          if (this.$data[key] === undefined) {
+            add(this, command.value, key)
+          }
+          const result = {
+            rejected,
+            migration: rejected
+              ? undefined
+              : createAddMigration(command)
+          }
+  
+          proposalResult.push([command, result])
+        }/*
         } else if (command.op === 'copy') {
           const changes = copy(this, command)
           if (changes) {
@@ -224,7 +229,7 @@ export class ObjectInstance<
             mergeMigrations(createMoveMigration(command, changes), this.$state.migration)
           }
         } */else {
-          throw new Error(`Crafter Array.$applyOperation: ${
+          throw new Error(`Crafter ObjectInstance.$present: ${
             (proposal as any).op
           } is not a supported command. This error happened
             during a migration command. The transaction is cancelled and the model is reset to its previous value.`)
@@ -267,8 +272,8 @@ export class ObjectInstance<
       this.$state = {
         hasAcceptedWholeProposal: proposalResult.every(isAccepted),
         migration: {
-          forward: proposalResult.map(([_, commandResult]) => commandResult.migration.forward),
-          backward: proposalResult.map(([_, commandResult]) => commandResult.migration.backward)
+          forward: proposalResult.map(([_, commandResult]) => commandResult.migration?.forward || []),
+          backward: proposalResult.map(([_, commandResult]) => commandResult.migration?.backward || [])
         }
       }
     }
