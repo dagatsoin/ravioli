@@ -197,17 +197,32 @@ export class ObjectInstance<
         }
 
         proposalResult.push([command, result])
-      }/*  else if (command.op === 'remove') {
-          const changes = remove(this, getObjectKey(this, command))
-          if (changes) {
-            mergeMigrations(createRemoveMigration(command, changes), this.$state.migration)
-          }
-        }*/ else if (command.op === 'add') {
+      } else if (command.op === Operation.remove) {
+        let rejected = false
+        const key = getObjectKey(this, command)
+        
+        let removed = this.$data[key]?.$snapshot
+        if (key in this.$data) {
+          remove(this, key)
+        } else {
+          rejected = true
+        }
+        const result = {
+          rejected,
+          migration: rejected
+            ? undefined
+            : createRemoveMigration(command, {removed})
+        }
+
+        proposalResult.push([command, result])
+        } else if (command.op === Operation.add) {
           let rejected = false
           const key = getObjectKey(this, command)
           // Is an alias of replace
-          if (this.$data[key] === undefined) {
+          if (!(key in this.$data)) {
             add(this, command.value, key)
+          } else {
+            rejected = true
           }
           const result = {
             rejected,

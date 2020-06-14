@@ -46,8 +46,8 @@ export function createAddMigration<T>(
   }
 }
 
-export function remove<T>(
-  model: INodeInstance<T>,
+export function remove(
+  model: INodeInstance<any>,
   index: string | number
 ): RemoveChanges | undefined {
   const removed = getSnapshot(model.$data[index])

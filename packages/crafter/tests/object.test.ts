@@ -76,6 +76,14 @@ describe('JSON commands', function(){
     context.step(() => instance.$present([{op: Operation.add, path: '/isAdmin', value: true}]))
     expect((player as any).isAdmin).toBeTruthy()
   })
+  test('remove', function() {
+    context.step(() => instance.$present([{op: Operation.remove, path: '/isAdmin'}]))
+    expect((player as any).isAdmin).toBeUndefined()
+  })
+  test('replace', function() {
+    context.step(() => instance.$present([{op: Operation.replace, path: '/name', value: 'Fraktos'}]))
+    expect(player.name).toBe("Fraktos")
+  })
 })
 /*
 test('value', function() {
