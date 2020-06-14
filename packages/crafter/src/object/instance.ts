@@ -157,28 +157,35 @@ export class ObjectInstance<
     for(const command of proposal) {
       const childKey = getChildKey<TYPE>(this.$path, command.path)
     
-      if (!childKey) {
-        continue
-      }
-
       // The command target a grand children, pass down.
       if (isGrandChildPath(command.path, this.$path)) {
+        if (!childKey) {
+          continue
+        }  
         toNode(
           toInstance(this.$data[childKey])
         ).$present([command], addMigration)
       }
       // Replace the entire value
       else if (command.op === Operation.replace) {
+        // The replace command tragets the root
+        const isForRoot = childKey === undefined && command.path.endsWith('/')
+
+        // Not childkey available
+        if (!isForRoot && childKey === undefined) {
+          continue
+        }
+  
         // Track if children has accepted the whole proposal.
         let rejected = true
-        const childInstance = this.$data[childKey]
+        const instance = isForRoot ? this : this.$data[childKey]
         cutDownUpdateOperation(command.value, command.path)
           .forEach(subCommand => {
             // Present a replace command to each child
-            childInstance.$present([subCommand])
+            instance.$present([subCommand])
 
             // If the child accept in part the subcommand, mark it as rejected.
-            if (!hasAcceptedWholeProposal(childInstance)) {
+            if (!hasAcceptedWholeProposal(instance)) {
               rejected = false
             }
           })
@@ -192,7 +199,7 @@ export class ObjectInstance<
           migration: rejected
             // Not that we don't need to deep clone the migration.
             // At this point, the child state is readonly.
-            ? childInstance.$state.migration
+            ? instance.$state.migration
             : createReplaceMigration(command, {replaced: this.$createNewSnapshot()})
         }
 
@@ -238,12 +245,18 @@ export class ObjectInstance<
           if (changes) {
             mergeMigrations(createCopyMigration(command, changes), this.$state.migration)
           } 
-        } else if (command.op === 'move') {
+        }*/ else if (command.op === Operation.move) {
           const changes = move(this, command)
-          if (changes) {
-            mergeMigrations(createMoveMigration(command, changes), this.$state.migration)
+          const rejected = changes === undefined
+          const result = {
+            rejected,
+            migration: rejected
+              ? undefined
+              : createMoveMigration(command, changes!)
           }
-        } */else {
+  
+          proposalResult.push([command, result])
+        } else {
           throw new Error(`Crafter ObjectInstance.$present: ${
             (proposal as any).op
           } is not a supported command. This error happened

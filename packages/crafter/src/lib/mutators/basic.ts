@@ -1,4 +1,4 @@
-import { fail, getChildKey, getSnapshot, toInstance } from '../../helpers'
+import { fail, getChildKey, getSnapshot, toInstance, warn } from '../../helpers'
 import {
   CopyChanges,
   INodeInstance,
@@ -125,13 +125,19 @@ export function createCopyMigration(
 export function move(
   model: INodeInstance<unknown>,
   command: MoveCommand
-): MoveChanges {
+): MoveChanges | undefined {
   const from = getChildKey(model.$path, command.from)
   const to = getChildKey(model.$path, command.path)
-  if(from === undefined) throw new Error('[CRAFTER] move command, command.from is undefined')
-  if(to === undefined) throw new Error('[CRAFTER] move command, command.to is undefined')
-  const replaced = getSnapshot(model[to])
-  const moved = getSnapshot(model[from])
+  if(from === undefined) {
+    warn('[CRAFTER] move command, command.from is undefined')
+    return
+  }
+  if(to === undefined) {
+    warn('[CRAFTER] move command, command.to is undefined')
+    return
+  }
+  const replaced = model.$data[to].$snapshot
+  const moved = model.$data[from].$snapshot
 
   // Copy by reference
   model.$data[to] = model.$data[from]

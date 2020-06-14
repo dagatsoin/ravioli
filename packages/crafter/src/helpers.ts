@@ -8,7 +8,7 @@ import { IContainer } from './IContainer'
 import { InstanceFromValue } from './InstanceFromValue'
 import { ILeafInstance } from './lib/ILeafInstance'
 import { INodeInstance } from './lib/INodeInstance'
-import { Command } from './lib/JSONPatch'
+import { Command, Operation } from './lib/JSONPatch'
 
 export function toNode<T>(data: T): InstanceFromValue<T> {
   if (!isNode<T>(data)) {
@@ -87,6 +87,36 @@ export function getSnapshot<T extends IType<any>>(
     console.warn("Retrieving a snapshot during a transaction won't reflect the current change until the transaction is finished.")
   }
  */  return toInstance(instance).$snapshot
+}
+
+/**
+ * Restore the value of an entity from a snapshot.
+ * Will throw if snapshot is incompatible.
+ * @param entity
+ * @param snapshot
+ * @param willReact will this change will be observed
+ */
+export function applySnapshot<T>(entity: T, snapshot: T, willReact = true): void {
+  const instance = toInstance<T>(entity)
+  if(!instance.$type.isValidSnapshot(snapshot)) {
+    throw new Error('[CRAFTER] Incompatible snapshot')
+  }
+  instance.$present([{op: Operation.replace, path: instance.$path, value: snapshot}], willReact)
+  setValue<T>(entity, snapshot, true)
+}
+
+/**
+ * 
+ * @param entity
+ * @param value 
+ * @param willReact will this change will be observed
+ */
+export function setValue<T>(entity: T, value: T, willReact = true): void {
+  if(__DEV__ && !isInstance(entity)) {
+    fail('[CRAFTER] entity is not an instance') 
+  }
+  const instance = toInstance<T>(entity)
+  instance.$present([{op: Operation.replace, path: instance.$path, value}], willReact)
 }
 
 export function clone<T>(instance: T, options?: {id?: string, context?: IContainer}): T {

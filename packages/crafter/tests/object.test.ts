@@ -1,5 +1,5 @@
 //import { array } from '../src/array/factory'
-import { getSnapshot, toInstance, toNode, getContext } from '../src/helpers'
+import { getSnapshot, toInstance, toNode, getContext, setValue } from '../src/helpers'
 import { isInstance, isLeafType, isNodeType, Operation } from '../src/lib'
 import { object } from '../src/object'
 import { number, string } from '../src/Primitive'
@@ -72,6 +72,15 @@ describe('JSON commands', function(){
   }).create()
   const instance = toInstance(player)
   const context = getContext(instance)
+
+  beforeEach(function() {
+    context.step(function() {
+      setValue(player, {
+        name: 'Fraktar',
+        level: 100
+      })
+    })
+  })
   test('add', function() {
     context.step(() => instance.$present([{op: Operation.add, path: '/isAdmin', value: true}]))
     expect((player as any).isAdmin).toBeTruthy()
@@ -83,6 +92,15 @@ describe('JSON commands', function(){
   test('replace', function() {
     context.step(() => instance.$present([{op: Operation.replace, path: '/name', value: 'Fraktos'}]))
     expect(player.name).toBe("Fraktos")
+  })
+  test('move', function() {
+    expect((player as any).name).toBe("Fraktar")
+    context.step(() => instance.$present([
+      {op: Operation.add, path: '/oldName', value: ''},
+      {op: Operation.move, from: '/name', path: '/oldName'} as any
+    ]))
+    expect((player as any).oldName).toBe("Fraktar")
+    context.step(() => instance.$present([{op: Operation.remove, path: '/oldName'}]))
   })
 })
 /*
