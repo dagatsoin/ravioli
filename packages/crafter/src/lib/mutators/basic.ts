@@ -91,10 +91,10 @@ export function copy<T>(
     fail('[CRAFTER] copy command, command.to is undefined')
     return
   }
-  const replaced = getSnapshot(model[from])
+  const replaced = getSnapshot(model.$data[from])
 
   const instance = model.$createChildInstance(
-    getSnapshot(model[from]),
+    getSnapshot(model.$data[from]),
     from.toString()
   )
   model.$data[to].$kill
@@ -136,8 +136,8 @@ export function move(
     warn('[CRAFTER] move command, command.to is undefined')
     return
   }
-  const replaced = model.$data[to].$snapshot
-  const moved = model.$data[from].$snapshot
+  const replaced = getSnapshot(model.$data[to])
+  const moved = getSnapshot(model.$data[from])
 
   // Copy by reference
   model.$data[to] = model.$data[from]

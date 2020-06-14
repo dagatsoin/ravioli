@@ -177,16 +177,21 @@ export class ObjectInstance<
         }
   
         // Track if children has accepted the whole proposal.
-        let rejected = true
+        let rejected = false
         const instance = isForRoot ? this : this.$data[childKey]
         cutDownUpdateOperation(command.value, command.path)
           .forEach(subCommand => {
             // Present a replace command to each child
-            instance.$present([subCommand])
+            // If the child does not exists (maybe removed by a previous command, recreate the child)
+            if (!instance && childKey) {
+              add(this, command.value, childKey as string)
+            } else {
+              instance.$present([subCommand])
 
-            // If the child accept in part the subcommand, mark it as rejected.
-            if (!hasAcceptedWholeProposal(instance)) {
-              rejected = false
+              // If the child accept in part the subcommand, mark it as rejected.
+              if (!hasAcceptedWholeProposal(instance)) {
+                rejected = true
+              }
             }
           })
         
@@ -239,13 +244,18 @@ export class ObjectInstance<
           }
   
           proposalResult.push([command, result])
-        }/*
-        } else if (command.op === 'copy') {
+        } else if (command.op === Operation.copy) {
           const changes = copy(this, command)
-          if (changes) {
-            mergeMigrations(createCopyMigration(command, changes), this.$state.migration)
-          } 
-        }*/ else if (command.op === Operation.move) {
+          const rejected = changes === undefined
+          const result = {
+            rejected,
+            migration: rejected
+              ? undefined
+              : createCopyMigration(command, changes!)
+          }
+  
+          proposalResult.push([command, result]) 
+        } else if (command.op === Operation.move) {
           const changes = move(this, command)
           const rejected = changes === undefined
           const result = {

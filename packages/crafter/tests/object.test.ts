@@ -94,11 +94,20 @@ describe('JSON commands', function(){
     expect(player.name).toBe("Fraktos")
   })
   test('move', function() {
-    expect((player as any).name).toBe("Fraktar")
     context.step(() => instance.$present([
       {op: Operation.add, path: '/oldName', value: ''},
       {op: Operation.move, from: '/name', path: '/oldName'} as any
     ]))
+    expect((player as any).name).toBeUndefined()
+    expect((player as any).oldName).toBe("Fraktar")
+    context.step(() => instance.$present([{op: Operation.remove, path: '/oldName'}]))
+  })
+  test('copy', function() {
+    context.step(() => instance.$present([
+      {op: Operation.add, path: '/oldName', value: ''},
+      {op: Operation.copy, from: '/name', path: '/oldName'} as any
+    ]))
+    expect((player as any).name).toBe("Fraktar")
     expect((player as any).oldName).toBe("Fraktar")
     context.step(() => instance.$present([{op: Operation.remove, path: '/oldName'}]))
   })
