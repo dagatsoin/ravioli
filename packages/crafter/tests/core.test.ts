@@ -26,6 +26,29 @@ describe('Data im/mutability', function(){
   })
 })
 
+test('store node migration, not leaf', function() {
+  const player = object({
+    name: string('Fraktar'),
+    level: number(1),
+    stats: object({
+      health: number(1),
+      force: number(1)
+    })
+  }).create()
+  const context = getContext(toInstance(player))
+  context.onStepWillEnd = (migration) => {
+    console.log(JSON.stringify(migration.forward))
+    expect(migration).toEqual(toInstance(player).$state.migration)
+  }
+  context.step(() => player.stats = {
+    health: 10,
+    force: 1
+  })
+})
+
+test('leaf as marked as changes during node replacement', function() {
+
+})
 
 /*
 test("Crafter tracks leaf accesses", function() {

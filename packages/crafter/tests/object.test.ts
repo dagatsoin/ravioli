@@ -112,6 +112,80 @@ describe('JSON commands', function(){
     context.step(() => instance.$present([{op: Operation.remove, path: '/oldName'}]))
   })
 })
+
+describe('mutation', function() {
+  const player = object({
+    name: string('Fraktar'),
+    level: number(1),
+    stats: object({
+      health: number(1),
+      force: number(1)
+    })
+  }).create()
+  
+  test('replace leaf', function() {
+    getContext(toInstance(player)).step(() => player.stats.health++)
+    expect(player.stats.health).toBe(2)
+  })
+
+  test('replace node', function() {
+    getContext(toInstance(player)).step(() => player.stats = {health: 10, force: 5})
+    expect(player.stats.health).toBe(10)
+  })
+
+  test('replace root', function() {
+    getContext(toInstance(player)).step(() => setValue(player, {
+      name: 'Fraktos',
+      level: 10,
+      stats: {health: 10, force: 5}
+    }))
+    expect(getSnapshot(player)).toEqual({
+      name: 'Fraktos',
+      level: 10,
+      stats: {health: 10, force: 5}
+    })
+  })
+})
+
+describe('reactivity', function() {
+  const player = object({
+    name: string('Fraktar'),
+    level: number(1),
+    stats: object({
+      health: number(1),
+      force: number(1)
+    })
+  }).create()
+
+/*   test('react on leaf change', function() {
+    const dispose = autorun(function({isFirstRun}){
+      player.stats.health
+      if(!isFirstRun) expect(player.stats.health).toBe(2)
+    })
+    getContext(toInstance(player)).step(() => player.stats.health++)
+    dispose()
+  }) */
+  
+  test('react on node change, not on leaf change', function() {
+    let run = 0
+    const context = getContext(toInstance(player))
+    const dispose = autorun(function(){
+      player.stats
+      run++
+    })
+ //   context.step(() => player.stats.health++)
+    context.step(() => player.stats = {
+      health: 10,
+      force: 1
+    })
+    // Autorun ran twice, one for initialization, one when the node has changed. Not when the lead has changed.
+    expect(run).toBe(2)
+    dispose()
+  })
+  
+  
+})
+
 /*
 test('value', function() {
   const model = object({

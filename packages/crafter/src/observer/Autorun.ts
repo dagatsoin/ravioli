@@ -1,6 +1,8 @@
 import { Observer } from './Observer'
 import { IObserver, ObserverType } from "./IObserver"
 import { IContainer } from '../IContainer'
+import { Patch } from '../lib/JSONPatch/type'
+import { isDependent } from '../lib/JSONPatch/business'
 
 type AutorunFunction = (p:{isFirstRun: boolean, dispose: () => void}) => void
 
@@ -24,6 +26,10 @@ export class Autorun extends Observer {
     // Maybe the autorun was running
     this.context.stopSpyObserver(this.id)
     this.context.onDisposeObserver(this)
+  }
+
+  public notifyChanges(patch: Patch<any>, updatedObservablePaths: string[]) {
+    this.isStale = patch.some(command => isDependent(this, command, updatedObservablePaths))
   }
 
   public runAndUpdateDeps(): void {

@@ -7,7 +7,7 @@ import { IType } from "./IType";
 
 export function isNode<T>(value: any): value is InstanceFromValue<T> {
    return (
-    value.$isNode && !isContainer(value) // is a node
+    !!value.$isNode && !isContainer(value) // is a node
   )/*  || (
     isContainer(value) && (
       isNode(value.$targetInstance) ||  // is node container

@@ -25,12 +25,3 @@ test("reactivity", function() {
   getContext(toInstance(str)).step(() => toInstance(str).$present([{op: Operation.replace, value: "Fraktos", path: "/"}]))
   dispose()
 })
-
-test("snapshot is consistent during transaction", function() {
-  const str = string("Fraktar").create()
-  getContext(toInstance(str)).step(() => {
-    toInstance(str).$present([{op: Operation.replace, value: "Fraktos", path: "/"}])
-    expect(toInstance(str).$snapshot).toBe("Fraktar")
-  })
-  expect(toInstance(str).$snapshot).toBe("Fraktos")
-})

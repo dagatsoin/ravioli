@@ -9,11 +9,23 @@ import {
   getRoot,
   makePath,
   isGrandChildPath,
+  warn,
 } from '../helpers'
-import { IInstance, ProposalResult, State, CommandResult } from '../lib/IInstance'
+import {
+  IInstance,
+  ProposalResult,
+  State,
+  CommandResult,
+} from '../lib/IInstance'
 import { DataObject, INodeInstance } from '../lib/INodeInstance'
 import { isInstance } from '../lib/Instance'
-import { BasicCommand, Migration, isShapeMutationOperation as isShapeMutationOperation, Operation, Command } from '../lib/JSONPatch'
+import {
+  BasicCommand,
+  Migration,
+  isShapeMutationOperation,
+  Operation,
+  Command,
+} from '../lib/JSONPatch'
 import {
   createCopyMigration,
   createMoveMigration,
@@ -22,7 +34,7 @@ import {
   copy,
   move,
   remove,
-  createAddMigration
+  createAddMigration,
 } from '../lib/mutators'
 import { NodeInstance } from '../lib/NodeInstance'
 import { setNonEnumerable, mergeMigrations } from '../utils/utils'
@@ -42,7 +54,7 @@ import { getTypeFromValue } from '../lib/getTypeFromValue'
  * Data flow
  * prop setter => present replace migration => $applycommand => $setValue on each child
  * $setValue => split in child command replacement => present replace migration ...
- * 
+ *
  * For a node, $setValue won't affect anything byt will delegate each chunk of value to its children
  */
 
@@ -60,7 +72,7 @@ export class ObjectInstance<
   constructor({
     type,
     value,
-    options
+    options,
   }: {
     type: ObjectType<TYPE, PROPS, OUTPUT, INPUT>
     value?: INPUT | ReferenceValue
@@ -83,18 +95,14 @@ export class ObjectInstance<
     //
     // Also note that the IdentifierInstance $$id is not the same as its value.
     // $$id being an UID, the value being the $$id of the parent object.
-    super(
-      generateSnapshot,
-      generateValue,
-      ['$identifierKey'],
-      {
-        context: options?.context,
-        id: getId({
-          value,
-          id: options?.id,
-          identifierKey: getIdentfierKey(type)
-        })
-      })
+    super(generateSnapshot, generateValue, ['$identifierKey'], {
+      context: options?.context,
+      id: getId({
+        value,
+        id: options?.id,
+        identifierKey: getIdentfierKey(type),
+      }),
+    })
     this.$type = type
     this.$identifierKey = getIdentfierKey(this.$type)
     Object.keys(this).forEach(key => setNonEnumerable(this, key))
@@ -135,9 +143,12 @@ export class ObjectInstance<
       ).$applyCommand(command, shouldEmitPatch)
     }
   } */
-  
+
   public $setValue(value: TYPE, addMigration: boolean) {
-    this.$present([{op: Operation.replace, value, path: this.$path}], addMigration)
+    this.$present(
+      [{ op: Operation.replace, value, path: this.$path }],
+      addMigration
+    )
   }
 
   /**
@@ -149,131 +160,205 @@ export class ObjectInstance<
       fail(`Crafter Object. Tried to mutate an object while model is locked.`)
       return
     }
-     
+
     // Track if each command has been accepted or rejected.
     // It will be used by the next state function to generated the migration.
     const proposalResult: ProposalResult = []
 
-    for(const command of proposal) {
-      const childKey = getChildKey<TYPE>(this.$path, command.path)
-    
+    for (const command of proposal) {
       // The command target a grand children, pass down.
       if (isGrandChildPath(command.path, this.$path)) {
+        const childKey = getChildKey<TYPE>(this.$path, command.path)
         if (!childKey) {
           continue
-        }  
-        toNode(
-          toInstance(this.$data[childKey])
-        ).$present([command], addMigration)
+        }
+        toNode(toInstance(this.$data[childKey])).$present(
+          [command],
+          addMigration
+        )
       }
       // Replace the entire value
       else if (command.op === Operation.replace) {
-        // The replace command tragets the root
-        const isForRoot = childKey === undefined && command.path.endsWith('/')
+        // The replace command targets this node
+        const isNodeReplacement = command.path === this.$path
+        const isRoot = this.$path === '/'
+        /*        const isForRoot = childKey === undefined && command.path.endsWith('/')
 
         // Not childkey available
-        if (!isForRoot && childKey === undefined) {
+         if (!isForRoot && childKey === undefined) {
           continue
         }
-  
-        // Track if children has accepted the whole proposal.
-        let rejected = false
-        const instance = isForRoot ? this : this.$data[childKey]
-        cutDownUpdateOperation(command.value, command.path)
-          .forEach(subCommand => {
-            // Present a replace command to each child
-            // If the child does not exists (maybe removed by a previous command, recreate the child)
-            if (!instance && childKey) {
-              add(this, command.value, childKey as string)
-            } else {
-              instance.$present([subCommand])
+ */
 
-              // If the child accept in part the subcommand, mark it as rejected.
-              if (!hasAcceptedWholeProposal(instance)) {
-                rejected = true
+        if (isNodeReplacement) {
+          // Track if children has accepted the whole proposal.
+          let accepted = false
+
+          cutDownUpdateOperation(command.value, command.path).forEach(
+            subCommand => {
+              const childKey = getChildKey<TYPE>(this.$path, subCommand.path)
+              // Edge case, the instance has been removed from a previous command and can be undefined.
+              const instance: IInstance<any> | undefined = isRoot
+                ? this
+                : this.$data[childKey]
+
+              // Present a replace command to each child
+              // If the child does not exists (maybe removed by a previous command, recreate the child)
+              if (instance === undefined) {
+                if (childKey) {
+                  add(this, command.value, childKey as string)
+                  accepted = true
+                } else {
+                  warn('[CRAFTER] Unknown child key', childKey)
+                }
+              } else {
+                instance.$present([subCommand], false) // don't add migration for the sub commands
+                // The change is valid when the child instance did change
+                if (
+                  // Edge case, the target node is the root node
+                  isRoot && didChange(this.$data[getChildKey(this.$path, subCommand.path)!]) ||
+                  didChange(instance)
+                ) {
+                  accepted = true
+                }
               }
             }
-          })
-        
-        // Store the delta of this command
-        // If the command is marked as rejected that means that the child has maybe
-        // accepted some of the sub commands.
-        // In this case we retrieve its migration.
-        const result = {
-          rejected,
-          migration: rejected
-            // Not that we don't need to deep clone the migration.
-            // At this point, the child state is readonly.
-            ? instance.$state.migration
-            : createReplaceMigration(command, {replaced: this.$createNewSnapshot()})
-        }
+          )
 
-        proposalResult.push([command, result])
+          const result = {
+            accepted,
+            migration: addMigration && accepted
+              ? createReplaceMigration(command, {
+                replaced: this.$createNewSnapshot(),
+              })
+              : undefined
+          }
+
+          proposalResult.push({
+            command,
+            result,
+            isNodeOp: true,
+          })
+        } else {
+          const childKey = getChildKey<TYPE>(this.$path, command.path)
+          let instance: IInstance<any> | undefined = this.$data[childKey]
+          let accepted = false
+
+          if (instance === undefined) {
+            if (childKey) {
+              add(this, command.value, childKey as string)
+              accepted = true
+              instance = this.$data[childKey]
+            } else {
+              warn('[CRAFTER] Unknown child key', childKey)
+            }
+          } else {
+            instance.$present([command], addMigration)
+
+            if (didChange(instance)) {
+              accepted = true
+            }
+          }
+
+          const result = {
+            accepted,
+            migration: accepted && addMigration
+              ? instance!.$state.migration
+              : undefined,
+          }
+
+          proposalResult.push({
+            command,
+            result,
+            isNodeOp: false, // instance can't be undefined at this point
+          })
+        }
       } else if (command.op === Operation.remove) {
-        let rejected = false
+        let accepted = false
         const key = getObjectKey(this, command)
-        
+        const isNodeOp = isNode(this.$data[key])
         let removed = this.$data[key]?.$snapshot
         if (key in this.$data) {
           remove(this, key)
-        } else {
-          rejected = true
+          accepted = true
         }
         const result = {
-          rejected,
-          migration: rejected
-            ? undefined
-            : createRemoveMigration(command, {removed})
+          accepted,
+          migration: accepted
+            ? createRemoveMigration(command, { removed })
+            : undefined,
         }
 
-        proposalResult.push([command, result])
-        } else if (command.op === Operation.add) {
-          let rejected = false
-          const key = getObjectKey(this, command)
-          // Is an alias of replace
-          if (!(key in this.$data)) {
-            add(this, command.value, key)
-          } else {
-            rejected = true
-          }
-          const result = {
-            rejected,
-            migration: rejected
-              ? undefined
-              : createAddMigration(command)
-          }
-  
-          proposalResult.push([command, result])
-        } else if (command.op === Operation.copy) {
-          const changes = copy(this, command)
-          const rejected = changes === undefined
-          const result = {
-            rejected,
-            migration: rejected
-              ? undefined
-              : createCopyMigration(command, changes!)
-          }
-  
-          proposalResult.push([command, result]) 
-        } else if (command.op === Operation.move) {
-          const changes = move(this, command)
-          const rejected = changes === undefined
-          const result = {
-            rejected,
-            migration: rejected
-              ? undefined
-              : createMoveMigration(command, changes!)
-          }
-  
-          proposalResult.push([command, result])
-        } else {
-          throw new Error(`Crafter ObjectInstance.$present: ${
-            (proposal as any).op
-          } is not a supported command. This error happened
-            during a migration command. The transaction is cancelled and the model is reset to its previous value.`)
+        proposalResult.push({
+          command,
+          result,
+          isNodeOp,
+        })
+      } else if (command.op === Operation.add) {
+        let accepted = false
+        const key = getObjectKey(this, command)
+        // Is an alias of replace
+        if (!(key in this.$data)) {
+          add(this, command.value, key)
+          accepted = true
         }
+        const result = {
+          accepted,
+          migration: accepted ? createAddMigration(command) : undefined,
+        }
+
+        proposalResult.push({
+          command,
+          result,
+          isNodeOp: isNode(this.$data[key]),
+        })
+      } else if (command.op === Operation.copy) {
+        const changes = copy(this, command)
+        const isNodeOp = isNode(
+          this.$data[getChildKey(this.$path, command.from)!]
+        )
+        const accepted = changes === undefined
+        const result = {
+          accepted,
+          migration: accepted
+            ? createCopyMigration(command, changes!)
+            : undefined
+        }
+
+        proposalResult.push({
+          command,
+          result,
+          isNodeOp,
+        })
+      } else if (command.op === Operation.move) {
+        const fromKey = getChildKey(this.$path, command.from)!
+        if (!fromKey) {
+          continue
+        }
+        const isNodeOp = isNode(this.$data[fromKey])
+        const changes = move(this, command)
+        const accepted = changes !== undefined
+        const result = {
+          accepted,
+          migration: accepted
+            ? createMoveMigration(command, changes!)
+            : undefined
+        }
+
+        proposalResult.push({
+          command,
+          result,
+          isNodeOp,
+        })
+      } else {
+        throw new Error(`Crafter ObjectInstance.$present: ${
+          (proposal as any).op
+        } is not a supported command. This error happened
+            during a migration command. The transaction is cancelled and the model is reset to its previous value.`)
       }
-    this.$updateState(proposalResult, addMigration)
+    }
+    const hasChanged = proposalResult.some(({result: {accepted}}) => accepted)
+    this.$updateState(proposalResult, hasChanged ,addMigration)
   }
 
   public $createChildInstance<I, K extends keyof PROPS>(
@@ -289,48 +374,59 @@ export class ObjectInstance<
     }
     // Special case: identifier field
     // If no value is present, set the value to the $$id of the model
-    const value = this.$identifierKey === key
-      ? this.$$id
-      : isInstance(item)
+    const value =
+      this.$identifierKey === key
+        ? this.$$id
+        : isInstance(item)
         ? getSnapshot(item)
         : item
 
-    return this.$type.properties[key].create(
-      value,
-      { context: this.$$container }
-    ) as any
+    return this.$type.properties[key].create(value, {
+      context: this.$$container,
+    }) as any
   }
 
-  private $updateState(proposalResult: ProposalResult, addMigration: boolean){
+  private $updateState(proposalResult: ProposalResult, didChange: boolean, addMigration: boolean) {
     if (addMigration) {
       this.$state = {
-        hasAcceptedWholeProposal: proposalResult.every(isAccepted),
-        migration: {
-          forward: proposalResult.map(([_, commandResult]) => commandResult.migration?.forward || []),
-          backward: proposalResult.map(([_, commandResult]) => commandResult.migration?.backward || [])
-        }
+        didChange,
+        migration: addMigration
+          ? {
+            forward: proposalResult.map(
+              ({ result }) => result.migration?.forward || []
+            ),
+            backward: proposalResult.map(
+              ({ result }) => result.migration?.backward || []
+            ),
+          }
+          : { forward: [], backward: []}
       }
     }
-    // The node is stale only when its shape has been modified
-    const isStale = proposalResult.some(r => (
-      isAccepted(r) &&
-      didUpdateShape(r, this.$path)
-    ))
-    
+    // The node is stale only when :
+    // - its shape has been modified
+    // - a command targeted its value and made some changes
+    const isStale = proposalResult.some(
+      r =>
+        (isAccepted(r) && didUpdateShape(r, this.$path)) ||
+        (r.isNodeOp && !!r.result.migration?.forward.length)
+    )
+
     this.next(isStale, addMigration)
   }
 
   private next(isStale: boolean, addMigration: boolean) {
     // The proposal has updated the shape of the model
     if (isStale) {
+    //  le node est déjà inclus. Pb de nettoyage ?
       this.$$container.addUpdatedObservable(this)
-      this.$invalidateSnapshot();
-    } if (addMigration) {
+      this.$invalidateSnapshot()
+    }
+    if (addMigration) {
       this.$$container.addMigration(this.$state.migration)
     }
   }
 
- /*  private $setValue(value: INPUT): boolean {
+  /*  private $setValue(value: INPUT): boolean {
     if (!this.$$container.isWrittable) {
       throw new Error(
         'Crafter object. Tried to set an object value while model is locked.'
@@ -427,11 +523,17 @@ function build(obj: ObjectInstance<any, any, any, any>, value = {}): void {
           enumerable: true,
           configurable: true,
         })
-      }
-      else {
-        obj.$present([
-          { op: Operation.add, path: makePath(obj.$path, key), value: value[key] },
-        ], false)
+      } else {
+        obj.$present(
+          [
+            {
+              op: Operation.add,
+              path: makePath(obj.$path, key),
+              value: value[key],
+            },
+          ],
+          false
+        )
       }
     })
   })
@@ -451,11 +553,15 @@ function addInterceptor(
         return instance
       },
       set(value: any) {
-        obj.$$container.getReferenceTarget(obj.$data[propName].$value).$present([{
-          op: Operation.replace,
-          path: makePath(obj.$path, propName),
-          value
-        }])
+        obj.$$container
+          .getReferenceTarget(obj.$data[propName].$value)
+          .$present([
+            {
+              op: Operation.replace,
+              path: makePath(obj.$path, propName),
+              value,
+            },
+          ])
       },
       enumerable: true,
       configurable: true,
@@ -468,7 +574,10 @@ function addInterceptor(
         if (instance) {
           // Notify the read of the child node
           if (isNode(instance)) {
-            instance.$$container.notifyRead(instance, makePath(getRoot(instance).$id, instance.$path))
+            instance.$$container.notifyRead(
+              instance,
+              makePath(getRoot(instance).$id, instance.$path)
+            )
           }
           // return the instance if it is a node or the value if it is a leaf
           return unbox(instance)
@@ -476,7 +585,16 @@ function addInterceptor(
       },
       set(value: any) {
         // If the value is an object, cut it down in atomic JSON command
-        obj.$present([{ op: Operation.replace, value: value instanceof Map ? Array.from(value.entries()) : value, path: makePath(obj.$path, propName) }], true)
+        obj.$present(
+          [
+            {
+              op: Operation.replace,
+              value: value instanceof Map ? Array.from(value.entries()) : value,
+              path: makePath(obj.$path, propName),
+            },
+          ],
+          true
+        )
       },
       enumerable: true,
       configurable: true,
@@ -485,30 +603,35 @@ function addInterceptor(
 }
 
 function isObject(thing: any): thing is object {
-  return !(thing instanceof Map) && !Array.isArray(thing) && typeof thing === "object"
+  return (
+    !(thing instanceof Map) &&
+    !Array.isArray(thing) &&
+    typeof thing === 'object'
+  )
 }
 
 export function cutDownUpdateOperation(value: any, opPath: string): Proposal {
-  return isObject(value) 
-    ? Object.keys(value)
-      .map(key => ({
+  return isObject(value)
+    ? Object.keys(value).map(key => ({
         op: Operation.replace,
         path: makePath(opPath, key),
-        value: value[key]
+        value: value[key],
       }))
-    : [({
-      op: Operation.replace,
-      path: opPath,
-      value
-    })]
+    : [
+        {
+          op: Operation.replace,
+          path: opPath,
+          value,
+        },
+      ]
 }
-
-
 
 function getObjectKey(model: INodeInstance<any>, op: BasicCommand): string {
   const index = String(getChildKey(model.$path, op.path))
   if (!isValidObjectIndex(model, index, op)) {
-    throw new Error(`Crafter ${index} is not a property of the object instance.`)
+    throw new Error(
+      `Crafter ${index} is not a property of the object instance.`
+    )
   }
   return index
 }
@@ -531,7 +654,9 @@ function isValidObjectIndex(
   )
 }
 
-function getIdentfierKey(type: ObjectType<any, any, any, any>): string | undefined {
+function getIdentfierKey(
+  type: ObjectType<any, any, any, any>
+): string | undefined {
   return Object.keys(type.properties).find(key => {
     const prop = type.properties[key]
     return isIdentifierType(prop)
@@ -556,30 +681,37 @@ function getId({
   }
 }
 
-function hasAcceptedWholeProposal(childInstance: IInstance<any>) {
-  return childInstance.$state.hasAcceptedWholeProposal
+function didChange(instance: IInstance<any>) {
+  return !!instance.$state.didChange
 }
 
-function getChildAt(node: INodeInstance<any>, path: string): INodeInstance<any> | undefined {
-  const childKey = getChildKey<any>(node.$path, path)
-  if (childKey) {
-    return node.$data[childKey]
-  }
+function isAccepted({ result: { accepted } }: { result: CommandResult }) {
+  return accepted
 }
 
-function isAccepted([_, {rejected}]: [Command, CommandResult]) {
-  return !rejected
-}
-
-function didUpdateShape([command, {rejected}]: [Command, CommandResult], nodePath: string) {
-  return !rejected && isShapeMutationOperation(command.op) && command.path === nodePath
+function didUpdateShape(
+  {
+    command,
+    result: { accepted },
+  }: { command: Command; result: CommandResult },
+  nodePath: string
+) {
+  return (
+    accepted &&
+    isShapeMutationOperation(command.op) &&
+    command.path === nodePath
+  )
 }
 
 /**
  * Add a child to a model at a given key/index
  *
  */
-export function add(model: ObjectInstance<any, any, any, any>, value: any, index: string): void {
+export function add(
+  model: ObjectInstance<any, any, any, any>,
+  value: any,
+  index: string
+): void {
   // Create props key if needed
   if (!(index in model.$type.properties)) {
     model.$type.properties[index] = getTypeFromValue(value)

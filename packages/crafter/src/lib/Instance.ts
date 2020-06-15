@@ -11,7 +11,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
   abstract get $id(): string
   
   public $state: State = {
-    hasAcceptedWholeProposal: true,
+    didChange: false,
     migration: { forward: [], backward: []}
   }
   public $isInstance: true = true

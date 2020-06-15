@@ -200,7 +200,7 @@ export function isNodePath(nodePath: string, path: string): boolean {
 }
 
 /**
- * Return true id the path target a grand child
+ * Return true id the path target a grand child or further descendant
  */
 export function isGrandChildPath(commandPath: string, nodePath: string) {
   return !isOwnLeafPath(nodePath, commandPath) && !isNodePath(nodePath, commandPath)

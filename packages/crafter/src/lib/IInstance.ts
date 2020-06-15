@@ -5,14 +5,18 @@ import { IObservable } from '../IObservable'
 import { Command, Migration } from './JSONPatch'
 
 export type CommandResult = Readonly<{
-  rejected: boolean;
+  accepted: boolean;
   migration?: Readonly<Migration<any, any>>;
 }>
 
-export type ProposalResult = [Command, CommandResult][]
+export type ProposalResult = {
+  command: Command,
+  result: CommandResult,
+  isNodeOp: boolean
+}[]
 
 export type State = Readonly<{
-  hasAcceptedWholeProposal: boolean
+  didChange: boolean
   migration: Migration
 }>
 

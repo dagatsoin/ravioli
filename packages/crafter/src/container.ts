@@ -405,7 +405,7 @@ export class CrafterContainer implements IContainer {
   }
 
   public addMigration(migration: Migration): void {
-    mergeMigrations(migration, this.state.migration)
+    this.state.migration = mergeMigrations(migration, this.state.migration)
   }
 
   /**
@@ -601,13 +601,13 @@ export class CrafterContainer implements IContainer {
   private propagateChange() {
     topologicalSort(this.state.dependencyGraph)
     .map(id => getGraphNode(id, this.state.dependencyGraph))
-    .filter(isDerivation)
-    .forEach(derivation => {
+    .filter(isObserver)
+    .forEach(observer => {
       // Notify the observer. It will re run if it becomes stale.
       // If it generates an observable, the observable changes will be added
-      // to the current context changes (updatedObservables), allowing the test of the next derivation.
+      // to the current context changes (updatedObservables), allowing the test of the next observer.
       // We rely to the oplog to gather the stack of changes.
-      derivation.notifyChanges(this.state.migration.forward, this.state.updatedObservables.map(({$path}) => $path))
+      observer.notifyChanges(this.state.migration.forward, this.state.updatedObservables.map(({$path}) => $path))
     })
   }
 
