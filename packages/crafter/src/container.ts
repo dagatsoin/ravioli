@@ -1,4 +1,4 @@
-import { toNode, getRoot, getSnapshot, unique, isUnique, toInstance, warn, noop } from './helpers'
+import { toNode, getRoot, getSnapshot, unique, isUnique, toInstance, noop } from './helpers'
 import { IObservable } from './IObservable'
 import { Command, Migration } from './lib/JSONPatch'
 import { isObserver, isReaction, isDerivation } from './observer/Observer'

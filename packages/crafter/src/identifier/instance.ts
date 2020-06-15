@@ -18,7 +18,7 @@ export class IdentifierInstance<T extends string> extends Instance<T, T> {
     value: T
     context?: IContainer
   }) {
-    super(context)
+    super((data) => data, context)
     // Counter intuitively we do not validate the uniqness of the id, as it is already
     // used by the parent caller.
     this.$type = type

@@ -1,8 +1,8 @@
-import { getGlobal } from '../src/utils/utils'
-//import { observable } from '../src/lib/observable'
-import { toInstance, toLeaf, noop, getSnapshot, getContext } from '../src/helpers'
-//import { autorun, string, Reaction } from '../src'
-import { Graph } from '../src/Graph'
+// import { getGlobal } from '../src/utils/utils'
+// import { observable } from '../src/lib/observable'
+import { toInstance,/*  toLeaf, noop ,*/ getSnapshot, getContext } from '../src/helpers'
+// import { autorun, string, Reaction } from '../src'
+// import { Graph } from '../src/Graph'
 import { number, object, string } from '../src'
 
 describe('Data im/mutability', function(){
@@ -37,8 +37,8 @@ test('store node migration, not leaf', function() {
   }).create()
   const context = getContext(toInstance(player))
   context.onStepWillEnd = (migration) => {
-    console.log(JSON.stringify(migration.forward))
-    expect(migration).toEqual(toInstance(player).$state.migration)
+    console.log(JSON.stringify(migration))
+    expect(migration).toEqual(toInstance(player.stats).$state.migration)
   }
   context.step(() => player.stats = {
     health: 10,

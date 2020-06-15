@@ -4,7 +4,6 @@ import {
   toInstance,
   getSnapshot,
   toNode,
-  isOwnLeafPath,
   unbox,
   getRoot,
   makePath,
@@ -14,17 +13,16 @@ import {
 import {
   IInstance,
   ProposalResult,
-  State,
   CommandResult,
 } from '../lib/IInstance'
 import { DataObject, INodeInstance } from '../lib/INodeInstance'
 import { isInstance } from '../lib/Instance'
 import {
   BasicCommand,
-  Migration,
   isShapeMutationOperation,
   Operation,
   Command,
+  Migration,
 } from '../lib/JSONPatch'
 import {
   createCopyMigration,
@@ -37,7 +35,7 @@ import {
   createAddMigration,
 } from '../lib/mutators'
 import { NodeInstance } from '../lib/NodeInstance'
-import { setNonEnumerable, mergeMigrations } from '../utils/utils'
+import { setNonEnumerable } from '../utils/utils'
 
 import { ObjectFactoryInput, ObjectFactoryOutput } from './factory'
 import { Props } from './Props'
@@ -46,7 +44,6 @@ import { ReferenceValue, isReferenceType } from '../lib/reference'
 import { IContainer, Proposal } from '../IContainer'
 import { isIdentifierType } from '../identifier'
 import { isDerivation } from '../observer'
-//import { getTypeFromValue } from '../lib/getTypeFromValue'
 import { isNode } from '../lib/isNode'
 import { getTypeFromValue } from '../lib/getTypeFromValue'
 
@@ -154,7 +151,7 @@ export class ObjectInstance<
   /**
    * Accept the value if the model is writtable
    */
-  public $present(proposal: Proposal, addMigration: boolean): void {
+  public $present(proposal: Proposal, addMigration = true): void {
     // No direct manipulation. Mutations must occure only during a transaction.
     if (!this.$$container.isWrittable) {
       fail(`Crafter Object. Tried to mutate an object while model is locked.`)
@@ -243,6 +240,7 @@ export class ObjectInstance<
           const childKey = getChildKey<TYPE>(this.$path, command.path)
           let instance: IInstance<any> | undefined = this.$data[childKey]
           let accepted = false
+          const snapshot = instance?.$snapshot
 
           if (instance === undefined) {
             if (childKey) {
@@ -253,7 +251,7 @@ export class ObjectInstance<
               warn('[CRAFTER] Unknown child key', childKey)
             }
           } else {
-            instance.$present([command], addMigration)
+            instance.$present([command], false)
 
             if (didChange(instance)) {
               accepted = true
@@ -263,7 +261,9 @@ export class ObjectInstance<
           const result = {
             accepted,
             migration: accepted && addMigration
-              ? instance!.$state.migration
+              ? createReplaceMigration(command, {
+                replaced: snapshot,
+              })
               : undefined,
           }
 
@@ -277,7 +277,7 @@ export class ObjectInstance<
         let accepted = false
         const key = getObjectKey(this, command)
         const isNodeOp = isNode(this.$data[key])
-        let removed = this.$data[key]?.$snapshot
+        const removed = this.$data[key]?.$snapshot
         if (key in this.$data) {
           remove(this, key)
           accepted = true
@@ -358,7 +358,7 @@ export class ObjectInstance<
       }
     }
     const hasChanged = proposalResult.some(({result: {accepted}}) => accepted)
-    this.$updateState(proposalResult, hasChanged ,addMigration)
+    this.$updateState(proposalResult, hasChanged)
   }
 
   public $createChildInstance<I, K extends keyof PROPS>(
@@ -386,21 +386,10 @@ export class ObjectInstance<
     }) as any
   }
 
-  private $updateState(proposalResult: ProposalResult, didChange: boolean, addMigration: boolean) {
-    if (addMigration) {
-      this.$state = {
-        didChange,
-        migration: addMigration
-          ? {
-            forward: proposalResult.map(
-              ({ result }) => result.migration?.forward || []
-            ),
-            backward: proposalResult.map(
-              ({ result }) => result.migration?.backward || []
-            ),
-          }
-          : { forward: [], backward: []}
-      }
+  private $updateState(proposalResult: ProposalResult, hasChanged: boolean) {
+    this.$state = {
+      didChange: hasChanged,
+      migration: toMigration(proposalResult)
     }
     // The node is stale only when :
     // - its shape has been modified
@@ -411,19 +400,17 @@ export class ObjectInstance<
         (r.isNodeOp && !!r.result.migration?.forward.length)
     )
 
-    this.next(isStale, addMigration)
+    this.next(isStale)
   }
 
-  private next(isStale: boolean, addMigration: boolean) {
+  private next(isStale: boolean) {
     // The proposal has updated the shape of the model
     if (isStale) {
     //  le node est déjà inclus. Pb de nettoyage ?
       this.$$container.addUpdatedObservable(this)
       this.$invalidateSnapshot()
     }
-    if (addMigration) {
-      this.$$container.addMigration(this.$state.migration)
-    }
+    this.$$container.addMigration(this.$state.migration)
   }
 
   /*  private $setValue(value: INPUT): boolean {
@@ -707,7 +694,7 @@ function didUpdateShape(
  * Add a child to a model at a given key/index
  *
  */
-export function add(
+function add(
   model: ObjectInstance<any, any, any, any>,
   value: any,
   index: string
@@ -720,4 +707,21 @@ export function add(
   model.$data[index] = instance
   addInterceptor(model, index)
   instance.$attach(model, index)
+}
+
+function toMigration(proposalResult: ProposalResult): Migration<any, any> {
+  const forward = []
+  const backward = []
+  for (const {result} of proposalResult) {
+    if (result.migration?.forward.length) {
+      forward.push(...result.migration.forward)
+    }
+    if (result.migration?.backward.length) {
+      backward.push(...result.migration.backward)
+    }
+  }
+  return {
+    forward,
+    backward
+  }
 }
