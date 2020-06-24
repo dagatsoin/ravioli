@@ -103,7 +103,7 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
       this.$$container.addUpdatedObservable(this)
       this.$invalidateSnapshot();
       if (addMigration) {
-        this.$$container.addMigration(this.$state.migration)
+        this.$$container.addMigration(this.$state.migration, this.$$id)
       }
     }
   }

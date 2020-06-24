@@ -1,4 +1,4 @@
-import { toNode, getRoot, getSnapshot, unique, isUnique, toInstance, noop } from './helpers'
+import { toNode, getRoot, getSnapshot, unique, isUnique, toInstance, noop, makePath } from './helpers'
 import { IObservable } from './IObservable'
 import { Command, Migration } from './lib/JSONPatch'
 import { isObserver, isReaction, isDerivation } from './observer/Observer'
@@ -404,7 +404,8 @@ export class CrafterContainer implements IContainer {
     this.migrationListeners.splice(this.migrationListeners.indexOf(listener), 1)
   }
 
-  public addMigration(migration: Migration): void {
+  public addMigration(migration: Migration, obsservableId: string): void {
+    addIdToMigrationPaths(migration, obsservableId)
     this.state.migration = mergeMigrations(migration, this.state.migration)
   }
 
@@ -812,3 +813,11 @@ function onDisposeObserver(observer: IObserver, state: ContainerState): void {
     invalidateSnapshot(parent)
   }
 } */
+
+/**
+ * Prepend the id of the observable to each path in a migration
+ */
+function addIdToMigrationPaths(migration: Migration<any, any>, observableId: string): void {
+    migration.forward.forEach(op => op.path = makePath(observableId, op.path))
+    migration.backward.forEach(op => op.path = makePath(observableId, op.path))
+}

@@ -208,7 +208,7 @@ export interface IContainer {
   /**
    * Add some operations to the current step migration
    */
-  addMigration(migration: Migration): void
+  addMigration(migration: Migration, observableId: string): void
 
   onStepStart(): void
   onModelDidUpdate(): void

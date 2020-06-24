@@ -164,7 +164,7 @@ export class ObjectInstance<
 
     for (const command of proposal) {
       // The command target a grand children, pass down.
-      if (isGrandChildPath(command.path, this.$path)) {
+      /* if (isGrandChildPath(command.path, this.$path)) {
         const childKey = getChildKey<TYPE>(this.$path, command.path)
         if (!childKey) {
           continue
@@ -175,7 +175,7 @@ export class ObjectInstance<
         )
       }
       // Replace the entire value
-      else if (command.op === Operation.replace) {
+      else */ if (command.op === Operation.replace) {
         // The replace command targets this node
         const isNodeReplacement = command.path === this.$path
         const isRoot = this.$path === '/'
@@ -190,6 +190,7 @@ export class ObjectInstance<
         if (isNodeReplacement) {
           // Track if children has accepted the whole proposal.
           let accepted = false
+          const snapshot = this.$createNewSnapshot()
 
           cutDownUpdateOperation(command.value, command.path).forEach(
             subCommand => {
@@ -226,7 +227,7 @@ export class ObjectInstance<
             accepted,
             migration: addMigration && accepted
               ? createReplaceMigration(command, {
-                replaced: this.$createNewSnapshot(),
+                replaced: snapshot,
               })
               : undefined
           }
@@ -239,26 +240,11 @@ export class ObjectInstance<
         } else {
           const childKey = getChildKey<TYPE>(this.$path, command.path)
           let instance: IInstance<any> | undefined = this.$data[childKey]
-          let accepted = false
-          const snapshot = instance?.$snapshot
-
+          
           if (instance === undefined) {
             if (childKey) {
               add(this, command.value, childKey as string)
-              accepted = true
-              instance = this.$data[childKey]
-            } else {
-              warn('[CRAFTER] Unknown child key', childKey)
-            }
-          } else {
-            instance.$present([command], false)
-
-            if (didChange(instance)) {
-              accepted = true
-            }
-          }
-
-          const result = {
+                        /* const result = {
             accepted,
             migration: accepted && addMigration
               ? createReplaceMigration(command, {
@@ -271,7 +257,14 @@ export class ObjectInstance<
             command,
             result,
             isNodeOp: false, // instance can't be undefined at this point
-          })
+          }) */
+
+            } else {
+              warn('[CRAFTER] Unknown child key', childKey)
+            }
+          } else {
+            instance.$present([command], addMigration)
+          }
         }
       } else if (command.op === Operation.remove) {
         let accepted = false
@@ -410,7 +403,7 @@ export class ObjectInstance<
       this.$$container.addUpdatedObservable(this)
       this.$invalidateSnapshot()
     }
-    this.$$container.addMigration(this.$state.migration)
+    this.$$container.addMigration(this.$state.migration, this.$$id)
   }
 
   /*  private $setValue(value: INPUT): boolean {
