@@ -14,24 +14,26 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
     didChange: false,
     migration: { forward: [], backward: []}
   }
+  
   public $isInstance: true = true
   public $isObservable: true = true
   public $$container: IContainer
   public $parentKey: string | number | undefined
   public $parent: IInstance<any, any> | undefined
+  public $isStale = true
+
+  protected $$id!: string
+
+  private $snapshotComputation: (data: T, context: IContainer) => SNAPSHOT
+  private $prevSnapshot: SNAPSHOT = (undefined as unknown) as SNAPSHOT
+
+  public abstract $type: IType<T, SNAPSHOT>
+  public abstract $data: T
   public get $path(){
     // TODO cache this
     return this.$parent ? makePath(this.$parent.$path, this.$parentKey?.toString() ?? '') : '/'
   }
 
-  private $snapshotComputation: (data: T, context: IContainer) => SNAPSHOT
-  private $prevSnapshot: SNAPSHOT = (undefined as unknown) as SNAPSHOT
-
-  protected $$id!: string
-
-  public $isStale = true
-  public abstract $type: IType<T, SNAPSHOT>
-  public abstract $data: T
   
   constructor(
     snapshotComputation: (data: any, context: IContainer) => SNAPSHOT,

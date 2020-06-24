@@ -284,7 +284,7 @@ export class ObjectInstance<
         }
         const result = {
           accepted,
-          migration: accepted
+          migration: accepted && addMigration
             ? createRemoveMigration(command, { removed })
             : undefined,
         }
@@ -304,7 +304,7 @@ export class ObjectInstance<
         }
         const result = {
           accepted,
-          migration: accepted ? createAddMigration(command) : undefined,
+          migration: accepted && addMigration ? createAddMigration(command) : undefined,
         }
 
         proposalResult.push({
@@ -320,7 +320,7 @@ export class ObjectInstance<
         const accepted = changes === undefined
         const result = {
           accepted,
-          migration: accepted
+          migration: accepted && addMigration
             ? createCopyMigration(command, changes!)
             : undefined
         }
@@ -340,7 +340,7 @@ export class ObjectInstance<
         const accepted = changes !== undefined
         const result = {
           accepted,
-          migration: accepted
+          migration: accepted && addMigration
             ? createMoveMigration(command, changes!)
             : undefined
         }

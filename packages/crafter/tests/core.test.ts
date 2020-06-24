@@ -36,9 +36,8 @@ test('store node migration, not leaf', function() {
     })
   }).create()
   const context = getContext(toInstance(player))
-  context.onStepWillEnd = (migration) => {
-    console.log(JSON.stringify(migration))
-    expect(migration).toEqual(toInstance(player.stats).$state.migration)
+  context.onStepWillEnd = (migration) => { WILL BE EXECUTED FOR EVERY TEST
+    expect(migration).toEqual(toInstance(player).$state.migration)
   }
   context.step(() => player.stats = {
     health: 10,
@@ -46,9 +45,27 @@ test('store node migration, not leaf', function() {
   })
 })
 
-test('leaf as marked as changes during node replacement', function() {
-
+test('leaf as marked as stale during node replacement', function() {
+  const player = object({
+    stats: object({
+      health: number(1),
+      force: number(1)
+    })
+  }).create()
+  const context = getContext(toInstance(player))
+  context.onStepWillEnd = () => {
+    expect(toInstance(toInstance(player.stats).$data.force).$state.didChange).toBeFalsy()
+    expect(toInstance(toInstance(player.stats).$data.health).$state.didChange).toBeTruthy()
+  }
+  context.step(() => player.stats = {
+    health: 10,
+    force: 1
+  })
 })
+
+    // The node is stale only when :
+    // - its shape has been modified
+    // - a command targeted its value and made some changes
 
 /*
 test("Crafter tracks leaf accesses", function() {
