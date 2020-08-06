@@ -3,7 +3,7 @@
 import { toInstance,/*  toLeaf, noop ,*/ getSnapshot, getContext } from '../src/helpers'
 // import { autorun, string, Reaction } from '../src'
 // import { Graph } from '../src/Graph'
-import { number, object, string } from '../src'
+import { number, object, string, StepLifeCycle, Migration } from '../src'
 
 describe('Data im/mutability', function(){
   const model = object({
@@ -36,9 +36,11 @@ test('store node migration, not leaf', function() {
     })
   }).create()
   const context = getContext(toInstance(player))
-  context.onStepWillEnd = (migration) => { WILL BE EXECUTED FOR EVERY TEST
-    expect(migration).toEqual(toInstance(player).$state.migration)
+  const cb = (migration: Migration) => {
+    context.removeStepListener(StepLifeCycle.WILL_END, cb)
+    expect(migration).toEqual(toInstance(player.stats).$state.migration)
   }
+  context.addStepListener(StepLifeCycle.WILL_END, cb)
   context.step(() => player.stats = {
     health: 10,
     force: 1
@@ -53,10 +55,12 @@ test('leaf as marked as stale during node replacement', function() {
     })
   }).create()
   const context = getContext(toInstance(player))
-  context.onStepWillEnd = () => {
+  const cb = () => {
+    context.removeStepListener(StepLifeCycle.WILL_END, cb)
     expect(toInstance(toInstance(player.stats).$data.force).$state.didChange).toBeFalsy()
     expect(toInstance(toInstance(player.stats).$data.health).$state.didChange).toBeTruthy()
   }
+  context.addStepListener(StepLifeCycle.WILL_END, cb)
   context.step(() => player.stats = {
     health: 10,
     force: 1

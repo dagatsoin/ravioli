@@ -5,7 +5,7 @@ import { isObserver, isReaction, isDerivation } from './observer/Observer'
 import { IObserver, ObserverType } from "./observer/IObserver"
 import { Graph, removeNode, removeNodeEdges, getGraphEdgesFrom, Edge, getAllPathsTo, getEdgesOf, hasEdge, isSameEdge, topologicalSort } from './Graph'
 import { INodeInstance } from './lib/INodeInstance'
-import { ContainerState, IContainer, ContextListener, ControlState, MigrationListener } from './IContainer'
+import { ContainerState, IContainer, StepListener, ControlState, StepLifeCycle } from './IContainer'
 import { IComputed } from "./observer/IDerivation"
 import { isNode } from './lib/isNode'
 import { isObservable } from './lib/observable'
@@ -21,7 +21,6 @@ function getInitState(): ContainerState {
     spyReactionQueue: [],
     referencableNodeInstances: new Map(),
     //isTransaction: false,
-    contextListeners: [],
     isComputingNextState: false,
     activeDerivations: new Map(),
  //   rootTransactionId: undefined,
@@ -48,7 +47,6 @@ export class CrafterContainer implements IContainer {
       spiedObserversDependencies: new Map(this.state.spiedObserversDependencies),
       spyReactionQueue: [...this.state.spyReactionQueue],
    //   isTransaction: this.state.isTransaction,
-      contextListeners: [...this.state.contextListeners],
       activeDerivations: this.state.activeDerivations,
       isComputingNextState: this.state.isComputingNextState,
   //    rootTransactionId: this.state.rootTransactionId,
@@ -63,12 +61,16 @@ export class CrafterContainer implements IContainer {
       updatedObservables: [...this.state.updatedObservables]
     }
   }
-  public onStepStart: () => void = noop
-  public onModelDidUpdate: () => void = noop
-  public onModelWillRollback: () => void = noop
-  public onModelDidRollback: () => void = noop
-  public onChangeWillBePropagated: () => void = noop
-  public onStepWillEnd: (migration: Migration) => void = noop
+
+  // Listeners to migration event triggered after each step
+  private stepListeners:  Record<StepLifeCycle, StepListener[]> = {
+    [StepLifeCycle.START]: [],
+    [StepLifeCycle.DID_UPDATE]: [],
+    [StepLifeCycle.WILL_PROPAGATE]: [],
+    [StepLifeCycle.WILL_END]: [],
+    [StepLifeCycle.WILL_ROLL_BACK]: [],
+    [StepLifeCycle.DID_ROLL_BACK]: [],
+  }
 
   public get isWrittable(): boolean {
     return this.state.controlState === ControlState.MUTATION || this.state.controlState === ControlState.STALE
@@ -84,7 +86,6 @@ export class CrafterContainer implements IContainer {
   }
 
   private state: ContainerState = getInitState()
-  private migrationListeners: MigrationListener[] = []
   private isSpyingPaused: boolean = false
   private get isSpying() {
     return !this.isSpyingPaused && (this.state.spyReactionQueue.length > 0)
@@ -160,7 +161,7 @@ export class CrafterContainer implements IContainer {
       warn('[CRAFTER] A transaction is already running')
       return
     }
- */    this.onStepStart()
+ */    this.onStep(StepLifeCycle.START)
     /* 2 */
     // Lock the model
     this.state.controlState = ControlState.MUTATION
@@ -176,11 +177,11 @@ export class CrafterContainer implements IContainer {
       this.pauseSpies()
       result = fun()
       this.resumeSpies()
-      this.onModelDidUpdate()
+      this.onStep(StepLifeCycle.DID_UPDATE)
     } catch (e) {
-      this.onModelWillRollback()
+      this.onStep(StepLifeCycle.WILL_ROLL_BACK)
       this.rollback(managerStateBackup)
-      this.onModelDidRollback()
+      this.onStep(StepLifeCycle.DID_ROLL_BACK)
       this.resumeSpies()
       this.state.controlState = ControlState.READY
       if (__DEV__) {
@@ -192,7 +193,7 @@ export class CrafterContainer implements IContainer {
     // Mutation is finished, some observable may be stale.
     this.state.controlState = ControlState.STALE      
    
-    this.onChangeWillBePropagated()
+    this.onStep(StepLifeCycle.WILL_PROPAGATE)
     // Invalidate snapshot.
     // Their next computation will be triggered lazily.
     /* this.state.updatedObservables.forEach((o: IObservable) => {
@@ -214,7 +215,7 @@ export class CrafterContainer implements IContainer {
     
     this.propagateChange()
             
-    this.onStepWillEnd(this.state.migration)
+    this.onStep(StepLifeCycle.WILL_END)
 
     this.clean()
 
@@ -356,14 +357,6 @@ export class CrafterContainer implements IContainer {
     this.state = getInitState()
   }
 
-  public subscribe(listener: ContextListener): void {
-    this.state.contextListeners.push(listener)
-  }
-
-  public unsubscribe(listener: ContextListener): void {
-    this.state.contextListeners.splice(this.state.contextListeners.indexOf(listener), 1)
-  }
-
   public presentPatch<O extends Command>(_migration: O[]): void {
 /*     const staleObservers: IObserver[] = []
     migration.forEach(({op, path}) => {
@@ -396,12 +389,12 @@ export class CrafterContainer implements IContainer {
   }
 
   
-  public addMigrationListener(listener: MigrationListener): void {
-    this.migrationListeners.push(listener)
+  public addStepListener(lifecycle: StepLifeCycle, listener: StepListener): void {
+    this.stepListeners[lifecycle].push(listener)
   }
 
-  public removeTransactionMigrationListener(listener: MigrationListener): void {
-    this.migrationListeners.splice(this.migrationListeners.indexOf(listener), 1)
+  public removeStepListener(lifecycle: StepLifeCycle, listener: StepListener): void {
+    this.stepListeners[lifecycle].splice(this.stepListeners[lifecycle].indexOf(listener), 1)
   }
 
   public addMigration(migration: Migration, obsservableId: string): void {
@@ -476,6 +469,12 @@ export class CrafterContainer implements IContainer {
       .filter(n => patch.some(command => isDependent(n, command, this.state.dependencyGraph.nodes.filter(isObservable))))
   }
  */
+
+  private onStep(step: StepLifeCycle) {
+    for (const cb of this.stepListeners[step]) {
+      cb(this.state.migration)
+    }
+  }
 
   private getCurrentSpiedObserverId(): {type: ObserverType, id: string} | undefined{
     // Derivation are prioritary because the always run as a child

@@ -5,9 +5,16 @@ import { IObservable as IInstance, IObservable } from "./IObservable"
 import { Command, BasicCommand, Migration } from "./lib/JSONPatch"
 import { IComputed } from "./observer/IDerivation"
 
-export type ContextListener = (migration: [string, BasicCommand[]][]) => void
+export type StepListener = (migration: Migration) => void
 
-export type MigrationListener = (migration: Migration) => void
+export enum StepLifeCycle {
+  START = 'START',
+  DID_UPDATE = 'DID_UPDATE',
+  WILL_ROLL_BACK = 'WILL_ROLL_BACK',
+  DID_ROLL_BACK = 'DID_ROLL_BACK',
+  WILL_PROPAGATE = 'WILL_PROPAGATE',
+  WILL_END = 'WILL_END'
+}
 
 export enum ControlState {
   READY,
@@ -35,9 +42,6 @@ export type ContainerState = {
   // While running a reaction, list all derivation which are used.
   // This will be used to clean the graph from unused derivations.
   activeDerivations: Map<string, IObserver>
-
-  // Listeners to migration event triggered after each step
-  contextListeners: ContextListener[]
 
   /**
    * The stack of running observer ids ans type
@@ -195,25 +199,17 @@ export interface IContainer {
   presentPatch(migration: Command[]): void
 
   /**
-   * Add a migration listener which is triggered at the end of a step
-   * The listener will have the migration as an argument
-   */
-  addMigrationListener(listener: MigrationListener): void
-
-  /**
-   * Remove a migration listener
-   */
-  removeTransactionMigrationListener(listener: MigrationListener): void
-
-  /**
    * Add some operations to the current step migration
    */
   addMigration(migration: Migration, observableId: string): void
+  
+  /**
+   * Add a listener which will be called at the given life cycle.
+   */
+  addStepListener(lifecycle: StepLifeCycle, listener: StepListener): void
 
-  onStepStart(): void
-  onModelDidUpdate(): void
-  onModelWillRollback(): void
-  onModelDidRollback(): void
-  onChangeWillBePropagated(): void
-  onStepWillEnd(migration: Migration): void
+  /**
+   * Remove the given listener at the the given life cycle.
+   */
+  removeStepListener(lifecycle: StepLifeCycle, listener: StepListener): void
 }
