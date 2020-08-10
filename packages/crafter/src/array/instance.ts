@@ -7,7 +7,7 @@ import {
   toNode,
   getSnapshot,
   isChildPath,
-  isNodePath,
+  isInstancePath,
   isOwnLeafPath,
   unbox,
   getRoot,
@@ -184,7 +184,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   ): void {
     proposal.forEach(command => {
       // Apply only if the path concerns this node or a leaf child.
-      if (isNodePath(this.$path, command.path)) {
+      if (isInstancePath(this.$path, command.path)) {
         present(this, [command], shouldAddMigration)
       } else if (isOwnLeafPath(this.$path, command.path)) {
         if (isBasicCommand(command)) {

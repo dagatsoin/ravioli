@@ -4,7 +4,7 @@
   toInstance,
   toNode,
   isChildPath,
-  isNodePath,
+  isInstancePath,
   getSnapshot,
   isOwnLeafPath,
   unbox,
@@ -162,7 +162,7 @@ export class MapInstance<TYPE>
     willEmitPatch: boolean = false
   ): void {
     // Apply only if the path concerns this node or a leaf child.
-    if (isNodePath(this.$path, proposal.path)) {
+    if (isInstancePath(this.$path, proposal.path)) {
       present(this, [proposal], false)
     } else if (isOwnLeafPath(this.$path, proposal.path)) {
       if (isBasicCommand(proposal)) {

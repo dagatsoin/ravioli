@@ -7,7 +7,6 @@ import {
   unbox,
   getRoot,
   makePath,
-  isGrandChildPath,
   warn,
 } from '../helpers'
 import {
@@ -123,7 +122,7 @@ export class ObjectInstance<
     command: O & BasicCommand,
     shouldEmitPatch: boolean = false
   ): void => {
-    const childKey = getChildKey(this.$path, command.path)
+    const childKey = getChildKey(thisand.path)
     // Apply command on this object
     if (
       isOwnLeafPath(this.$path, command.path) &&
@@ -164,8 +163,8 @@ export class ObjectInstance<
 
     for (const command of proposal) {
       // The command target a grand children, pass down.
-      /* if (isGrandChildPath(command.path, this.$path)) {
-        const childKey = getChildKey<TYPE>(this.$path, command.path)
+      /* if (isGrandChildPath(this, this.$path)) {
+        const childKey = getChildKey(this, command.path)
         if (!childKey) {
           continue
         }
@@ -192,9 +191,9 @@ export class ObjectInstance<
           let accepted = false
           const snapshot = this.$createNewSnapshot()
 
-          cutDownUpdateOperation(command.value, command.path).forEach(
+          developUpdateOperation(command.value, command.path).forEach(
             subCommand => {
-              const childKey = getChildKey<TYPE>(this.$path, subCommand.path)
+              const childKey = getChildKey<TYPE>(this, subCommand.path)
               // Edge case, the instance has been removed from a previous command and can be undefined.
               const instance: IInstance<any> | undefined = isRoot
                 ? this
@@ -214,7 +213,7 @@ export class ObjectInstance<
                 // The change is valid when the child instance did change
                 if (
                   // Edge case, the target node is the root node
-                  isRoot && didChange(this.$data[getChildKey(this.$path, subCommand.path)!]) ||
+                  isRoot && didChange(this.$data[getChildKey(this, command.path)!]) ||
                   didChange(instance)
                 ) {
                   accepted = true
@@ -238,7 +237,7 @@ export class ObjectInstance<
             isNodeOp: true,
           })
         } else {
-          const childKey = getChildKey<TYPE>(this.$path, command.path)
+          const childKey = getChildKey<TYPE>(this, command.path)
           let instance: IInstance<any> | undefined = this.$data[childKey]
           
           if (instance === undefined) {
@@ -308,7 +307,7 @@ export class ObjectInstance<
       } else if (command.op === Operation.copy) {
         const changes = copy(this, command)
         const isNodeOp = isNode(
-          this.$data[getChildKey(this.$path, command.from)!]
+          this.$data[getChildKey(this, command.from)!]
         )
         const accepted = changes === undefined
         const result = {
@@ -324,7 +323,7 @@ export class ObjectInstance<
           isNodeOp,
         })
       } else if (command.op === Operation.move) {
-        const fromKey = getChildKey(this.$path, command.from)!
+        const fromKey = getChildKey(this, command.from)!
         if (!fromKey) {
           continue
         }
@@ -590,7 +589,7 @@ function isObject(thing: any): thing is object {
   )
 }
 
-export function cutDownUpdateOperation(value: any, opPath: string): Proposal {
+export function developUpdateOperation(value: any, opPath: string): Proposal {
   return isObject(value)
     ? Object.keys(value).map(key => ({
         op: Operation.replace,
@@ -607,7 +606,7 @@ export function cutDownUpdateOperation(value: any, opPath: string): Proposal {
 }
 
 function getObjectKey(model: INodeInstance<any>, op: BasicCommand): string {
-  const index = String(getChildKey(model.$path, op.path))
+  const index = String(getChildKey(model, op.path))
   if (!isValidObjectIndex(model, index, op)) {
     throw new Error(
       `Crafter ${index} is not a property of the object instance.`

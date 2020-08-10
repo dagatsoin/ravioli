@@ -4,7 +4,7 @@ import { isInstance } from './lib/Instance'
 import { isNode } from "./lib/isNode"
 import { FactoryOutput } from './lib/IFactory'
 import { IObservable } from './IObservable'
-import { IContainer } from './IContainer'
+import { IContainer, StepLifeCycle } from './IContainer'
 import { InstanceFromValue } from './InstanceFromValue'
 import { ILeafInstance } from './lib/ILeafInstance'
 import { INodeInstance } from './lib/INodeInstance'
@@ -155,8 +155,8 @@ export function getTargetKey(_path: string): string {
  * @param nodePath
  * @param path 
  */
-export function getChildKey<T = any>(nodePath: string, _path: string): keyof T | undefined{
-  const nodePathDepth = nodePath.split('/').filter(s => !!s.length).length
+export function getChildKey<T = any>(instance: IInstance<any>, _path: string): keyof T | undefined{
+  const nodePathDepth = instance.$path.split('/').filter(s => !!s.length).length
   return _path.split('/').filter(s => !!s.length)[nodePathDepth] as keyof T
 }
 
@@ -181,29 +181,29 @@ export function makePath(...segments: string[]): string {
 
 export function sync<T extends IObservable>(observable: T): T {
   const target = clone(observable)
-  toNode(observable).$$container.addMigrationListener(m => m.forward.forEach(c => toNode(target).$present(c, true)))
+  toNode(observable).$$container.addStepListener(StepLifeCycle.WILL_END, m => m.forward.forEach(c => toNode(target).$present(c, true)))
   return target
 }
 
 /**
  * Return true if the path target a key of a node.
  */
-export function isOwnLeafPath(nodePath: string, _path: string): boolean {
-  return getChildKey(nodePath, _path) === getTargetKey(_path)
+export function isOwnLeafPath(node: INodeInstance<any>, path: string): boolean {
+  return getChildKey(node, path) === getTargetKey(path)
 }
 
 /**
- * Return true if it is the node path
+ * Return true if it is the instance path
  */
-export function isNodePath(nodePath: string, path: string): boolean {
-  return nodePath === path
+export function isInstancePath(instance: IInstance<any>, path: string): boolean {
+  return instance.$path === path
 }
 
 /**
  * Return true id the path target a grand child or further descendant
  */
-export function isGrandChildPath(commandPath: string, nodePath: string) {
-  return !isOwnLeafPath(nodePath, commandPath) && !isNodePath(nodePath, commandPath)
+export function isGrandChildPath(commandPath: string, instance: INodeInstance<any>) {
+  return !isOwnLeafPath(instance, commandPath) && !isInstancePath(instance, commandPath)
 }
 
 export function isChildPath(nodePath: string, _path: string): boolean {
