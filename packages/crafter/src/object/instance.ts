@@ -402,7 +402,7 @@ export class ObjectInstance<
       this.$$container.addUpdatedObservable(this)
       this.$invalidateSnapshot()
     }
-    this.$$container.addMigration(this.$state.migration, this.$$id)
+    this.$$container.addMigration(this.$state.migration, getRoot(this).$id)
   }
 
   /*  private $setValue(value: INPUT): boolean {

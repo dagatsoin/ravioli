@@ -5,6 +5,10 @@ import { toInstance,/*  toLeaf, noop ,*/ getSnapshot, getContext } from '../src/
 // import { Graph } from '../src/Graph'
 import { number, object, string, StepLifeCycle, Migration } from '../src'
 
+beforeEach(function() {
+  (global as any).$$crafterContext.clearContainer()
+})
+
 describe('Data im/mutability', function(){
   const model = object({
     name: string('Fraktar'),
@@ -26,44 +30,73 @@ describe('Data im/mutability', function(){
   })
 })
 
-test('store node migration, not leaf', function() {
-  const player = object({
-    name: string('Fraktar'),
-    level: number(1),
-    stats: object({
-      health: number(1),
-      force: number(1)
+describe('Migration generation', function() {
+  describe('Migration generation:', function() {
+    describe('- when all children value are replaced', function() {
+      test('parent node writes the global mutation in the context', function() {
+        const player = object({
+          name: string('Fraktar'),
+          level: number(1),
+          stats: object({
+            health: number(1),
+            force: number(1)
+          })
+        }).create(undefined, {id: "player"})
+        const context = getContext(toInstance(player))
+        const cb = (migration: Migration) => {
+          context.removeStepListener(StepLifeCycle.WILL_END, cb)
+          expect(migration).toEqual(toInstance(player.stats).$state.migration)
+          expect(migration).toEqual({
+            forward: [
+              {
+                op: 'replace',
+                value: {
+                  force: 1,
+                  health: 10
+                },
+                path: '/player/stats'
+              }
+            ],
+            backward: [
+              {
+                op: 'replace',
+                path: '/player/stats',
+                value: {
+                  force: 1,
+                  health: 1
+                }
+              }
+            ]
+          })
+        }
+        context.addStepListener(StepLifeCycle.WILL_END, cb)
+        context.step(() => player.stats = {
+          health: 10,
+          force: 1
+        })
+      })
     })
-  }).create()
-  const context = getContext(toInstance(player))
-  const cb = (migration: Migration) => {
-    context.removeStepListener(StepLifeCycle.WILL_END, cb)
-    expect(migration).toEqual(toInstance(player.stats).$state.migration)
-  }
-  context.addStepListener(StepLifeCycle.WILL_END, cb)
-  context.step(() => player.stats = {
-    health: 10,
-    force: 1
-  })
-})
-
-test('leaf as marked as stale during node replacement', function() {
-  const player = object({
-    stats: object({
-      health: number(1),
-      force: number(1)
+    describe('- when some children did not changed', function() {
+      test('parent node write the details of the mutation in the context', function() {
+        const player = object({
+          stats: object({
+            health: number(1),
+            force: number(1)
+          })
+        }).create()
+        const context = getContext(toInstance(player))
+        const cb = () => {
+          context.removeStepListener(StepLifeCycle.WILL_END, cb)
+          expect(toInstance(toInstance(player.stats).$data.force).$state.didChange).toBeFalsy()
+          expect(toInstance(toInstance(player.stats).$data.health).$state.didChange).toBeTruthy()
+        }
+        context.addStepListener(StepLifeCycle.WILL_END, cb)
+        context.step(() => player.stats = {
+          health: 10,
+          force: 1
+        })
+      })
     })
-  }).create()
-  const context = getContext(toInstance(player))
-  const cb = () => {
-    context.removeStepListener(StepLifeCycle.WILL_END, cb)
-    expect(toInstance(toInstance(player.stats).$data.force).$state.didChange).toBeFalsy()
-    expect(toInstance(toInstance(player.stats).$data.health).$state.didChange).toBeTruthy()
-  }
-  context.addStepListener(StepLifeCycle.WILL_END, cb)
-  context.step(() => player.stats = {
-    health: 10,
-    force: 1
   })
 })
 

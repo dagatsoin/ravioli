@@ -397,8 +397,8 @@ export class CrafterContainer implements IContainer {
     this.stepListeners[lifecycle].splice(this.stepListeners[lifecycle].indexOf(listener), 1)
   }
 
-  public addMigration(migration: Migration, obsservableId: string): void {
-    addIdToMigrationPaths(migration, obsservableId)
+  public addMigration(migration: Migration, rootId: string): void {
+    addIdToMigrationPaths(migration, rootId)
     this.state.migration = mergeMigrations(migration, this.state.migration)
   }
 
