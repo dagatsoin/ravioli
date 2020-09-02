@@ -21,7 +21,7 @@ export class Autorun extends Observer {
   }
 
   public dispose = (): void => {
-    this.isStale = true
+    this._isStale = true
     // todo extract to super()
     // Maybe the autorun was running
     this.context.stopSpyObserver(this.id)
@@ -29,11 +29,11 @@ export class Autorun extends Observer {
   }
 
   public notifyChanges(patch: Patch<any>, updatedObservablePaths: string[]) {
-    this.isStale = patch.some(command => isDependent(this, command, updatedObservablePaths))
+    this._isStale = patch.some(command => isDependent(this, command, updatedObservablePaths))
   }
 
   public runAndUpdateDeps(): void {
-    if (this.isStale) {
+    if (this._isStale) {
       let error
       this.context.startSpyObserver(this)
       try {
@@ -51,7 +51,7 @@ export class Autorun extends Observer {
       } finally {
         this.dependencies = this.context.getCurrentSpyedObserverDeps(this.id)
         this.context.stopSpyObserver(this.id)
-        this.isStale = false
+        this._isStale = false
       }
       if (error) {
         throw error

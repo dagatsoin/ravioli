@@ -1,5 +1,6 @@
 import { Command, Operation } from "./type"
 import { IObserver } from "../../observer/IObserver"
+import { makePath } from '../../helpers'
 
 export function isBasicCommand<C extends Command>(proposal: C): boolean {
   return (
@@ -142,13 +143,13 @@ function getObjectPaths(object: {}, root: string = '/'): string[] {
  * @param observer 
  * @param param1 
  */
-export function isDependent(observer: IObserver, {op, value}: Command, updatedObservablePaths: string[]) {
+export function isDependent(observer: IObserver, {path, op, value}: Command, updatedObservablePaths: string[]) {
   return (
     /* 1 */
     (
       (typeof value === 'object' || value instanceof Map) &&
       isNodeUpdateOperation(op) &&    
-      hasPath(observer, getObjectPaths(value))
+      hasPath(observer, getObjectPaths(value).map(p => makePath(path, p)))
     ) ||
     /* 2 */
     (

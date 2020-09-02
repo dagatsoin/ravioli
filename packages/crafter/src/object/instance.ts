@@ -34,7 +34,7 @@ import {
   createAddMigration,
 } from '../lib/mutators'
 import { NodeInstance } from '../lib/NodeInstance'
-import { setNonEnumerable } from '../utils/utils'
+import { setNonEnumerable, mergeMigrations } from '../utils/utils'
 
 import { ObjectFactoryInput, ObjectFactoryOutput } from './factory'
 import { Props } from './Props'
@@ -187,48 +187,79 @@ export class ObjectInstance<
  */
 
         if (isNodeReplacement) {
-          // Track if children has accepted the whole proposal.
-          let accepted = false
           const snapshot = this.$createNewSnapshot()
 
-          developUpdateOperation(command.value, command.path).forEach(
-            subCommand => {
-              const childKey = getChildKey<TYPE>(this, subCommand.path)
-              // Edge case, the instance has been removed from a previous command and can be undefined.
-              const instance: IInstance<any> | undefined = isRoot
-                ? this
-                : this.$data[childKey]
+          // Split down the big command in sub commands, one by child.
+          const subCommands = splitUpdateOperation(command.value, command.path)
+          
+          // Track the change for each child
+          // If all children changed we will report the shortand mutation (the command)
+          // If some children did not change we will report the detailed mutation for each chilren
+          const childrenMigrations: (Migration | undefined)[] = []
+          
+          for(const subCommand of subCommands) {
+            const childKey = getChildKey<TYPE>(this, subCommand.path)
 
-              // Present a replace command to each child
-              // If the child does not exists (maybe removed by a previous command, recreate the child)
-              if (instance === undefined) {
-                if (childKey) {
-                  add(this, command.value, childKey as string)
-                  accepted = true
-                } else {
-                  warn('[CRAFTER] Unknown child key', childKey)
-                }
-              } else {
-                instance.$present([subCommand], false) // don't add migration for the sub commands
-                // The change is valid when the child instance did change
-                if (
-                  // Edge case, the target node is the root node
-                  isRoot && didChange(this.$data[getChildKey(this, command.path)!]) ||
-                  didChange(instance)
-                ) {
-                  accepted = true
-                }
+            if (!childKey) {
+              warn('[CRAFTER] Unknown child key', childKey)
+              continue
+            }
+            // Edge case, the instance has been removed from a previous command and can be undefined.
+            const instance: IInstance<any> | undefined = isRoot
+              ? this
+              : this.$data[childKey]
+
+            // Present a replace command to each child
+            // If the child does not exists (maybe removed by a previous command, recreate the child)
+            if (instance === undefined) {
+              add(this, subCommand.value, childKey as string)
+              childrenMigrations.push(createAddMigration({
+                op: Operation.add,
+                path: subCommand.path,
+                value: subCommand.value
+              }))
+            } else {
+              instance.$present([subCommand], false) // don't report migration to the container for the sub commands
+              // The change is valid when the child instance did change
+              childrenMigrations.push(
+                instanceDidChange(instance)
+                  ? instance.$state.migration
+                  : undefined
+              )
+
+              /* // Edge case, the target node is the root node
+              const targetKey = getChildKey(this, command.path)
+              if (isRoot && (targetKey && didChange(this.$data[targetKey]))) {
+                accepted = true
+              } */
+            }
+          }
+          
+          // Check if there is some change
+          const didChange = childrenMigrations.some(migration => migration !== undefined)
+          // Check if all children has changed
+          const didAllChildrenChange = childrenMigrations.every(migration => migration !== undefined)
+          // Merge the child migration if needed
+          let migration: Migration = {forward: [], backward: []}
+
+          // All children has changed, resume the operation with the initial command
+          if (didAllChildrenChange) {
+            migration = createReplaceMigration(command, {
+              replaced: snapshot,
+            })
+          }
+          // Some children have not changed, write a detailed migration
+          else {
+            for(const childMigration of childrenMigrations) {
+              if (childMigration !== undefined) {
+                migration = mergeMigrations(childMigration, migration)
               }
             }
-          )
+          }
 
           const result = {
-            accepted,
-            migration: addMigration && accepted
-              ? createReplaceMigration(command, {
-                replaced: snapshot,
-              })
-              : undefined
+            accepted: didChange,
+            migration
           }
 
           proposalResult.push({
@@ -349,8 +380,9 @@ export class ObjectInstance<
             during a migration command. The transaction is cancelled and the model is reset to its previous value.`)
       }
     }
-    const hasChanged = proposalResult.some(({result: {accepted}}) => accepted)
-    this.$updateState(proposalResult, hasChanged)
+    // Some changes occured during proposal presentation
+    const didChange = proposalResult.some(({result: {accepted}}) => accepted)
+    this.$updateState(proposalResult, didChange)
   }
 
   public $createChildInstance<I, K extends keyof PROPS>(
@@ -378,9 +410,9 @@ export class ObjectInstance<
     }) as any
   }
 
-  private $updateState(proposalResult: ProposalResult, hasChanged: boolean) {
+  private $updateState(proposalResult: ProposalResult, didChange: boolean) {
     this.$state = {
-      didChange: hasChanged,
+      didChange,
       migration: toMigration(proposalResult)
     }
     // The node is stale only when :
@@ -589,7 +621,7 @@ function isObject(thing: any): thing is object {
   )
 }
 
-export function developUpdateOperation(value: any, opPath: string): Proposal {
+export function splitUpdateOperation(value: any, opPath: string): Proposal {
   return isObject(value)
     ? Object.keys(value).map(key => ({
         op: Operation.replace,
@@ -660,7 +692,7 @@ function getId({
   }
 }
 
-function didChange(instance: IInstance<any>) {
+function instanceDidChange(instance: IInstance<any>) {
   return !!instance.$state.didChange
 }
 

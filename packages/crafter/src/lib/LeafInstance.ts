@@ -90,7 +90,7 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
   private updateState(command: ReplaceCommand, didChange: boolean, addMigration: boolean){
     this.$state = {
       didChange,
-      migration: addMigration ? mergeMigrations(createReplaceMigration(command, {replaced: this.$snapshot}), this.$state.migration) : {forward: [], backward: []}
+      migration: didChange ? createReplaceMigration(command, {replaced: this.$snapshot}) : {forward: [], backward: []}
     }  
 
     // The data has changed, this instance is now stale

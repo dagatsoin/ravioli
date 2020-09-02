@@ -101,8 +101,7 @@ export function applySnapshot<T>(entity: T, snapshot: T, willReact = true): void
   if(!instance.$type.isValidSnapshot(snapshot)) {
     throw new Error('[CRAFTER] Incompatible snapshot')
   }
-  instance.$present([{op: Operation.replace, path: instance.$path, value: snapshot}], willReact)
-  setValue<T>(entity, snapshot, true)
+  instance.$$container.step(()=>instance.$present([{op: Operation.replace, path: instance.$path, value: snapshot}], willReact))
 }
 
 /**

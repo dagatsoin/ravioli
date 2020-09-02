@@ -11,10 +11,14 @@ export abstract class Observer implements IObserver {
   public dependencies: string[] = [];
   public isObserver: true = true
   protected context: IContainer
-  protected isStale = true
+  protected _isStale = true
   private _id: string  
   
   public abstract type: ObserverType;
+
+  public get isStale(): boolean {
+    return this._isStale
+  }
 
   constructor({
     id,
@@ -38,8 +42,8 @@ export abstract class Observer implements IObserver {
   }
 
   public notifyChanges(patch: Patch<any>, updatedObservablePaths: string[]) {
-    this.isStale = patch.some(command => isDependent(this, command, updatedObservablePaths))
-    if (this.isStale) {
+    this._isStale = patch.some(command => isDependent(this, command, updatedObservablePaths))
+    if (this._isStale) {
       this.runAndUpdateDeps()
     }
   }

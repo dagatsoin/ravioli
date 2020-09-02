@@ -1,6 +1,6 @@
 // import { getGlobal } from '../src/utils/utils'
 // import { observable } from '../src/lib/observable'
-import { toInstance,/*  toLeaf, noop ,*/ getSnapshot, getContext } from '../src/helpers'
+import { toInstance,/*  toLeaf, noop ,*/ getSnapshot, getContext, applySnapshot } from '../src/helpers'
 // import { autorun, string, Reaction } from '../src'
 // import { Graph } from '../src/Graph'
 import { number, object, string, StepLifeCycle, Migration, autorun } from '../src'
@@ -50,7 +50,7 @@ describe('Migration generation', function() {
             {
               op: 'replace',
               value: {
-                force: 1,
+                force: 2,
                 health: 10
               },
               path: '/player/stats'
@@ -71,23 +71,39 @@ describe('Migration generation', function() {
       context.addStepListener(StepLifeCycle.WILL_END, cb)
       context.step(() => player.stats = {
         health: 10,
-        force: 1
+        force: 2
       })
     })
   })
   describe('- Some children did not changed', function() {
-    test('parent node write the details of the mutation in the context', function() {
+    test('parent node writes the details of the mutation in the context', function() {
       const player = object({
         stats: object({
           health: number(1),
           force: number(1)
         })
-      }).create()
+      }).create(undefined, {id: "player2"})
       const context = getContext(toInstance(player))
       const cb = () => {
         context.removeStepListener(StepLifeCycle.WILL_END, cb)
         expect(toInstance(toInstance(player.stats).$data.force).$state.didChange).toBeFalsy()
         expect(toInstance(toInstance(player.stats).$data.health).$state.didChange).toBeTruthy()
+        expect(toInstance(player).$$container.snapshot.migration).toEqual({
+          forward: [
+            {
+              op: 'replace',
+              value: 10,
+              path: '/player2/stats/health'
+            }
+          ],
+          backward: [
+            {
+              op: 'replace',
+              value: 1,
+              path: '/player2/stats/health'
+            }
+          ]
+        })
       }
       context.addStepListener(StepLifeCycle.WILL_END, cb)
       context.step(() => player.stats = {
@@ -97,7 +113,7 @@ describe('Migration generation', function() {
     })
   })
 })
-
+ 
 describe('Reactivity', function() {
   const model = object({
     name: string('Fraktar'),
@@ -109,17 +125,46 @@ describe('Reactivity', function() {
   }).create()
   const context = getContext(toInstance(model))
   const initialSnapshot = getSnapshot(model)
-  context.step(() => model.stats.force++)
 
   // autorun list to dispose at the end
   const disposers: Array<()=>void> = []
 
-  afterAll(function() {
+  afterEach(function() {
     disposers.forEach(d => d())
+    applySnapshot(model, initialSnapshot)
   })
 
   describe('Node replacement', function() {
-    test('Replacing the whole object will trigger an observer tracking an updated leaf value.', function() {
+    test('- triggers observer tracking a leaf with changed value.', function() {
+      let run = 0
+      disposers.push(autorun(() => {
+        // Observe the player
+        model.stats.health
+        run++
+      }))
+      const cb = () => {
+        context.removeStepListener(StepLifeCycle.WILL_PROPAGATE, cb)
+      }
+      context.addStepListener(StepLifeCycle.WILL_PROPAGATE, cb)
+      context.step(() => model.stats = { force: 1, health: 10})
+      expect(run).toEqual(2)
+    })
+    test('- does not trigger observer tracking a leaf with unchanged value.', function() {
+      let run = 0
+      autorun(() => {
+        // Observe the player
+        model.stats.health
+        run++
+      })
+      context.step(() => model.stats = { force: 2, health: 1})
+      expect(run).toEqual(1)
+    })
+    test.todo('- triggers an observer tracking the node itself if its value changed.')
+    test.todo('- does not trigger an observer tracking the node itself if its value did not changed.')
+  })
+   describe('Leaf replacement', function() {
+    test.todo('- does not trigger an observable tracking the parent node.')
+    test('- triggers observer if the value changed.', function() {
       let run = 0
       autorun(() => {
         // Observe the player
@@ -129,11 +174,16 @@ describe('Reactivity', function() {
       context.step(() => model.stats = { force: 1, health: 10})
       expect(run).toEqual(2)
     })
-    test.todo('Replacing the whole object will trigger an observer tracking the node itself.')
-    test.todo('Replacing the whole object won\'t trigger an observer tracking an untouched value.')
-  })
-  describe('Leaf replacement', function() {
-    test.todo('Replacing a leaf won\'t trigger an observable tracking the parent.')
+    test('- does not trigger observer if the value did not change.', function() {
+      let run = 0
+      autorun(() => {
+        // Observe the player
+        model.stats.health
+        run++
+      })
+      context.step(() => model.stats = { force: 2, health: 1})
+      expect(run).toEqual(1)
+    })
   })
 })
 

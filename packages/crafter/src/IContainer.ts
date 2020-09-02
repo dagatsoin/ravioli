@@ -85,6 +85,9 @@ export type ContainerState = {
   // Once the step is complete, the manager will
   // update the derivations then the reactions which depends on them
   updatedObservables: IInstance[]
+
+  // The list of stale observers for the current step, in topological order
+  staleReactions: IObserver[]
 }
 
 export type Proposal = BasicCommand[]

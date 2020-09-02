@@ -10,6 +10,7 @@ import { IComputed } from "./observer/IDerivation"
 import { isNode } from './lib/isNode'
 import { isObservable } from './lib/observable'
 import { mergeMigrations } from './utils/utils'
+import { IInstance } from './lib'
 
 function getInitState(): ContainerState {
   return {
@@ -28,6 +29,7 @@ function getInitState(): ContainerState {
       nodes: [],
       edges: [],
     },
+    staleReactions: [],
     updatedObservablesGraph: {
       nodes: [],
       edges: [],
@@ -54,6 +56,7 @@ export class CrafterContainer implements IContainer {
         nodes: [...this.state.dependencyGraph.nodes],
         edges: [...this.state.dependencyGraph.edges],
       },
+      staleReactions: [...this.state.staleReactions],
       updatedObservablesGraph: {
         nodes: [...this.state.updatedObservablesGraph.nodes],
         edges: [...this.state.updatedObservablesGraph.edges],
@@ -214,10 +217,6 @@ export class CrafterContainer implements IContainer {
     // It is time to notify the derivation that something has changed.
     
     this.propagateChange()
-            
-    this.onStep(StepLifeCycle.WILL_END)
-
-    this.clean()
 
     // All computed values affected by the last observables mutation are now flagged as stale.
     // Let's run the reaction which uses those computed values.
@@ -227,6 +226,11 @@ export class CrafterContainer implements IContainer {
 
     // CLEANING PHASE
     // Reset the state to get ready for a new step
+    
+    this.onStep(StepLifeCycle.WILL_END)
+
+    this.clean()
+
     return result
   }
 
@@ -277,7 +281,7 @@ export class CrafterContainer implements IContainer {
   }
 
   /**
-   * Add an updated observable reference to the liste of updated observables
+   * Add an updated observable reference to the list of updated observables
    * during the current transaction.
    */
   public addUpdatedObservable(observable: IObservable): void {
@@ -592,23 +596,23 @@ export class CrafterContainer implements IContainer {
   /**
    * Propagate the changes of the observables into the graph and update all derivations
    * when necessary to reach a new stable state.
+   * This will update the State.staleReactions.
    * The reactions are not run at this point.
-   * The propagation is done with a topological order. That means that a derivation will
-   * be tested as stale only of all its descendants are ready.
-   * 1- get the topological order from the updated observables to the reaction
-   * 2- run the derivation if necessary
+   * The propagation is done with a topological order. This will ensure that a derivation will
+   * be stale only of one of its children is stale.
    */
   private propagateChange() {
-    topologicalSort(this.state.dependencyGraph)
-    .map(id => getGraphNode(id, this.state.dependencyGraph))
-    .filter(isObserver)
-    .forEach(observer => {
-      // Notify the observer. It will re run if it becomes stale.
-      // If it generates an observable, the observable changes will be added
-      // to the current context changes (updatedObservables), allowing the test of the next observer.
-      // We rely to the oplog to gather the stack of changes.
-      observer.notifyChanges(this.state.migration.forward, this.state.updatedObservables.map(({$path}) => $path))
+    const observers = topologicalSort(this.state.dependencyGraph)
+      .map(id => getGraphNode(id, this.state.dependencyGraph))
+      .filter(isObserver)
+
+    observers.forEach(observer => {
+      // Notify the observer that something changes.
+      // If the osbserver is concerned by the change, it becomes stale.
+      observer.notifyChanges(this.state.migration.forward, this.state.updatedObservables.map(o=> makePath(getRoot(o as IInstance<any>).$id, o.$path)))
     })
+
+    this.state.staleReactions = observers.filter(({isStale}) => isStale)
   }
 
   /**
@@ -623,17 +627,16 @@ export class CrafterContainer implements IContainer {
     
     // Delete updated observable
     this.state.updatedObservables = []
+    
+    // Reset list of stale reactions
+    this.state.staleReactions = []
   }
 
   /**
    * Recompute observers and update dependency graph if needed
    */
   private runStaleReactions(): void {
-    this.state.updatedObservables
-      .map(({$id}) => getAllPathsTo({targetId: $id, graph: this.state.dependencyGraph}))
-      .flatMap(paths => paths.map(path => getGraphNode(path.pop()!, this.state.dependencyGraph)))
-      .filter(isObserver)
-      .filter(isReaction)
+    this.state.staleReactions
       .forEach(reaction => {
         // Run the stale reaction
         // Meanwhile, compare each child derivation poping out
