@@ -3,7 +3,7 @@
 import { toInstance,/*  toLeaf, noop ,*/ getSnapshot, getContext } from '../src/helpers'
 // import { autorun, string, Reaction } from '../src'
 // import { Graph } from '../src/Graph'
-import { number, object, string, StepLifeCycle, Migration } from '../src'
+import { number, object, string, StepLifeCycle, Migration, autorun } from '../src'
 
 beforeEach(function() {
   (global as any).$$crafterContext.clearContainer()
@@ -31,78 +31,111 @@ describe('Data im/mutability', function(){
 })
 
 describe('Migration generation', function() {
-  describe('Migration generation:', function() {
-    describe('- when all children value are replaced', function() {
-      test('parent node writes the global mutation in the context', function() {
-        const player = object({
-          name: string('Fraktar'),
-          level: number(1),
-          stats: object({
-            health: number(1),
-            force: number(1)
-          })
-        }).create(undefined, {id: "player"})
-        const context = getContext(toInstance(player))
-        const cb = (migration: Migration) => {
-          context.removeStepListener(StepLifeCycle.WILL_END, cb)
-          expect(migration).toEqual(toInstance(player.stats).$state.migration)
-          expect(migration).toEqual({
-            forward: [
-              {
-                op: 'replace',
-                value: {
-                  force: 1,
-                  health: 10
-                },
-                path: '/player/stats'
-              }
-            ],
-            backward: [
-              {
-                op: 'replace',
-                path: '/player/stats',
-                value: {
-                  force: 1,
-                  health: 1
-                }
-              }
-            ]
-          })
-        }
-        context.addStepListener(StepLifeCycle.WILL_END, cb)
-        context.step(() => player.stats = {
-          health: 10,
-          force: 1
+  describe('- All children value are replaced', function() {
+    test('parent node writes the global mutation in the context', function() {
+      const player = object({
+        name: string('Fraktar'),
+        level: number(1),
+        stats: object({
+          health: number(1),
+          force: number(1)
         })
+      }).create(undefined, {id: "player"})
+      const context = getContext(toInstance(player))
+      const cb = (migration: Migration) => {
+        context.removeStepListener(StepLifeCycle.WILL_END, cb)
+        expect(migration).toEqual(toInstance(player.stats).$state.migration)
+        expect(migration).toEqual({
+          forward: [
+            {
+              op: 'replace',
+              value: {
+                force: 1,
+                health: 10
+              },
+              path: '/player/stats'
+            }
+          ],
+          backward: [
+            {
+              op: 'replace',
+              path: '/player/stats',
+              value: {
+                force: 1,
+                health: 1
+              }
+            }
+          ]
+        })
+      }
+      context.addStepListener(StepLifeCycle.WILL_END, cb)
+      context.step(() => player.stats = {
+        health: 10,
+        force: 1
       })
     })
-    describe('- when some children did not changed', function() {
-      test('parent node write the details of the mutation in the context', function() {
-        const player = object({
-          stats: object({
-            health: number(1),
-            force: number(1)
-          })
-        }).create()
-        const context = getContext(toInstance(player))
-        const cb = () => {
-          context.removeStepListener(StepLifeCycle.WILL_END, cb)
-          expect(toInstance(toInstance(player.stats).$data.force).$state.didChange).toBeFalsy()
-          expect(toInstance(toInstance(player.stats).$data.health).$state.didChange).toBeTruthy()
-        }
-        context.addStepListener(StepLifeCycle.WILL_END, cb)
-        context.step(() => player.stats = {
-          health: 10,
-          force: 1
+  })
+  describe('- Some children did not changed', function() {
+    test('parent node write the details of the mutation in the context', function() {
+      const player = object({
+        stats: object({
+          health: number(1),
+          force: number(1)
         })
+      }).create()
+      const context = getContext(toInstance(player))
+      const cb = () => {
+        context.removeStepListener(StepLifeCycle.WILL_END, cb)
+        expect(toInstance(toInstance(player.stats).$data.force).$state.didChange).toBeFalsy()
+        expect(toInstance(toInstance(player.stats).$data.health).$state.didChange).toBeTruthy()
+      }
+      context.addStepListener(StepLifeCycle.WILL_END, cb)
+      context.step(() => player.stats = {
+        health: 10,
+        force: 1
       })
     })
   })
 })
 
-    // The node is stale only when :
-    // - its shape has been modified
-    // - a command targeted its value and made some changes
+describe('Reactivity', function() {
+  const model = object({
+    name: string('Fraktar'),
+    level: number(1),
+    stats: object({
+      force: number(1),
+      health: number(1)
+    })
+  }).create()
+  const context = getContext(toInstance(model))
+  const initialSnapshot = getSnapshot(model)
+  context.step(() => model.stats.force++)
+
+  // autorun list to dispose at the end
+  const disposers: Array<()=>void> = []
+
+  afterAll(function() {
+    disposers.forEach(d => d())
+  })
+
+  describe('Node replacement', function() {
+    test('Replacing the whole object will trigger an observer tracking an updated leaf value.', function() {
+      let run = 0
+      autorun(() => {
+        // Observe the player
+        model.stats.health
+        run++
+      })
+      context.step(() => model.stats = { force: 1, health: 10})
+      expect(run).toEqual(2)
+    })
+    test.todo('Replacing the whole object will trigger an observer tracking the node itself.')
+    test.todo('Replacing the whole object won\'t trigger an observer tracking an untouched value.')
+  })
+  describe('Leaf replacement', function() {
+    test.todo('Replacing a leaf won\'t trigger an observable tracking the parent.')
+  })
+})
 
 /*
 test("Crafter tracks leaf accesses", function() {
