@@ -1,3 +1,44 @@
+import { StepLifeCycle, object, string, number, getContext, toInstance } from '../src'
+
+describe('life cycle', function() {
+  const model = object({
+    name: string(),
+    age: number()
+  }).create(undefined, {id: 'model'})
+
+  const context = getContext(toInstance(model))
+  const initialContext = context.snapshot
+
+  function cbSTART() {
+    context.removeStepListener(StepLifeCycle.START, cbSTART)
+    test("State should be clean", function() {
+      expect(context.snapshot).toEqual(context.snapshot)
+    })
+  }
+
+  // Create the hook to use during the step for testing purpose
+  context.addStepListener(StepLifeCycle.START, cbSTART)
+
+  describe('START', function() {
+    context.step(() => model.age++)
+  })
+  describe('DID_UPDATE', function() {
+
+  })
+  describe('WILL_PROPAGATE', function() {
+
+  })
+  describe('WILL_END', function() {
+
+  })
+  describe('WILL_ROLL_BACK', function() {
+
+  })
+  describe('DID_ROLL_BACK', function() {
+
+  })
+})
+
 /* import { array } from '../src/array/factory'
 import { container } from '../src/lib/container/factory'
 import { map } from '../src/map/factory'
