@@ -42,10 +42,10 @@ describe('Migration generation', function() {
         })
       }).create(undefined, {id: "player"})
       const context = getContext(toInstance(player))
-      const cb = (migration: Migration) => {
+      const cb = () => {
         context.removeStepListener(StepLifeCycle.WILL_END, cb)
-        expect(migration).toEqual(toInstance(player.stats).$state.migration)
-        expect(migration).toEqual({
+        expect(context.snapshot.migration).toEqual(toInstance(player.stats).$state.migration)
+        expect(context.snapshot.migration).toEqual({
           forward: [
             {
               op: 'replace',

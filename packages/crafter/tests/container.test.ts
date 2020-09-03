@@ -1,42 +1,98 @@
-import { StepLifeCycle, object, string, number, getContext, toInstance } from '../src'
+import { StepLifeCycle, object, string, number, getContext, toInstance, Migration, autorun, isObserver, IContainer, applySnapshot } from '../src'
+import { isObservable } from '../src/lib/observable'
 
 describe('life cycle', function() {
+  const snapshot = {
+    name: "Fraktar",
+    age: 1
+  }
   const model = object({
     name: string(),
     age: number()
-  }).create(undefined, {id: 'model'})
+  }).create(snapshot, {id: 'model'})
+
+  const dispose = autorun(() => model.age)
 
   const context = getContext(toInstance(model))
   const initialContext = context.snapshot
 
-  function cbSTART() {
-    context.removeStepListener(StepLifeCycle.START, cbSTART)
+  beforeEach(function(){
+    applySnapshot(model, snapshot)
+  })
+
+  afterAll(function() {
+    dispose()
+  })
+
+  describe('START', function(){
     test("State should be clean", function() {
-      expect(context.snapshot).toEqual(context.snapshot)
+      function cb_START() {
+        context.removeStepListener(StepLifeCycle.START, cb_START)
+        expect(context.snapshot).toEqual(initialContext)
+      }
+      context.addStepListener(StepLifeCycle.START, cb_START)
+      context.step(() => model.age++)
     })
-  }
-
-  // Create the hook to use during the step for testing purpose
-  context.addStepListener(StepLifeCycle.START, cbSTART)
-
-  describe('START', function() {
-    context.step(() => model.age++)
+    test("Context should have one alive observer", function() {
+      function cb_START() {
+        context.removeStepListener(StepLifeCycle.START, cb_START)
+        expect(context.snapshot.activeGraph.nodes.filter(isObserver).length).toBe(1)
+      }
+      context.addStepListener(StepLifeCycle.START, cb_START)
+      context.step(() => model.age++)
+    })
+    test("Context should have 1 observed observable", function() {
+      function cb_START() {
+        context.removeStepListener(StepLifeCycle.START, cb_START)
+        expect(context.snapshot.activeGraph.nodes.filter(isObservable).length).toBe(1)
+      }
+      context.addStepListener(StepLifeCycle.START, cb_START)
+      context.step(() => model.age++)
+    })
   })
-  describe('DID_UPDATE', function() {
 
-  })
-  describe('WILL_PROPAGATE', function() {
+  describe('DID_UPDATE', function(){
+    test("Context should have 1 updated observable", function() {
+      function cb_DID_UPDATE() {
+        context.removeStepListener(StepLifeCycle.DID_UPDATE, cb_DID_UPDATE)
+        expect(context.snapshot.updatedObservables[0]).toBe(toInstance(model).$data.age)
+      }
+      context.addStepListener(StepLifeCycle.DID_UPDATE, cb_DID_UPDATE)
+      context.step(() => model.age++)
+    })
 
+    test("Context should have a migration", function() {
+      function cb_DID_UPDATE() {
+        context.removeStepListener(StepLifeCycle.DID_UPDATE, cb_DID_UPDATE)
+        expect(context.snapshot.migration).toEqual({
+          forward:[{
+            op: "replace",
+            path: "/model/age",
+            value: 2
+          }],
+          backward:[{
+            op: "replace",
+            path: "/model/age",
+            value: 1
+          }]
+        })
+      }
+      context.addStepListener(StepLifeCycle.DID_UPDATE, cb_DID_UPDATE)
+      context.step(() => model.age++)
+    })
   })
-  describe('WILL_END', function() {
 
+  describe('DID_PROPAGATE', function(){
+    test("Context should have one stale observer", function() {
+      function cb_DID_PROPAGATE() {
+        context.removeStepListener(StepLifeCycle.DID_PROPAGATE, cb_DID_PROPAGATE)
+        expect(context.snapshot.activeGraph.nodes.filter(isObserver)[0].isStale).toBeTruthy()
+      }
+      context.addStepListener(StepLifeCycle.DID_PROPAGATE, cb_DID_PROPAGATE)
+      context.step(() => model.age++)
+    })
   })
-  describe('WILL_ROLL_BACK', function() {
-
-  })
-  describe('DID_ROLL_BACK', function() {
-
-  })
+    
 })
 
 /* import { array } from '../src/array/factory'

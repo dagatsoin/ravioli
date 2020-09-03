@@ -25,7 +25,7 @@ function getInitState(): ContainerState {
     isComputingNextState: false,
     activeDerivations: new Map(),
  //   rootTransactionId: undefined,
-    dependencyGraph: {
+    activeGraph: {
       nodes: [],
       edges: [],
     },
@@ -52,9 +52,9 @@ export class CrafterContainer implements IContainer {
       activeDerivations: this.state.activeDerivations,
       isComputingNextState: this.state.isComputingNextState,
   //    rootTransactionId: this.state.rootTransactionId,
-      dependencyGraph: {
-        nodes: [...this.state.dependencyGraph.nodes],
-        edges: [...this.state.dependencyGraph.edges],
+      activeGraph: {
+        nodes: [...this.state.activeGraph.nodes],
+        edges: [...this.state.activeGraph.edges],
       },
       staleReactions: [...this.state.staleReactions],
       updatedObservablesGraph: {
@@ -70,6 +70,7 @@ export class CrafterContainer implements IContainer {
     [StepLifeCycle.START]: [],
     [StepLifeCycle.DID_UPDATE]: [],
     [StepLifeCycle.WILL_PROPAGATE]: [],
+    [StepLifeCycle.DID_PROPAGATE]: [],
     [StepLifeCycle.WILL_END]: [],
     [StepLifeCycle.WILL_ROLL_BACK]: [],
     [StepLifeCycle.DID_ROLL_BACK]: [],
@@ -217,7 +218,7 @@ export class CrafterContainer implements IContainer {
     // It is time to notify the derivation that something has changed.
     
     this.propagateChange()
-
+    this.onStep(StepLifeCycle.DID_PROPAGATE)
     // All computed values affected by the last observables mutation are now flagged as stale.
     // Let's run the reaction which uses those computed values.
     this.runStaleReactions()
@@ -389,7 +390,7 @@ export class CrafterContainer implements IContainer {
    * Remove an observer and its dependencies from the state
    */
   public onObserverError(observer: IObserver): void {
-    removeObserver({observer, dependencyGraph: this.state.dependencyGraph})
+    removeObserver({observer, dependencyGraph: this.state.activeGraph})
   }
 
   
@@ -413,7 +414,7 @@ export class CrafterContainer implements IContainer {
    * @param source 
    */
   private removeParentDependency(targetId: string, source: IObservable) {
-    const graph = this.state.dependencyGraph
+    const graph = this.state.activeGraph
 
 
     const parentEdge = {
@@ -442,7 +443,7 @@ export class CrafterContainer implements IContainer {
    */
   private addDependency(targetId: string, source: IObservable | IComputed<any>): void {
     // Add to the graph
-    const graph = this.state.dependencyGraph
+    const graph = this.state.activeGraph
     const sourceId = isDerivation(source)
       ? source.id
       : source.$id
@@ -476,7 +477,7 @@ export class CrafterContainer implements IContainer {
 
   private onStep(step: StepLifeCycle) {
     for (const cb of this.stepListeners[step]) {
-      cb(this.state.migration)
+      cb(this)
     }
   }
 
@@ -492,19 +493,19 @@ export class CrafterContainer implements IContainer {
    */
   private registerObserver(observer: IObserver): void {
     // Node is already registered, quit.
-    if (this.state.dependencyGraph.nodes.includes(observer)) {
+    if (this.state.activeGraph.nodes.includes(observer)) {
       return
     }
     // The current spied is empty. This is because we are registring
     // the root reaction. Do not add edge, but add the node.
     const target = this.getCurrentSpiedObserverId()?.id
     if (target) {
-      this.state.dependencyGraph.edges.push({
+      this.state.activeGraph.edges.push({
         target,
         source: observer.id
       })
     }
-    this.state.dependencyGraph.nodes.push(observer)
+    this.state.activeGraph.nodes.push(observer)
   }
 
   /**
@@ -515,7 +516,7 @@ export class CrafterContainer implements IContainer {
   private isIndirectTarget(target: IObserver, obs: IObservable) {
     return getAllPathsTo({
       targetId: target.id,
-      graph: this.state.dependencyGraph
+      graph: this.state.activeGraph
     }) 
     .some(path => {
       const obsIndex = path.indexOf(obs.$id)
@@ -602,8 +603,8 @@ export class CrafterContainer implements IContainer {
    * be stale only of one of its children is stale.
    */
   private propagateChange() {
-    const observers = topologicalSort(this.state.dependencyGraph)
-      .map(id => getGraphNode(id, this.state.dependencyGraph))
+    const observers = topologicalSort(this.state.activeGraph)
+      .map(id => getGraphNode(id, this.state.activeGraph))
       .filter(isObserver)
 
     observers.forEach(observer => {
@@ -776,7 +777,7 @@ function extractNodeId(edge: Edge): [string, string] {
 function onDisposeObserver(observer: IObserver, state: ContainerState): void {
   // Get all the observers dependent of the caller.
   // An observer wich is also a dependeny on other top level observer will stay untouched.
-  const graph = state.dependencyGraph
+  const graph = state.activeGraph
   const tree = getDependencyTree({
     targetId: observer.id,
     graph,

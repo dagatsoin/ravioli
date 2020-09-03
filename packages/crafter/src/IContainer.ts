@@ -5,7 +5,7 @@ import { IObservable as IInstance, IObservable } from "./IObservable"
 import { Command, BasicCommand, Migration } from "./lib/JSONPatch"
 import { IComputed } from "./observer/IDerivation"
 
-export type StepListener = (migration: Migration) => void
+export type StepListener = (context: IContainer) => void
 
 export enum StepLifeCycle {
   START = 'START',
@@ -13,7 +13,8 @@ export enum StepLifeCycle {
   WILL_ROLL_BACK = 'WILL_ROLL_BACK',
   DID_ROLL_BACK = 'DID_ROLL_BACK',
   WILL_PROPAGATE = 'WILL_PROPAGATE',
-  WILL_END = 'WILL_END'
+  WILL_END = 'WILL_END',
+  DID_PROPAGATE = "DID_PROPAGATE"
 }
 
 export enum ControlState {
@@ -75,8 +76,8 @@ export type ContainerState = {
   // their internal state.
   isComputingNextState: boolean
 
-  // The graph of the observers running in this container.
-  dependencyGraph: Graph<IObservable | IObserver | IComputed<any>>
+  // The graph of the active observers and observables.
+  activeGraph: Graph<IObservable | IObserver | IComputed<any>>
 
   // The graph of the stale node after a step
   updatedObservablesGraph: Graph<IObservable>
