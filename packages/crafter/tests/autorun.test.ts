@@ -1,3 +1,21 @@
+import { autorun } from '../src/observer/Autorun'
+import { getContext, toInstance } from '../src/helpers'
+import { string, object } from '../src'
+
+test('Simple autorun', function(){
+  const model = object({
+    profile: object({ name: string() })
+  }).create({profile:{name: "Fraktar"}})
+  let run = 0
+  const dispose = autorun(() => {
+    run++
+    model.profile.name
+  })
+  getContext(toInstance(model)).step(() => model.profile.name = 'Fraktos')
+  dispose()
+  expect(run).toBe(2)
+})
+
 /* import { observable } from '../src/lib/observable'
 import { autorun } from '../src/observer/Autorun'
 import { computed } from '../src/observer/Computed'
@@ -17,20 +35,6 @@ const context = getGlobal().$$crafterContext
 beforeEach(context.clearContainer)
 
 test('Simple autorun', function(){
-  const model = observable({
-    name: 'Fraktar'
-  })
-  let run = 0
-  const dispose = autorun(() => {
-    run++
-    model.name
-  })
-  getContext(toInstance(model)).transaction(() => model.name = 'Fraktos')
-  dispose()
-  expect(run).toBe(2)
-})
-
-test('Simple autorun with a nested property dependency', function(){
   const model = observable({
     profile: { name: 'Fraktar' }
   })
