@@ -75,7 +75,7 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
   }
 
   public $present (proposal: ReplaceCommand[], addMigration = true): void {
-    // As a leaf instance only support replace command, we just treat the last command
+    // As a leaf instance only supports replace command, we just treat the last command
     const command = proposal[proposal.length-1]
     const didChange = this.setValue(command.value)
     this.updateState(command, didChange, addMigration)
