@@ -105,7 +105,7 @@ export function applySnapshot<T>(entity: T, snapshot: T, willReact = true): void
 }
 
 /**
- * 
+ * Set value of an instance.
  * @param entity
  * @param value 
  * @param willReact will this change will be observed
@@ -116,6 +116,17 @@ export function setValue<T>(entity: T, value: T, willReact = true): void {
   }
   const instance = toInstance<T>(entity)
   instance.$present([{op: Operation.replace, path: instance.$path, value}], willReact)
+}
+
+/**
+ * 
+ * @param instance
+ */
+export function getValue<T>(entity: T): T {
+  if(__DEV__ && !isInstance(entity)) {
+    fail('[CRAFTER] entity is not an instance') 
+  }
+  return toInstance<T>(entity).$value
 }
 
 export function clone<T>(instance: T, options?: {id?: string, context?: IContainer}): T {
@@ -180,7 +191,7 @@ export function makePath(...segments: string[]): string {
 
 export function sync<T extends IObservable>(observable: T): T {
   const target = clone(observable)
-  toNode(observable).$$container.addStepListener(StepLifeCycle.WILL_END, m => m.forward.forEach(c => toNode(target).$present(c, true)))
+  toNode(observable).$$container.addStepListener(StepLifeCycle.WILL_END, ({snapshot:{migration}}) => migration.forward.forEach(c => toNode(target).$present(c, true)))
   return target
 }
 

@@ -1,3 +1,12 @@
+import { object, string, getContext, setValue, toInstance } from '../src'
+
+test("setValue of a root model", function(){
+  const model = object({
+    name: string("Fraktos")
+  }).create()
+  getContext(toInstance(model)).step(() => setValue(model, { name: "Fraktar"} ))
+  expect(model.name).toBe("Fraktar")
+})
 /* import { observable } from '../src/lib/observable'
 import { getTypeFromValue } from "../src/lib/getTypeFromValue"
 import { toInstance, getSnapshot, sync, getChildKey, getTargetKey, isOwnLeafPath, makePath, reduceSnapshot } from '../src/helpers'

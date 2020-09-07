@@ -177,7 +177,7 @@ export class ObjectInstance<
       else */ if (command.op === Operation.replace) {
         // The replace command targets this node
         const isNodeReplacement = command.path === this.$path
-        const isRoot = this.$path === '/'
+        const isRoot = command.path === '/'
         /*        const isForRoot = childKey === undefined && command.path.endsWith('/')
 
         // Not childkey available
@@ -204,7 +204,8 @@ export class ObjectInstance<
               warn('[CRAFTER] Unknown child key', childKey)
               continue
             }
-            // Edge case, the instance has been removed from a previous command and can be undefined.
+            // Retrieve the instance on which we will get the child.
+            // Edge case: the instance has been removed from a previous command and is undefined.
             const instance: IInstance<any> | undefined = isRoot
               ? this
               : this.$data[childKey]
@@ -219,19 +220,28 @@ export class ObjectInstance<
                 value: subCommand.value
               }))
             } else {
-              instance.$present([subCommand], false) // don't report migration to the container for the sub commands
-              // The change is valid when the child instance did change
-              childrenMigrations.push(
-                instanceDidChange(instance)
-                  ? instance.$state.migration
-                  : undefined
-              )
-
-              /* // Edge case, the target node is the root node
-              const targetKey = getChildKey(this, command.path)
-              if (isRoot && (targetKey && didChange(this.$data[targetKey]))) {
-                accepted = true
-              } */
+              // Edge case, the target node is the root node
+              if (isRoot) {
+                const targetKey = getChildKey(this, subCommand.path)
+                const childInstance: IInstance<any> | undefined = targetKey && this.$data[targetKey]
+                
+                childInstance?.$present([subCommand], false) // don't report migration to the container for the sub commands
+                
+                // The change is valid when the child instance did change
+                childrenMigrations.push(
+                  childInstance && instanceDidChange(childInstance)
+                    ? childInstance.$state.migration
+                    : undefined
+                )
+              } else {
+                instance.$present([subCommand], false) // don't report migration to the container for the sub commands
+                // The change is valid when the child instance did change
+                childrenMigrations.push(
+                  instanceDidChange(instance)
+                    ? instance.$state.migration
+                    : undefined
+                )
+              }
             }
           }
           
