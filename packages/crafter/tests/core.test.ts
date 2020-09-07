@@ -1,6 +1,6 @@
 // import { getGlobal } from '../src/utils/utils'
 // import { observable } from '../src/lib/observable'
-import { toInstance,/*  toLeaf, noop ,*/ getSnapshot, getContext, applySnapshot } from '../src/helpers'
+import { toInstance,/*  toLeaf, noop ,*/ getSnapshot, getContext, applySnapshot, getValue, setValue } from '../src/helpers'
 // import { autorun, string, Reaction } from '../src'
 // import { Graph } from '../src/Graph'
 import { number, object, string, StepLifeCycle, Migration, autorun } from '../src'
@@ -131,10 +131,27 @@ describe('Reactivity', function() {
 
   afterEach(function() {
     disposers.forEach(d => d())
-    applySnapshot(model, initialSnapshot)
+    applySnapshot(model, initialSnapshot, false)
   })
 
   describe('Node replacement', function() {
+    test("- autorun react when root model value is replaced", function() {
+      const model = object({
+        name: string('Fraktar'),
+      }).create(undefined)
+      let run = 0
+      const context = getContext(toInstance(model))
+      
+      disposers.push(autorun(() => {
+        run++
+        getValue(model)
+      }))
+
+      context.step(()=> setValue(model, {name: "Fraktos"}))
+    
+      expect(run).toBe(2)
+    })
+    
     test('- triggers observer tracking a leaf with changed value.', function() {
       let run = 0
       disposers.push(autorun(() => {
@@ -151,11 +168,11 @@ describe('Reactivity', function() {
     })
     test('- does not trigger observer tracking a leaf with unchanged value.', function() {
       let run = 0
-      autorun(() => {
+      disposers.push(autorun(() => {
         // Observe the player
         model.stats.health
         run++
-      })
+      }))
       context.step(() => model.stats = { force: 2, health: 1})
       expect(run).toEqual(1)
     })
@@ -166,21 +183,21 @@ describe('Reactivity', function() {
     test.todo('- does not trigger an observable tracking the parent node.')
     test('- triggers observer if the value changed.', function() {
       let run = 0
-      autorun(() => {
+      disposers.push(autorun(() => {
         // Observe the player
         model.stats.health
         run++
-      })
+      }))
       context.step(() => model.stats = { force: 1, health: 10})
       expect(run).toEqual(2)
     })
     test('- does not trigger observer if the value did not change.', function() {
       let run = 0
-      autorun(() => {
+      disposers.push(autorun(() => {
         // Observe the player
         model.stats.health
         run++
-      })
+      }))
       context.step(() => model.stats = { force: 2, health: 1})
       expect(run).toEqual(1)
     })

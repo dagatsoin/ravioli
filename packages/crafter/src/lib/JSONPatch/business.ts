@@ -101,7 +101,10 @@ function getObjectPaths(object: {}, root: string = '/'): string[] {
  *  1. AND [
  *    - it is an node update command: replace, copy or move, reverse, fill...
  *    - it targets an object, array or map node
- *    - one of the command value leaf matches the path of an updated observable
+ *    - OR [
+ *      - one of the command value leaf matches the path of an updated observable
+ *      - the command path is a dependency or the observer (case of a node replacement)
+ *    ]
  *    - some of the matched updated observables match one of the path of the observer dependencies 
  *  ]
  *  2. AND [
@@ -124,11 +127,11 @@ function getObjectPaths(object: {}, root: string = '/'): string[] {
  *  ]
  *  4. AND [
  *    - it targets a map, array or object node
- *    - it is a atomic shape update command with explicit target path: add, remove, set, delete
+ *    - it is an atomic shape update command with explicit target path: add, remove, set, delete
  *    - OR [
  *       - AND [
- *        - one of the update observable path matches the array child affected by the operation
- *        - the matched updated observable path matches one of the path of the observer dependencies 
+ *        - one of the updated observables path matches the array child affected by the operation
+ *        - the matched updated observables path matches one of the path of the observer dependencies 
  *       ]
  *       - AND [
  *        - one of the updated observable is the lenght of the array
@@ -149,7 +152,10 @@ export function isDependent(observer: IObserver, {path, op, value}: Command, upd
     (
       (typeof value === 'object' || value instanceof Map) &&
       isNodeUpdateOperation(op) &&    
-      hasPath(observer, getObjectPaths(value).map(p => makePath(path, p)))
+      hasPath(observer, [
+        ...getObjectPaths(value).map(p => makePath(path, p)),
+        path
+      ])
     ) ||
     /* 2 */
     (
