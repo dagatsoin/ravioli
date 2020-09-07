@@ -6,6 +6,7 @@ import {
 import { Instance } from './Instance'
 import { Command } from './JSONPatch'
 import { IContainer } from '../IContainer'
+import { getRoot, makePath } from '../helpers'
 
 /**
  * An observable is an object/array/map whose properties are watched.
@@ -68,6 +69,7 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   }
 
   public get $value(): TYPE {
+    this.$$container.notifyRead(this, makePath(getRoot(this).$id, this.$path))
     if (this.$isStale) {
       this.$computeValue()
     }
