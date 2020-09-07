@@ -28,10 +28,6 @@ export class Autorun extends Observer {
     this.context.onDisposeObserver(this)
   }
 
-  public notifyChanges(patch: Patch<any>, updatedObservablePaths: string[]) {
-    this._isStale = patch.some(command => isDependent(this, command, updatedObservablePaths))
-  }
-
   public runAndUpdateDeps(): void {
     if (this._isStale) {
       let error
