@@ -599,8 +599,8 @@ export class CrafterContainer implements IContainer {
    * when necessary to reach a new stable state.
    * This will update the State.staleReactions.
    * The reactions are not run at this point.
-   * The propagation is done with a topological order. This will ensure that a derivation will
-   * be stale only of one of its children is stale.
+   * The propagation is done with a topological order to stale
+   * child observer before parent observer.
    */
   private propagateChange() {
     const observers = topologicalSort(this.state.activeGraph)
@@ -613,7 +613,10 @@ export class CrafterContainer implements IContainer {
       observer.notifyChanges(this.state.migration.forward, this.state.updatedObservables.map(o=> makePath(getRoot(o as IInstance<any>).$id, o.$path)))
     })
 
-    this.state.staleReactions = observers.filter(({isStale}) => isStale)
+    // Retain the reactions ids to run.
+    this.state.staleReactions = observers
+      .filter(isReaction)
+      .filter(({isStale}) => isStale)
   }
 
   /**
@@ -667,10 +670,6 @@ export class CrafterContainer implements IContainer {
     this.resumeSpies()
   }
 }
-
-/**
- * Register a computed source to the container graph
- */
 
 /**
  * Return an observer stored in the dependencies graph.
