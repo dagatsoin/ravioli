@@ -1,7 +1,7 @@
-/* import { observable } from '../src/lib/observable'
+import { observable } from '../src/lib/observable'
 import { isNode } from '../src/lib/isNode'
 import { getGlobal } from '../src/utils/utils'
-import { toInstance, isUnknownType, getContext, ArrayType, MapType } from '../src'
+//import { toInstance, isUnknownType, getContext, ArrayType, MapType } from '../src'
 
 const context = getGlobal().$$crafterContext
 
@@ -10,6 +10,7 @@ beforeEach(() => context.clearContainer())
 test('create observable', function() {
   const model = observable({
     name: 'Fraktar',
+    isAlive: false,
     stats: {
       health: 10,
       force: 4,
@@ -17,7 +18,7 @@ test('create observable', function() {
   })
   expect(isNode(model) && isNode(model.stats)).toBeTruthy()
 })
-
+/* 
 it('should add stale observable during transaction', function() {
   const model = observable({
     name: 'fraktar',
