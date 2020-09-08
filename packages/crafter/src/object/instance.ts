@@ -593,6 +593,10 @@ function addInterceptor(
         const instance = obj.$data[propName]
         // This check is required in case the object has a moving shape (case of Computed)
         if (instance !== undefined) {
+          if (isNode(instance)) {
+            // When we retrieve a child node instance we need to force the read notif here
+            this.$$container.notifyRead(this, makePath(getRoot(this).$id, this.$path, propName))
+          }
           // return the instance if it is a node or the value if it is a leaf
           return unbox(instance)
         }

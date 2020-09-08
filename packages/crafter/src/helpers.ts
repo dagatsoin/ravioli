@@ -126,7 +126,9 @@ export function getValue<T>(entity: T): T {
   if(__DEV__ && !isInstance(entity)) {
     fail('[CRAFTER] entity is not an instance') 
   }
-  return toInstance<T>(entity).$value
+  const instance = toInstance<T>(entity)
+  instance.$notifyRead()
+  return instance.$value
 }
 
 export function clone<T>(instance: T, options?: {id?: string, context?: IContainer}): T {

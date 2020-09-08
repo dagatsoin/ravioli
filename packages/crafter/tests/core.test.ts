@@ -130,7 +130,7 @@ describe('Reactivity', function() {
   const disposers: Array<()=>void> = []
 
   afterEach(function() {
-    disposers.forEach(d => d())
+   // disposers.forEach(d => d())
     applySnapshot(model, initialSnapshot, false)
   })
 
@@ -176,11 +176,38 @@ describe('Reactivity', function() {
       context.step(() => model.stats = { force: 2, health: 1})
       expect(run).toEqual(1)
     })
-    test.todo('- triggers an observer tracking the node itself if its value changed.')
+    test('- triggers an observer tracking the node itself if its value changed.', function(){
+      let run = 0
+      
+      // This autorun tracks the parent of the updated leaf and won't react
+      disposers.push(autorun(() => {
+        run++
+        model.stats
+      }))
+      
+      context.step(() => model.stats = { health: 5, force: 8})
+      expect(run).toBe(2)
+    })
     test.todo('- does not trigger an observer tracking the node itself if its value did not changed.')
   })
-   describe('Leaf replacement', function() {
-    test.todo('- does not trigger an observable tracking the parent node.')
+  describe('Leaf replacement', function() {
+    test('- does not trigger an observable tracking the parent node.', function() {
+      let a1 = 0
+      let a2 = 0
+      // This autorun tracks the parent of the updated leaf and won't react
+      disposers.push(autorun(() => {
+        a1++
+        model.stats
+      }))
+      // This autorun tracks the updated leaf and will react
+      disposers.push(autorun(() => {
+        a2++
+        model.stats.health
+      }))
+      context.step(() => model.stats.health++)
+      expect(a1).toBe(1)
+      expect(a2).toBe(2)
+    })
     test('- triggers observer if the value changed.', function() {
       let run = 0
       disposers.push(autorun(() => {

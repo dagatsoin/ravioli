@@ -66,7 +66,7 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
   }
 
   public get $value(): T {
-    this.$$container.notifyRead(this, makePath(getRoot(this).$id, this.$path))
+    this.$notifyRead()
     return this.$data
   }
 

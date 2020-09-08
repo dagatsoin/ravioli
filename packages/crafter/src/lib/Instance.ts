@@ -2,7 +2,7 @@ import { IInstance, State } from './IInstance'
 import { IType } from './IType'
 import { IContainer } from '../IContainer'
 import { getGlobal } from '../utils/utils'
-import { makePath } from '../helpers'
+import { makePath, getRoot } from '../helpers'
 import { Command, Operation } from './JSONPatch'
 
 export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT> {
@@ -81,6 +81,10 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
   public $computeSnapshot(): void {
     this.$prevSnapshot = this.$snapshotComputation(this.$data as any, this.$$container)
     this.$isStale = false
+  }
+
+  public $notifyRead(): void {
+    this.$$container.notifyRead(this, makePath(getRoot(this).$id, this.$path))
   }
 
   public $createNewSnapshot(): SNAPSHOT {

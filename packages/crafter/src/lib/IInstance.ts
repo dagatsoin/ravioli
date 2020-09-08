@@ -36,6 +36,7 @@ export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent, IObservab
   $applySnapshot(snapshot: SNAPSHOT): void // Override to refine snapshot type
 //  $setValue(value: SNAPSHOT): boolean
   $kill(): void
+  $notifyRead(): void
   /**
    * Present an JSON command list to the instance.
    * If shouldAddMigration is true, this will emit a migration.
