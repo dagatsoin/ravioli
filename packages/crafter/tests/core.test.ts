@@ -178,7 +178,7 @@ describe('Reactivity', function() {
     })
     test('- triggers an observer tracking the node itself if its value changed.', function(){
       let run = 0
-      
+
       // This autorun tracks the parent of the updated leaf and won't react
       disposers.push(autorun(() => {
         run++
@@ -188,7 +188,18 @@ describe('Reactivity', function() {
       context.step(() => model.stats = { health: 5, force: 8})
       expect(run).toBe(2)
     })
-    test.todo('- does not trigger an observer tracking the node itself if its value did not changed.')
+    test('- does not trigger an observer tracking the node itself if its value did not changed.', function() {
+      let run = 0
+
+      // This autorun tracks the parent of the updated leaf and won't react
+      disposers.push(autorun(() => {
+        run++
+        model.stats
+      }))
+      
+      context.step(() => model.stats = { health: 1, force: 1})
+      expect(run).toBe(1)
+    })
   })
   describe('Leaf replacement', function() {
     test('- does not trigger an observable tracking the parent node.', function() {
