@@ -1,11 +1,14 @@
-import { object, string, getContext, setValue, toInstance } from '../src'
+import { object, string, getContext, setValue, toInstance, number } from '../src'
 
 test("setValue of a root model", function(){
   const model = object({
-    name: string("Fraktos")
+    name: string("Fraktos"),
+    stats: object({
+      health: number()
+    })
   }).create()
-  getContext(toInstance(model)).step(() => setValue(model, { name: "Fraktar"} ))
-  expect(model.name).toBe("Fraktar")
+  getContext(toInstance(model)).step(() => setValue(model, { name: "Fraktar", stats: { health: 3 }} ))
+  expect(toInstance(model).$value).toEqual({ name: "Fraktar", stats: { health: 3 }})
 })
 /* import { observable } from '../src/lib/observable'
 import { getTypeFromValue } from "../src/lib/getTypeFromValue"

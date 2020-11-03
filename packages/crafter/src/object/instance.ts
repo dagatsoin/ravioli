@@ -176,8 +176,8 @@ export class ObjectInstance<
       // Replace the entire value
       else */ if (command.op === Operation.replace) {
         // The replace command targets this node
-        const isNodeReplacement = command.path === this.$path
-        const isRoot = command.path === '/'
+        const isThisNodeReplacement = command.path === this.$path
+        const isRootReplacemennt = command.path === '/'
         /*        const isForRoot = childKey === undefined && command.path.endsWith('/')
 
         // Not childkey available
@@ -186,7 +186,7 @@ export class ObjectInstance<
         }
  */
 
-        if (isNodeReplacement) {
+        if (isThisNodeReplacement) {
           const snapshot = this.$createNewSnapshot()
 
           // Split down the big command in sub commands, one by child.
@@ -204,15 +204,12 @@ export class ObjectInstance<
               warn('[CRAFTER] Unknown child key', childKey)
               continue
             }
-            // Retrieve the instance on which we will get the child.
-            // Edge case: the instance has been removed from a previous command and is undefined.
-            const instance: IInstance<any> | undefined = isRoot
-              ? this
-              : this.$data[childKey]
 
-            // Present a replace command to each child
+            const isChildUndefined = this.$data[childKey] === undefined
+
+            // Present a replace command to the child
             // If the child does not exists (maybe removed by a previous command, recreate the child)
-            if (instance === undefined) {
+            if (isChildUndefined) {
               add(this, subCommand.value, childKey as string)
               childrenMigrations.push(createAddMigration({
                 op: Operation.add,
@@ -221,7 +218,7 @@ export class ObjectInstance<
               }))
             } else {
               // Edge case, the target node is the root node
-              if (isRoot) {
+              /* if (isRootReplacemennt) {
                 const targetKey = getChildKey(this, subCommand.path)
                 const childInstance: IInstance<any> | undefined = targetKey && this.$data[targetKey]
                 
@@ -233,15 +230,16 @@ export class ObjectInstance<
                     ? childInstance.$state.migration
                     : undefined
                 )
-              } else {
-                instance.$present([subCommand], false) // don't report migration to the container for the sub commands
+              } else { */
+                const child = this.$data[childKey]
+                child.$present([subCommand], false) // don't report migration to the container for the sub commands
                 // The change is valid when the child instance did change
                 childrenMigrations.push(
-                  instanceDidChange(instance)
-                    ? instance.$state.migration
+                  instanceDidChange(child)
+                    ? child.$state.migration
                     : undefined
                 )
-              }
+              //}
             }
           }
           
