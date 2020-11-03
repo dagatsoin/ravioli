@@ -1,16 +1,42 @@
-/* import { toInstance, getContext, toLeaf } from '../src/helpers'
-import { getObservable, observable } from '../src/lib/observable'
+import { toLeaf } from '../src/helpers'
 import { autorun } from '../src/observer/Autorun'
 import { computed } from '../src/observer/Computed'
-import { number, string } from '../src/Primitive'
+import { number} from '../src/Primitive'
 import { object } from '../src/object'
 import { getGlobal } from '../src/utils/utils'
-import { isInstance } from '../src/lib/Instance'
-import { CrafterContainer } from '../src'
+import { observable } from '../src/lib/observable'
 
 const context = getGlobal().$$crafterContext
 
 beforeEach(context.clearContainer)
+
+test("A computed primitive is as reactive source", function() {
+  context.clearContainer()
+  const model = object({
+    stats: object({
+      health: number()
+    })
+  }).create({stats: {health: 0}})
+   
+  const health = computed(() => model.stats.health)
+
+  let run = 0
+
+  const dispose = autorun(() => {
+    health.get()
+    run++
+  })
+  context.step(() => model.stats.health++)
+  expect(run).toBe(2)
+  dispose()
+})
+
+describe("Implementation", function() {
+  describe("Registration", function() {
+    test.todo("On read: register itself in the container on read as a derivation")
+    test.todo("On value creation: ")
+  })
+})
 
 test("Computed notifies read when accessed", function() {
   context.clearContainer()
@@ -28,14 +54,13 @@ test("Computed notifies read when accessed", function() {
   const dispose = autorun(() => {
     observed.get()
     const spyId = context.snapshot.spyReactionQueue[0]
-    leafId = toLeaf(context.snapshot.dependencyGraph.nodes[context.snapshot.dependencyGraph.nodes.length - 1]).$id
-    observedPaths = context.snapshot.spiedObserversDependencies.get(spyId)
+    leafId = toLeaf(context.snapshot.activeGraph.nodes[context.snapshot.activeGraph.nodes.length - 1]).$id
+    observedPaths = context.snapshot.spiedObserversDependencies.get(spyId.id)
   })
   expect(observedPaths).toEqual(["/" + leafId])
   dispose()
 })
-
-test('Computed is evaluated and register in the manager lazily, when triggered from an autorun', function() {
+/* test('Computed is evaluated and register in the manager lazily, when triggered from an autorun', function() {
   const model = observable({
     name: 'Fraktar',
     isAlive: false,
@@ -44,17 +69,17 @@ test('Computed is evaluated and register in the manager lazily, when triggered f
       force: 4,
     },
   })
-
+  
   let statsRepRunCount = 0
   let appRepRunCount = 0
   let autoRunCount = 0
-
+  
   const statsRepresentation = computed(() => {
     statsRepRunCount++
     return { health: model.isAlive ? model.stats.health : 0 }
   })
-
-  const appRepresentation = computed<{
+  
+ const appRepresentation = computed<{
     name: string
     stats?: { health: number }
   }>(() => {
@@ -64,9 +89,9 @@ test('Computed is evaluated and register in the manager lazily, when triggered f
       stats: model.isAlive ? statsRepresentation.get() : undefined,
     }
   }, {useOptional: true})
-
-  expect(context.snapshot.dependencyGraph.nodes.length).toBe(0)
-  const dispose = autorun(() => {
+  
+  expect(context.snapshot.activeGraph.nodes.length).toBe(0)
+ const dispose = autorun(() => {
     autoRunCount++
     appRepresentation.get()
   }) */
@@ -78,23 +103,23 @@ test('Computed is evaluated and register in the manager lazily, when triggered f
    * - computed value node
    * - computed value/stats
    */
-  /* expect(context.snapshot.dependencyGraph.nodes.length).toBe(4)
+/*  expect(context.snapshot.activeGraph.nodes.length).toBe(4)
 
   expect(statsRepRunCount).toBe(0)
   expect(appRepRunCount).toBe(1)
   expect(autoRunCount).toBe(1)
 
-  context.transaction(() => {
+  context.step(() => {
     model.isAlive = true
   })
 
-  expect(context.snapshot.dependencyGraph.nodes.length).toBe(3)
+  expect(context.snapshot.activeGraph.nodes.length).toBe(3)
   expect(statsRepRunCount).toBe(1)
   expect(appRepRunCount).toBe(2)
   expect(autoRunCount).toBe(2)
-  dispose()
+  dispose() *//*
 })
-
+/*
 test('Computed always return the same observable', function() {
   const model = observable({
     name: 'Fraktar',

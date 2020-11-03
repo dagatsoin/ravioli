@@ -1,8 +1,8 @@
 import { Migration } from '../lib/JSONPatch';
 import { IObserver } from "./IObserver";
 
-export interface IComputed<T> extends IObserver {
+export interface IDerivation<T> extends IObserver {
   id: string
-  migration: Migration
+ // migration: Migration
   get(): T
 }

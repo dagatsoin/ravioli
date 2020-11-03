@@ -3,7 +3,7 @@ import { IObserver, ObserverType } from "./observer/IObserver"
 import { Graph } from "./Graph"
 import { IObservable as IInstance, IObservable } from "./IObservable"
 import { Command, BasicCommand, Migration } from "./lib/JSONPatch"
-import { IComputed } from "./observer/IDerivation"
+import { IDerivation } from "./observer/IDerivation"
 
 export type StepListener = (context: IContainer) => void
 
@@ -77,7 +77,7 @@ export type ContainerState = {
   isComputingNextState: boolean
 
   // The graph of the active observers and observables.
-  activeGraph: Graph<IObservable | IObserver | IComputed<any>>
+  activeGraph: Graph<IObservable | IObserver | IDerivation<any>>
 
   // The graph of the stale node after a step
   updatedObservablesGraph: Graph<IObservable>

@@ -1,12 +1,13 @@
-/* import { IObservable } from '../IObservable'
+import { IObservable } from '../IObservable'
 import { observable, isObservable } from '../lib/observable'
-import { ObserverType, Observer } from './Observer'
-import {  makePath, toInstance, toLeaf } from '../helpers'
+import { Observer } from './Observer'
+import { ObserverType } from './IObserver'
+import { makePath, toInstance, toLeaf, setValue } from '../helpers'
 import { IContainer } from '../IContainer'
 import { isInstance } from '../lib/Instance'
 import { isNode } from '../lib/isNode'
 import { Migration } from '../lib/JSONPatch'
-import { IComputed } from './IDerivation'
+import { IDerivation } from './IDerivation'
 
 /**
  * A Computed is a memoized pure function which outputs either:
@@ -14,14 +15,14 @@ import { IComputed } from './IDerivation'
  * - a boxed observable value (primitive, binary, ...)
  * A computed expression is evaluated lazily. The function is evaluated will only when Computed.get() is called.
  * During the evaluation, Crafter will register all observable access to maintain a list of dependencies.
- * If one of those dependency changes during a transaction, the computed value will be mark as stale.
+ * If one of those dependency changes during a step, the computed value will be mark as stale.
  * During the next call to Computed.get(), if the value is stale, the expression will run again, if no stale, it
  * will send back the cached value.
  */
-/*
+
 const type = ObserverType.Computed
 
-export class Computed<T> extends Observer implements IComputed<T> {
+export class Computed<T> extends Observer implements IDerivation<T> {
   public get isStale(): boolean {
     return this._isStale
   }
@@ -60,23 +61,20 @@ export class Computed<T> extends Observer implements IComputed<T> {
 
   public get $migration(): Migration {
     return isNode(this.value)
-      ? this.value.$migration
+      ? this.value.$state.migration
       : this.migration
   }
 
   public get(target?: IObservable): T {    
+      this.valueContext.notifyRead(this as any, makePath(this.id))
+    
     if (this._isStale) {
       this.runAndUpdateDeps(target)
     }
 
     if (!isObservable(this.value) || this.isBoxed) {
-      // The value is:
-      // - a non observable object
-      // - a boxed value
-      
-      // As the value is not observable, the computed will be used as
-      // to box it and set as the current running observer dependency.
-      this.valueContext.notifyRead(this as any, makePath(this.id))
+      // The value is a boxed value (could be a primitive or any object)
+   //   this.valueContext.notifyRead(this as any, makePath(this.id))
       return this.value
     } else if (isNode(this.value)){
       // The value is an observable node
@@ -125,20 +123,17 @@ export class Computed<T> extends Observer implements IComputed<T> {
     // Those signals are not useful and must be bypassed by compute the value BEFORE (1) setting it
     // in the observable to prevent and PAUSE spies (2) during the creation.
     /* 1 */
-  /*  const value = target ? this.fun.call(target, target) : this.fun()
+  const value = target ? this.fun.call(target, target) : this.fun()
     
     /* 2 */
-  /*  this.valueContext.pauseSpies()
-    // The observer run for the first. We set the observable result.
+  this.valueContext.pauseSpies()
+    // The observer run for the first time. We set the observable result.
     if (!this.isIinitialized) {
       // This is a boxed value
       if (this.isBoxed) {
         this.value = value
       } else {
-        // The id of the observable is a path formed with this computed id as a prefix.
-        // This is a workaround to be able to recognize chain access through this observable
-        // during read notification
-        const id = this.valueContext.getUID(this.id + '/value')
+        const id = this.valueContext.getUID(this.id + '_value')
         this.value = observable(value, { context: this.valueContext, isStrict: this.isStrict,  id })
       }
 
@@ -148,7 +143,7 @@ export class Computed<T> extends Observer implements IComputed<T> {
     // Note this $setValue won't emit any migration, because it only happens during the learning phase.
     else {
       if (isInstance(this.value)) {
-        this.valueContext.transaction(() => toInstance(this.value).$setValue(value))
+        this.valueContext.step(() => setValue(this.value, value, false))
         if (!isNode(this.value)) {
           this.migration.forward = [{op: "replace", path: makePath(this.value.$id), value: toLeaf(this.value).$value}]
         }
@@ -183,7 +178,6 @@ export type ComputedOptions = {
   contexts?: {output?: IContainer, source?: IContainer}
 }
 
-export function computed<T>(fun: (boundThis?: IObservable) => T, options?: ComputedOptions): IComputed<T> {
+export function computed<T>(fun: (boundThis?: IObservable) => T, options?: ComputedOptions): IDerivation<T> {
   return new Computed(fun, options)
 }
- */

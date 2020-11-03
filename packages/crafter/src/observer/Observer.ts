@@ -1,6 +1,6 @@
 import { IContainer } from '../IContainer'
 import { getGlobal } from '../utils/utils'
-import { IComputed } from './IDerivation';
+import { IDerivation } from './IDerivation';
 import { Patch, isDependent } from '../lib/JSONPatch';
 import { IObserver, ObserverType } from './IObserver';
 
@@ -58,7 +58,7 @@ export function isReaction(observer: any): boolean {
   return observer.type === ObserverType.Autorun || observer.type === ObserverType.Reaction
 }
 
-export function isDerivation(observer: any): observer is IComputed<any> {
+export function isDerivation(observer: any): observer is IDerivation<any> {
   return observer.type === ObserverType.Computed
 }
 

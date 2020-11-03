@@ -6,11 +6,11 @@ import { IObserver, ObserverType } from "./observer/IObserver"
 import { Graph, removeNode, removeNodeEdges, getGraphEdgesFrom, Edge, getAllPathsTo, getEdgesOf, hasEdge, isSameEdge, topologicalSort } from './Graph'
 import { INodeInstance } from './lib/INodeInstance'
 import { ContainerState, IContainer, StepListener, ControlState, StepLifeCycle } from './IContainer'
-import { IComputed } from "./observer/IDerivation"
 import { isNode } from './lib/isNode'
 import { isObservable } from './lib/observable'
 import { mergeMigrations } from './utils/utils'
 import { IInstance } from './lib'
+import { IDerivation } from './observer/IDerivation'
 
 function getInitState(): ContainerState {
   return {
@@ -441,7 +441,7 @@ export class CrafterContainer implements IContainer {
    * @param target 
    * @param source 
    */
-  private addDependency(targetId: string, source: IObservable | IComputed<any>): void {
+  private addDependency(targetId: string, source: IObservable | IDerivation<any>): void {
     // Add to the graph
     const graph = this.state.activeGraph
     const sourceId = isDerivation(source)
@@ -675,7 +675,7 @@ export class CrafterContainer implements IContainer {
  * Return an observer stored in the dependencies graph.
  * Thrown if not found
  */
-function getGraphNode(id: string, graph: Graph<IObservable | IObserver | IComputed<any>>): IObserver | IObservable {
+function getGraphNode(id: string, graph: Graph<IObservable | IObserver | IDerivation<any>>): IObserver | IObservable {
   const child = graph
     .nodes
     .find(node => getNodeId(node) === id)
@@ -730,7 +730,7 @@ function removeObserver({
  * Return the id of an observable or an observer
  * @param node
  */
-function getNodeId(node: IObservable | IObserver | IComputed<any>): string {
+function getNodeId(node: IObservable | IObserver | IDerivation<any>): string {
   return isObservable(node)
     ? isDerivation(node)
       ? node.id
