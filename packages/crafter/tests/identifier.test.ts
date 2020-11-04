@@ -1,7 +1,7 @@
-/* import { object } from "../src/object"
+import { object } from "../src/object"
 import { getContext, toInstance } from "../src/helpers"
-import { array } from "../src/array/factory"
-import { map } from "../src/map/factory"
+//import { array } from "../src/array/factory"
+//import { map } from "../src/map/factory"
 import { identifier } from "../src/identifier"
 
 describe('No passed id at creation', function() {
@@ -47,7 +47,7 @@ it('should not be possible to mutate an identifier', function() {
 
   const id = model.id
 
-  expect(() => getContext(toInstance(model)).transaction(() => (model.id = 'newId'))).toThrow()
+  expect(() => getContext(toInstance(model)).step(() => (model.id = 'newId'))).toThrow()
 
   // ID did not change
   expect(model.id).toBe(id)
@@ -65,7 +65,8 @@ it('should not be possible to use an existing identifier', function() {
   }).toThrow()
 })
 
-it('should register a uid when creating an object with an identifier field type', function() {
+/* 
+it('should register an uid when creating an object with an identifier field type', function() {
   const context = getContext(toInstance(array(
     object({
       id: identifier(),
@@ -80,7 +81,7 @@ it('should remove an identifier from the manager when a node is removed from an 
       id: identifier(),
     })
   ).create([{ id: '123' }])
-  getContext(toInstance(model)).transaction(model.pop)
+  getContext(toInstance(model)).step(model.pop)
   expect(getContext(toInstance(model)).snapshot.uids.includes('123')).toBeFalsy()
 })
 
@@ -90,7 +91,7 @@ it('should remove an identifier from the manager when a node is removed from a m
       id: identifier(),
     })
   ).create([['0', { id: '157' }]])
-  getContext(toInstance(model)).transaction(model.clear)
+  getContext(toInstance(model)).step(model.clear)
   expect(getContext(toInstance(model)).snapshot.uids.includes('157')).toBeFalsy()
 })
  */

@@ -3,7 +3,7 @@ import { Instance } from "../lib/Instance"
 import { IContainer } from "../IContainer"
 import { setNonEnumerable } from '../utils/utils'
 import { Command } from '../lib/JSONPatch'
-import { warn } from '../helpers'
+import { fail, warn } from '../helpers'
 
 
 export class IdentifierInstance<T extends string> extends Instance<T, T> {
@@ -38,9 +38,7 @@ export class IdentifierInstance<T extends string> extends Instance<T, T> {
     return this.$$id
   }
   public $present(proposal: Command[], addMigration: boolean): void {
-    if (__DEV__) {
-      warn(`[CRAFTER] Identifier: attempt to present a proposal to an identifier.`, proposal)
-    }
+    fail(`[CRAFTER] Identifier: attempt to present a proposal to an identifier.`)
   }
   // Implementation will be chosen by the constructor
   public $setValue(v: T): void {
