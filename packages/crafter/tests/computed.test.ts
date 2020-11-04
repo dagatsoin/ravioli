@@ -32,9 +32,19 @@ test("A computed primitive is as reactive source", function() {
 })
 
 describe("Implementation", function() {
-  describe("Registration", function() {
-    test.todo("On read: register itself in the container on read as a derivation")
-    test.todo("On value creation: ")
+  describe("Lazy initialisation", function() {
+    test.todo("1- Register itself in the container as a derivation")
+    describe("2- Compute the value: ", function() {
+      describe("2.1- The value is a primitive", function() {
+        test.todo("2.1.1- The computed create a primitive instance")
+      })
+      describe("2.1- The value is an object", function() {
+        test.todo("2.1.1- The computed create a node instance")
+      })
+      describe("2.1- The value is a ref to another observable", function() {
+        test.todo("2.1.1- The computed create a ref")
+      })
+    })
   })
 })
 

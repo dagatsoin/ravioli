@@ -7,7 +7,7 @@ const context = getGlobal().$$crafterContext
 
 beforeEach(() => context.clearContainer())
 
-test('create observable', function() {
+test('create plain object observable', function() {
   const model = observable({
     name: 'Fraktar',
     isAlive: false,
@@ -18,6 +18,9 @@ test('create observable', function() {
   })
   expect(isNode(model) && isNode(model.stats)).toBeTruthy()
 })
+
+test.todo('create a ref from another observable')
+
 /* 
 it('should add stale observable during transaction', function() {
   const model = observable({
