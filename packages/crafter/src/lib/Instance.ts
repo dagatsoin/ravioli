@@ -1,6 +1,6 @@
 import { IInstance, State } from './IInstance'
 import { IType } from './IType'
-import { IContainer } from '../IContainer'
+import { ControlState, IContainer } from '../IContainer'
 import { getGlobal } from '../utils/utils'
 import { makePath, getRoot } from '../helpers'
 import { Command, Operation } from './JSONPatch'
@@ -73,7 +73,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
   }
   
   public get $snapshot(): SNAPSHOT {
-    if (this.$isStale) {
+    if (this.$isStale && this.$$container.state.controlState !== ControlState.MUTATION) {
       this.$computeSnapshot()
     }
     return this.$prevSnapshot

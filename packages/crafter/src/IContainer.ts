@@ -27,9 +27,6 @@ export type ContainerState = {
   // The migration for the current step
   migration: Migration
 
-  // Can the models of this context be mutated?
-  isWrittable: boolean
-  
   // Current control state of the model in the SAM lifecyle 
   controlState: ControlState
 
@@ -67,9 +64,10 @@ export type ContainerState = {
   // has just ended.
 //  rootTransactionId: string | undefined
 
-  // Flags to know at which step the new cycle is.
-  // While mutating the model
-//  isTransaction: boolean
+  // Keep tracks of the nested step.
+  // If this counter goes back to 0, that means that the root
+  // step is ended
+  nestedStepLevel: number
 
   // While computing new state
   // Here, the mutation can only come from the computed values setting
@@ -98,7 +96,7 @@ export interface IContainer {
   isWrittable: boolean
 //  isTransaction: boolean
   isRunningReaction: boolean
-
+  state: ContainerState
   /**
    * Called during the constructor of a reaction.
    * This will add the observer and its dependencies to the graph.
@@ -182,7 +180,6 @@ export interface IContainer {
    * @param path optional path. If you want to override the path of the observable.
    */
   notifyRead(observable: IInstance, path?: string): void
-  blockTransaction<T>(fn: () => T): T
   getReferenceTarget<T, S = T>(id: string): INodeInstance<T, S>
   registerAsReferencable(
     id: string,

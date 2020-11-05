@@ -242,57 +242,6 @@ describe('Reactivity', function() {
   })
 })
 
-describe("Step", function(){
-  test("step can be nested", function() {
-    const model = object({
-      name: string('Fraktar'),
-      level: number(1),
-      stats: object({
-        force: number(1),
-        health: number(1)
-      })
-    }).create()
-    const context = getContext(toInstance(model))
-    
-    context.step(function() {
-      model.name = "Fraktos"
-      context.step(function() {
-        model.level++
-      })
-    })
-
-    expect(model.name).toBe("Fraktos")
-    expect(model.level).toBe(2)
-  })
-  test("observer are updated only when the last step has finished", function() {
-    const model = object({
-      name: string('Fraktar'),
-      level: number(1),
-      stats: object({
-        force: number(1),
-        health: number(1)
-      })
-    }).create()
-    
-    const context = getContext(toInstance(model))
-    let run = 0   
-    autorun(() => {
-      // Observe the player
-      model.stats.health
-      run++
-    })
-
-    context.step(function() {
-      model.stats.health = 2
-      context.step(function() {
-        model.stats.health = 5
-      })
-    })
-    expect(run).toBe(2)
-    expect(model.stats.health).toBe(5)
-  })
-})
-
 /*
 test("Crafter tracks leaf accesses", function() {
   const context = getGlobal().$$crafterContext

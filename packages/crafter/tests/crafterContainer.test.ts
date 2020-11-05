@@ -10,17 +10,6 @@ const context = getGlobal().$$crafterContext
 
 beforeEach(() => context.clearContainer())
 
-test('prevent transaction during execution', function() {
-  const model = observable({name: 'frkatar'})
-  try {
-    context.blockTransaction(() => context.transaction(() => model.name = 'Fraktar'))
-  } catch (err) {
-    expect(
-        /Transaction are not allowed here./.test(err)
-    ).toBeTruthy()
-  }
-})
-
 test('When a autorun is created, all lazy computed value are awake and added to the graph dependencies.', function() {
   const model = observable({
     name: 'Fraktar',

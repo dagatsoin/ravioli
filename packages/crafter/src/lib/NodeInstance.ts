@@ -6,7 +6,6 @@ import {
 import { Instance } from './Instance'
 import { Command } from './JSONPatch'
 import { IContainer } from '../IContainer'
-import { getRoot, makePath } from '../helpers'
 
 /**
  * An observable is an object/array/map whose properties are watched.
@@ -30,9 +29,8 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   public $isNode: true = true
 
   /**
-   * Interface IWithParent is implemented in commont.ts and assigned in constructor
+   * Interface IWithParent is implemented in common.ts and assigned in constructor
    */
-  public $path!: string
   public $parentKey: string | number | undefined = undefined
   public $parent: INodeInstance<any> | undefined = undefined  
   

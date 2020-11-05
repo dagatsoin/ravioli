@@ -1,22 +1,37 @@
-import { StepLifeCycle, object, string, number, getContext, toInstance, Migration, autorun, isObserver, IContainer, applySnapshot } from '../src'
-import { isObservable } from '../src/lib/observable'
+import {
+  StepLifeCycle,
+  object,
+  string,
+  number,
+  getContext,
+  toInstance,
+  Migration,
+  autorun,
+  isObserver,
+  IContainer,
+  applySnapshot,
+  CrafterContainer,
+} from '../src'
+import { isObservable, observable } from '../src/lib/observable'
 
 describe('life cycle', function() {
+  // We need to compare context. As other tests will update context as well, we need
+  // to use another context isolated from the other tests.
+  const context = new CrafterContainer()
   const snapshot = {
-    name: "Fraktar",
-    age: 1
+    name: 'Fraktar',
+    age: 1,
   }
   const model = object({
     name: string(),
-    age: number()
-  }).create(snapshot, {id: 'model'})
+    age: number(),
+  }).create(snapshot, { id: 'model', context })
 
-  const dispose = autorun(() => model.age)
+  const dispose = autorun(() => model.age, context)
 
-  const context = getContext(toInstance(model))
   const initialContext = context.snapshot
 
-  beforeEach(function(){
+  beforeEach(function() {
     applySnapshot(model, snapshot)
   })
 
@@ -24,8 +39,8 @@ describe('life cycle', function() {
     dispose()
   })
 
-  describe('START', function(){
-    test("State should be clean", function() {
+  describe('START', function() {
+    test('State should be clean', function() {
       function cb_START() {
         context.removeStepListener(StepLifeCycle.START, cb_START)
         expect(context.snapshot).toEqual(initialContext)
@@ -33,48 +48,58 @@ describe('life cycle', function() {
       context.addStepListener(StepLifeCycle.START, cb_START)
       context.step(() => model.age++)
     })
-    test("Context should have one alive observer", function() {
+    test('Context should have one alive observer', function() {
       function cb_START() {
         context.removeStepListener(StepLifeCycle.START, cb_START)
-        expect(context.snapshot.activeGraph.nodes.filter(isObserver).length).toBe(1)
+        expect(
+          context.snapshot.activeGraph.nodes.filter(isObserver).length
+        ).toBe(1)
       }
       context.addStepListener(StepLifeCycle.START, cb_START)
       context.step(() => model.age++)
     })
-    test("Context should have 1 observed observable", function() {
+    test('Context should have 1 observed observable', function() {
       function cb_START() {
         context.removeStepListener(StepLifeCycle.START, cb_START)
-        expect(context.snapshot.activeGraph.nodes.filter(isObservable).length).toBe(1)
+        expect(
+          context.snapshot.activeGraph.nodes.filter(isObservable).length
+        ).toBe(1)
       }
       context.addStepListener(StepLifeCycle.START, cb_START)
       context.step(() => model.age++)
     })
   })
 
-  describe('DID_UPDATE', function(){
-    test("Context should have 1 updated observable", function() {
+  describe('DID_UPDATE', function() {
+    test('Context should have 1 updated observable', function() {
       function cb_DID_UPDATE() {
         context.removeStepListener(StepLifeCycle.DID_UPDATE, cb_DID_UPDATE)
-        expect(context.snapshot.updatedObservables[0]).toBe(toInstance(model).$data.age)
+        expect(context.snapshot.updatedObservables[0]).toBe(
+          toInstance(model).$data.age
+        )
       }
       context.addStepListener(StepLifeCycle.DID_UPDATE, cb_DID_UPDATE)
       context.step(() => model.age++)
     })
 
-    test("Context should have a migration", function() {
+    test('Context should have a migration', function() {
       function cb_DID_UPDATE() {
         context.removeStepListener(StepLifeCycle.DID_UPDATE, cb_DID_UPDATE)
         expect(context.snapshot.migration).toEqual({
-          forward:[{
-            op: "replace",
-            path: "/model/age",
-            value: 2
-          }],
-          backward:[{
-            op: "replace",
-            path: "/model/age",
-            value: 1
-          }]
+          forward: [
+            {
+              op: 'replace',
+              path: '/model/age',
+              value: 2,
+            },
+          ],
+          backward: [
+            {
+              op: 'replace',
+              path: '/model/age',
+              value: 1,
+            },
+          ],
         })
       }
       context.addStepListener(StepLifeCycle.DID_UPDATE, cb_DID_UPDATE)
@@ -82,17 +107,74 @@ describe('life cycle', function() {
     })
   })
 
-  describe('DID_PROPAGATE', function(){
-    test("Context should have one stale observer", function() {
+  describe('DID_PROPAGATE', function() {
+    test('Context should have one stale observer', function() {
       function cb_DID_PROPAGATE() {
-        context.removeStepListener(StepLifeCycle.DID_PROPAGATE, cb_DID_PROPAGATE)
-        expect(context.snapshot.activeGraph.nodes.filter(isObserver)[0].isStale).toBeTruthy()
+        context.removeStepListener(
+          StepLifeCycle.DID_PROPAGATE,
+          cb_DID_PROPAGATE
+        )
+        expect(
+          context.snapshot.activeGraph.nodes.filter(isObserver)[0].isStale
+        ).toBeTruthy()
       }
       context.addStepListener(StepLifeCycle.DID_PROPAGATE, cb_DID_PROPAGATE)
       context.step(() => model.age++)
     })
   })
-    
+})
+
+describe('Atomicity', function() {
+  const model = observable({
+    name: 'TnT',
+  })
+  const context = getContext(toInstance(model))
+
+  test('Throw in a step will rollback the mutated observable', function() {
+    try {
+      context.step(function() {
+        model.name = 'Fraktos'
+      })
+    } catch (e) {
+      expect(model.name).toBe('TnT')
+    }
+  })
+
+  test('Throw in nested step cancel the whole stack', function() {
+    try {
+      context.step(function() {
+        model.name = 'Fraktos'
+        context.step(function() {
+          model.name = 'Elwein'
+          throw new Error('muhahAHAHAhaha')
+        })
+        model.name = 'Fraktar'
+      })
+    } catch (e) {
+      expect(model.name).toBe('TnT')
+    }
+  })
+
+  test('All steps act as a big step and leads only to one learning phase', function() {
+    let count = 0
+
+    const disposer = autorun(() => {
+      model.name
+      count++
+    })
+
+    context.step(function() {
+      model.name = 'Fraktos'
+      context.step(function() {
+        model.name = 'Elwein'
+      })
+      model.name = 'Fraktar'
+    })
+
+    expect(model.name).toBe('Fraktar')
+    expect(count).toBe(2)
+    disposer()
+  })
 })
 
 /* import { array } from '../src/array/factory'
