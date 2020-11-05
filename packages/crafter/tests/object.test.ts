@@ -37,31 +37,55 @@ describe('factory', function() {
   })*/
 
   test('Create instance from a complexe object Type', function() {
+    const Item = object({
+      id: string(),
+      price: number()
+    })
     const Player = object({
       name: string(),
       level: number(),
       stats: object({
-        force: number(),
-        health: number(),
+        base: object({
+          force: number(),
+          health: number(),
+        })
       }),
+      equipment: object({
+        chest: Item,
+        legs: Item
+      })
     })
     const player1 = Player.create({
       name: 'Fraktar',
       level: 10,
       stats: {
-        force: 1,
-        health: 4,
+        base: {
+          force: 1,
+          health: 4,
+        }
       },
+      equipment: {
+        chest: {
+          id: "plate",
+          price: 3
+        },
+        legs: {
+          id: "pattern",
+          price: 1
+        },
+      }
     })
     expect(isInstance(player1)).toBeTruthy()
     expect(isInstance(toNode(player1).$data.name)).toBeTruthy()
     expect(player1.name).toBe('Fraktar')
-    expect(player1.stats.force).toBe(1)
+    expect(player1.stats.base.force).toBe(1)
     expect(player1.stats).toEqual({
-      force: 1,
-      health: 4,
+      base: {
+        force: 1,
+        health: 4,
+      }
     })
-    expect(Object.keys(player1.stats).sort()).toEqual(['force', 'health'])
+    expect(Object.keys(player1.stats.base).sort()).toEqual(['force', 'health'])
   })
 })
 
