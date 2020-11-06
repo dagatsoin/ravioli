@@ -1,8 +1,8 @@
-import { reference } from '../src/lib/reference'
-import { object } from '../src/object'
-import { identifier } from '../src/identifier'
-import { string, number } from '../src/Primitive'
-import { toInstance, getContext } from '../src/helpers'
+import { reference } from '../../src/lib/reference'
+import { object } from '../../src/object'
+import { identifier } from '../../src/identifier'
+import { string, number } from '../../src/Primitive'
+import { toInstance, getContext } from '../../src/helpers'
 
 test('references', function() {
   const Item = object({

@@ -1,4 +1,4 @@
-import { object, string, getContext, setValue, toInstance, number } from '../src'
+import { object, string, getContext, setValue, toInstance, number } from '../../src'
 
 test("setValue of a root model", function(){
   const model = object({

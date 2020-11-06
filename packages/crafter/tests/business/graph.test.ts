@@ -1,4 +1,4 @@
-import { Graph, getGraphEdgesFrom, getAllPathsFrom, getAllPathsTo } from "../src/Graph"
+import { Graph, getGraphEdgesFrom, getAllPathsFrom, getAllPathsTo } from "../../src/Graph"
 
 describe("Test implementation of graph utils", function() {
 /*   

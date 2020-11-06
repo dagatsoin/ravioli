@@ -1,11 +1,11 @@
 //import { array } from '../src/array/factory'
-import { getSnapshot, toInstance, toNode, getContext, setValue } from '../src/helpers'
-import { isInstance, isLeafType, isNodeType, Operation } from '../src/lib'
-import { object } from '../src/object'
-import { number, string } from '../src/Primitive'
-import { getGlobal } from '../src/utils/utils'
+import { getSnapshot, toInstance, toNode, getContext, setValue } from '../../src/helpers'
+import { isInstance, isLeafType, isNodeType, Operation } from '../../src/lib'
+import { object } from '../../src/object'
+import { number, string } from '../../src/Primitive'
+import { getGlobal } from '../../src/utils/utils'
 //import { computed } from '../src/observer/Computed'
-import { autorun } from '../src/observer/Autorun'
+import { autorun } from '../../src/observer/Autorun'
 
 describe('factory', function() {
 /*   test('Object Type', function() {

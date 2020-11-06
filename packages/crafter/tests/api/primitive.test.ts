@@ -1,6 +1,6 @@
-import { string, number, boolean } from "../src/Primitive"
-import { unbox, toInstance, getContext } from "../src/helpers"
-import { autorun, Operation } from "../src"
+import { string, number, boolean } from "../../src/Primitive"
+import { unbox, toInstance, getContext } from "../../src/helpers"
+import { autorun, Operation } from "../../src"
 
 test("factory", function() {
   const str = string("Fraktar").create()

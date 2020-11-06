@@ -1,6 +1,6 @@
-import { isObservable, observable } from '../src/lib/observable'
-import { isNode } from '../src/lib/isNode'
-import { getGlobal } from '../src/utils/utils'
+import { isObservable, observable } from '../../src/lib/observable'
+import { isNode } from '../../src/lib/isNode'
+import { getGlobal } from '../../src/utils/utils'
 //import { toInstance, isUnknownType, getContext, ArrayType, MapType } from '../src'
 
 const context = getGlobal().$$crafterContext
