@@ -11,8 +11,8 @@ import {
   IContainer,
   applySnapshot,
   CrafterContainer,
-} from '../src'
-import { isObservable, observable } from '../src/lib/observable'
+} from '../../src'
+import { isObservable, observable } from '../../src/lib/observable'
 
 describe('life cycle', function() {
   // We need to compare context. As other tests will update context as well, we need
@@ -124,58 +124,7 @@ describe('life cycle', function() {
   })
 })
 
-describe('Atomicity', function() {
-  const model = observable({
-    name: 'TnT',
-  })
-  const context = getContext(toInstance(model))
-
-  test('Throw in a step will rollback the mutated observable', function() {
-    try {
-      context.step(function() {
-        model.name = 'Fraktos'
-      })
-    } catch (e) {
-      expect(model.name).toBe('TnT')
-    }
-  })
-
-  test('Throw in nested step cancel the whole stack', function() {
-    try {
-      context.step(function() {
-        model.name = 'Fraktos'
-        context.step(function() {
-          model.name = 'Elwein'
-          throw new Error('muhahAHAHAhaha')
-        })
-        model.name = 'Fraktar'
-      })
-    } catch (e) {
-      expect(model.name).toBe('TnT')
-    }
-  })
-
-  test('All steps act as a big step and leads only to one learning phase', function() {
-    let count = 0
-
-    const disposer = autorun(() => {
-      model.name
-      count++
-    })
-
-    context.step(function() {
-      model.name = 'Fraktos'
-      context.step(function() {
-        model.name = 'Elwein'
-      })
-      model.name = 'Fraktar'
-    })
-
-    expect(model.name).toBe('Fraktar')
-    expect(count).toBe(2)
-    disposer()
-  })
-})
+describe('Atomicity', function() {})
 
 /* import { array } from '../src/array/factory'
 import { container } from '../src/lib/container/factory'

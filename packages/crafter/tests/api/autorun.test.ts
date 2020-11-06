@@ -1,19 +1,21 @@
-import { autorun } from '../src/observer/Autorun'
-import { getContext, toInstance } from '../src/helpers'
-import { string, object } from '../src'
+import { autorun } from '../../src/observer/Autorun'
+import { getContext, toInstance } from '../../src/helpers'
+import { string, object } from '../../src'
 
-test('Simple autorun', function(){
-  const model = object({
-    profile: object({ name: string() })
-  }).create({profile:{name: "Fraktar"}})
-  let run = 0
-  const dispose = autorun(() => {
-    run++
-    model.profile.name
+describe('API', function() {
+  test('simple autorun', function() {
+    const model = object({
+      profile: object({ name: string() }),
+    }).create({ profile: { name: 'Fraktar' } })
+    let run = 0
+    const dispose = autorun(() => {
+      run++
+      model.profile.name
+    })
+    getContext(toInstance(model)).step(() => (model.profile.name = 'Fraktos'))
+    dispose()
+    expect(run).toBe(2)
   })
-  getContext(toInstance(model)).step(() => model.profile.name = 'Fraktos')
-  dispose()
-  expect(run).toBe(2)
 })
 
 /* import { observable } from '../src/lib/observable'

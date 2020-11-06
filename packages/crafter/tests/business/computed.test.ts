@@ -1,10 +1,9 @@
-import { toLeaf } from '../src/helpers'
-import { autorun } from '../src/observer/Autorun'
-import { computed } from '../src/observer/Computed'
-import { number} from '../src/Primitive'
-import { object } from '../src/object'
-import { getGlobal } from '../src/utils/utils'
-import { observable } from '../src/lib/observable'
+import { toLeaf } from '../../src/helpers'
+import { autorun } from '../../src/observer/Autorun'
+import { computed } from '../../src/observer/Computed'
+import { number} from '../../src/Primitive'
+import { object } from '../../src/object'
+import { getGlobal } from '../../src/utils/utils'
 
 const context = getGlobal().$$crafterContext
 
@@ -29,23 +28,6 @@ test("A computed primitive is as reactive source", function() {
   context.step(() => model.stats.health++)
   expect(run).toBe(2)
   dispose()
-})
-
-describe("Implementation", function() {
-  describe("Lazy initialisation", function() {
-    test.todo("1- Register itself in the container as a derivation")
-    describe("2- Compute the value: ", function() {
-      describe("2.1- The value is a primitive", function() {
-        test.todo("2.1.1- The computed create a primitive instance")
-      })
-      describe("2.1- The value is an object", function() {
-        test.todo("2.1.1- The computed create a node instance")
-      })
-      describe("2.1- The value is a ref to another observable", function() {
-        test.todo("2.1.1- The computed create a ref")
-      })
-    })
-  })
 })
 
 test("Computed notifies read when accessed", function() {

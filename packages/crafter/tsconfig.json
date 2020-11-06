@@ -13,6 +13,6 @@
     "target": "es5",
     "moduleResolution": "node",
   },
-  "include": ["src/index.ts", "src/globals.d.ts", "jest.setup.ts", "tests/*"],
+  "include": ["src/index.ts", "src/globals.d.ts", "jest.setup.ts", "tests/**/*"],
   "exclude": ["dist"]
 }
