@@ -17,13 +17,3 @@ export function observable<T>(value: T, options?: {id?: string, context?: IConta
 export function isObservable(thing: any): thing is IObservable {
   return thing.$isObservable === true
 }
-
-export function getObservable<T>(thing: T): IObservable {
-  if (isObservable(thing)) {
-    return thing
-  }
-  throw new Error('getObservable: passed value is not an IObservable')
-}
-
-
- 

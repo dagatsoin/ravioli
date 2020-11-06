@@ -1,4 +1,4 @@
-import { observable } from '../src/lib/observable'
+import { isObservable, observable } from '../src/lib/observable'
 import { isNode } from '../src/lib/isNode'
 import { getGlobal } from '../src/utils/utils'
 //import { toInstance, isUnknownType, getContext, ArrayType, MapType } from '../src'
@@ -7,17 +7,24 @@ const context = getGlobal().$$crafterContext
 
 beforeEach(() => context.clearContainer())
 
-test('create plain object observable', function() {
-  const model = observable({
-    name: 'Fraktar',
-    isAlive: false,
-    stats: {
-      health: 10,
-      force: 4,
-    },
+describe("API", function() {
+  test('observable', function() {
+    const model = observable({
+      name: 'Fraktar',
+      isAlive: false,
+      stats: {
+        health: 10,
+        force: 4,
+      },
+    })
+    expect(isNode(model) && isNode(model.stats)).toBeTruthy()
   })
-  expect(isNode(model) && isNode(model.stats)).toBeTruthy()
+
+  test("isObservable", function() {
+    expect(isObservable(observable({name: 'Fraktar'}))).toBeTruthy()
+  })
 })
+
 
 test.todo('create a ref from another observable')
 
