@@ -356,15 +356,18 @@ export function searchDFS(graph: Graph<any>, predicate: (nodeId: string) => bool
 /**
  * Sort the graph in a topological order. Starting from the first
  * target id of the edge list.
- * @param graph 
  */
-export function topologicalSort(graph: Graph<any>) {
-  const stack: string[] = [];
-  const visited: string[] = [];
+export function topologicalSort(graph: Graph<any>, idField: string) {
+  const stack: string[] = []
+  const visited: string[] = []
+
   while (stack.length < graph.nodes.length) {
     const fromId = graph.edges.find(({ target }) => !stack.includes(target))?.target;
     if (fromId === undefined) {
-      throw new Error(`[Graph] topologicalSort fromId is undefined`)
+      // All linked nodes has been visited. Found some isolated nodes. Add it at the end of the stack.
+      const isolated = graph.nodes.filter(({id}) => !visited.includes(id)).map(({id}) => id)
+      stack.push(...isolated)
+      break
     }
     crawlDepthFirst({
       graph,

@@ -1,4 +1,4 @@
-import { Graph, getGraphEdgesFrom, getAllPathsFrom, getAllPathsTo } from "../../src/Graph"
+import { Graph, getGraphEdgesFrom, getAllPathsFrom, getAllPathsTo, topologicalSort } from "../../src/Graph"
 
 describe("Test implementation of graph utils", function() {
 /*   
@@ -80,6 +80,47 @@ A0 <--+ C2 <--------+
       { id: 'A1' }
     ]
   }
+
+  /*
+A1 <--+ C4 <-------------------+
+         ^                     |
+         |                     |
+         +                     +
+        C3         C0 <-----+ O0
+         ^          +
+         |          |
+         +          |
+A0 <--+ C2 <--------+
+                    |
+                    |
+                    +
+A2                 C1 <-----+ O1
+*/
+const graph3: Graph<{id: string}> = {
+  edges: [
+    { target: 'C0', source: 'O0'},
+    { target: 'C2', source: 'C0'},
+    { target: 'A0', source: 'C2'},
+    { target: 'C3', source: 'C2'},
+    { target: 'C4', source: 'C3'},
+    { target: 'A1', source: 'C4'},
+    { target: 'C4', source: 'O0'},
+    { target: 'C1', source: 'O1'},
+    { target: 'C2', source: 'C1'},
+  ],
+  nodes: [
+    { id: 'O0' },
+    { id: 'O1' }, 
+    { id: 'C0' },
+    { id: 'C1' },
+    { id: 'C2' },
+    { id: 'C3' },
+    { id: 'A2' },
+    { id: 'C4' },
+    { id: 'A0' },
+    { id: 'A1' }
+  ]
+}
   
   test("getSubTreeEdges", function() {
     expect(getGraphEdgesFrom({
@@ -133,5 +174,20 @@ A0 <--+ C2 <--------+
       ['6', '1', '0'],
       ['7', '1', '0']
     ].sort())
+  })
+
+  test("topologicalSort", function() {
+    expect(topologicalSort(graph3, "id")).toEqual([
+      "O0",
+      "C0",
+      "O1",
+      "C1",
+      "C2",
+      "A0",
+      "C3",
+      "C4",
+      "A1",
+      "A2",
+    ])
   })
 })
