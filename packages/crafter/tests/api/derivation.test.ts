@@ -31,7 +31,7 @@
  */
 
 import { autorun } from '../../src/observer/Autorun'
-import { derived } from '../../src/observer/Derivation'
+import { derived } from "../../src/observer/derived"
 import { number} from '../../src/Primitive'
 import { object } from '../../src/object'
 import { getGlobal } from '../../src/utils/utils'

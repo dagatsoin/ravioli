@@ -1,6 +1,7 @@
-import { toLeaf } from '../../src/helpers'
+import { applySnapshot, getRoot, getSnapshot, toInstance, toLeaf } from '../../src/helpers'
 import { autorun } from '../../src/observer/Autorun'
-import { Derivation, derived } from '../../src/observer/Derivation'
+import { Derivation } from '../../src/observer/Derivation'
+import { derived } from "../../src/observer/derived"
 import { number} from '../../src/Primitive'
 import { object } from '../../src/object'
 import { getGlobal } from '../../src/utils/utils'
@@ -39,45 +40,59 @@ import { ObserverType } from '../../src/observer/IObserver'
  * 5- Thanks to the topological sort, all the derivations are now in sync with the model and we can safely run
  *    the side effects without worrying about stale data. Each Reaction:
  *      - is ran only if alive and if one of their dependency has changed.
- *     
+ * 6- When the derivation isnot used by a Reaction (directly or indirectly), it will become idle.
  * 
  */
 
 const context = getGlobal().$$crafterContext
- 
-beforeEach(context.clearContainer)
+
+const model = observable({
+  name: "Fraktar",
+  stats: {
+    health: 10
+  }
+})
+
+const snapshot = getSnapshot(model)
+
+beforeEach(() => {
+  context.clearContainer()
+  applySnapshot(model, snapshot)
+})
 
 describe("Implementation", function() {
   describe("Lazy initialization", function() {
+    
     test("Register the Derivation as an Observer in the Container", function() {
-      const model = observable({
-        name: "Fraktar",
-        stats: {
-          health: 10
-        }
-      })
-      
       const representation = derived(() => ({
         name: model.name,
         currentHealth: model.stats.health
       }))
       
-      autorun(() => representation.get())
+      const dispose = autorun(() => representation.get())
 
       expect(context.snapshot.observerGraph.nodes.length === 2)
       expect(context.snapshot.observerGraph.nodes[1].observer.type === ObserverType.Derivation)
+      dispose()
     })
     test.todo("Mark the Derivation as alive and stale.")
-    describe("Active graph registration", function() {
-      test.todo("Boxed value: the derivation is present in the active graph")
-      test.todo("Observable value: the observable instance is present in the active graph")
-    })
-    describe("Dependency registration", function() {
-      test.todo("From derived to parent, the parent registers all the paths to the computed value")
-      test.todo("From child to derived, the derived registers all the paths of the observable value")
-    })
   })
   describe("Computation: ", function() {
+    test("List all the observables used during the computation", function() {
+      const representation = derived(() => ({
+        name: model.name,
+        currentHealth: model.stats.health
+      }))
+
+      const dispose = autorun(() => representation.get())
+      const instance = toInstance(model)
+      const rootId = instance.$id
+      expect(context.snapshot.observerGraph.nodes[1].dependencies).toEqual([
+        '/' + rootId + instance.$data.name.$path,
+        '/' + rootId + instance.$data.stats.$data.health.$path
+      ])
+      dispose()
+    })
     test.todo("The computed create a primitive")
     describe("The value is not a primitive", function() {
       test.todo("Object")

@@ -178,6 +178,4 @@ export type ComputedOptions = {
   contexts?: {output?: IContainer, source?: IContainer}
 }
 
-export function derived<T>(fun: (boundThis?: IObservable) => T, options?: ComputedOptions): IDerivation<T> {
-  return new Derivation(fun, options)
-}
+
