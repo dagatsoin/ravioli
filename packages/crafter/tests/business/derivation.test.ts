@@ -40,7 +40,7 @@ import { ObserverType } from '../../src/observer/IObserver'
  * 5- Thanks to the topological sort, all the derivations are now in sync with the model and we can safely run
  *    the side effects without worrying about stale data. Each Reaction:
  *      - is ran only if alive and if one of their dependency has changed.
- * 6- When the derivation isnot used by a Reaction (directly or indirectly), it will become idle.
+ * 6- When the derivation is not used by a Reaction (directly or indirectly), it will become idle.
  * 
  */
 
@@ -93,7 +93,14 @@ describe("Implementation", function() {
       ])
       dispose()
     })
-    test.todo("The computed create a primitive")
+    test("If the output value is raw value, register the derivation as a dependency", function() {
+      const representation = derived(() => model.stats.health + 1)
+
+      const dispose = autorun(() => representation.get())
+      
+      expect(context.snapshot.observerGraph.nodes[0].dependencies[0].startsWith("Derivation"))
+      dispose()
+    })
     describe("The value is not a primitive", function() {
       test.todo("Object")
       test.todo("Array")
