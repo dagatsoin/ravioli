@@ -8,6 +8,7 @@ import { getGlobal } from '../../src/utils/utils'
 import { observable } from '../../src/lib/observable'
 import { CrafterContainer, IContainer, StepLifeCycle } from '../../src'
 import { ObserverType } from '../../src/observer/IObserver'
+import { isContainer } from '../../src/lib/isNode'
 
 /**
  * This document test and describes the implementation of a Derivation
@@ -165,13 +166,18 @@ describe("Implementation", function() {
     }))
 
     const dispose = autorun(() => representation.get().currentHealth)
+    const instanceId = toInstance(representation.get()).$id
     const derivation = context.snapshot.observerGraph.nodes[1].observer
     dispose()
+
     test("Unregister from the active graph when not used by any reaction", function() {
       expect(derivation.isStale).toBeTruthy()
       expect((derivation as any).isAlive).toBeFalsy()
     })
-    test.todo("Kill the instance value at unregistration")
+
+    test("Kill the instance value at unregistration", function() {
+      expect(context.hasUID(instanceId)).toBeFalsy()
+    })
   })
 })
 
