@@ -22,9 +22,8 @@ import { ObserverType } from '../../src/observer/IObserver'
  *   - Compute the value for the first time:
  *     - List all the observables used during the computation
  *     - If the output value is raw value, register the derivation as a dependency
- *     - If the output value is an observable :
- *       - Cache all the paths of this value. This will used later to compare if a
- *         Reaction is observing a part of the output value
+ *     - If the output value is an observable, all the paths to the observable read during
+ *       the computation will be stored in the container state.
  *     - Return the value.
  * 2- Observer registration: the return value is read:
  *   - Pick only the observable which are used:
@@ -98,7 +97,33 @@ describe("Implementation", function() {
 
       const dispose = autorun(() => representation.get())
       
-      expect(context.snapshot.observerGraph.nodes[0].dependencies[0].startsWith("Derivation"))
+      expect(context.snapshot.observerGraph.nodes[0].dependencies.length === 1)
+      expect(/\/Derivation#\d+$/.exec(context.snapshot.observerGraph.nodes[0].dependencies[0]))
+      dispose()
+    })
+    test("If the output value is an observable object, the paths stored as reaction dependencies comes from the observable value.", function() {
+      const representation = derived(() => ({
+        name: model.name,
+        currentHealth: model.stats.health
+      }))
+
+      const dispose = autorun(() => representation.get())
+      const instance = toInstance(representation.get())
+
+      expect(context.snapshot.observerGraph.nodes[0].observer.type === ObserverType.Autorun)
+      expect(context.snapshot.observerGraph.nodes[0].dependencies.length === 1)
+      expect(context.snapshot.observerGraph.nodes[0].dependencies[0].endsWith('/' + instance.$id)).toBeTruthy()
+
+      dispose()
+    })
+    test("If the output value is an observable primitive, the path stored as the reaction dependency is the leaf path.", function() {
+      const representation = derived(() => model.stats.health + 1)
+
+      const dispose = autorun(() => representation.get())
+
+      expect(context.snapshot.observerGraph.nodes[0].dependencies.length === 1)
+      expect(/\/LeafInstance#\d+$/.exec(context.snapshot.observerGraph.nodes[0].dependencies[0]))
+
       dispose()
     })
     describe("The value is not a primitive", function() {

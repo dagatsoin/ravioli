@@ -2,7 +2,7 @@ import { IObservable } from '../IObservable'
 import { observable, isObservable } from '../lib/observable'
 import { Observer } from './Observer'
 import { ObserverType } from './IObserver'
-import { makePath, toInstance, toLeaf, setValue } from '../helpers'
+import { makePath, toInstance, toLeaf, setValue, toNode, getRoot } from '../helpers'
 import { IContainer } from '../IContainer'
 import { isInstance } from '../lib/Instance'
 import { isNode } from '../lib/isNode'
@@ -72,16 +72,16 @@ export class Derivation<T> extends Observer implements IDerivation<T> {
    // FIX ME est ce qu'on a toujours besoin de notifier le container de la lecture de la derivation si c'est une instance qu'il retourne ?
    
    if (!this.isInstance) {
-    this.valueContext.notifyRead(makePath(this.$id))
       // The value is a boxed value (could be a primitive or any object)
-   //   this.valueContext.notifyRead(makePath(this.id))
+      this.valueContext.notifyRead(makePath('/', this.$id))
       return this.value
     } else if (isNode(this.value)){
       // The value is an observable node
+      this.valueContext.notifyRead(makePath(getRoot(this.value).$id, this.value.$path))
       return this.value
     } else {
       // The value is an observable leaf
-      return toLeaf<T>(this.value).$value
+      return toLeaf<any>(this.value).$value
     }
   }
 
