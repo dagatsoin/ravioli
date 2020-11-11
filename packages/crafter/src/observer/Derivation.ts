@@ -70,9 +70,9 @@ export class Derivation<T> extends Observer implements IDerivation<T> {
       this.runAndUpdateDeps(target)
     }
    // FIX ME est ce qu'on a toujours besoin de notifier le container de la lecture de la derivation si c'est une instance qu'il retourne ?
+   
+   if (!this.isInstance) {
     this.valueContext.notifyRead(makePath(this.$id))
-
-    if (!this.isInstance) {
       // The value is a boxed value (could be a primitive or any object)
    //   this.valueContext.notifyRead(makePath(this.id))
       return this.value
@@ -132,8 +132,7 @@ export class Derivation<T> extends Observer implements IDerivation<T> {
     if (!this.isIinitialized) {
       // This derivation returns an observable
       if (this.isInstance) {
-        const id = this.valueContext.getUID(this.id + '/')
-        this.value = observable(value, { context: this.valueContext, isStrict: this.isStrict,  id })
+        this.value = observable(value, { context: this.valueContext, isStrict: this.isStrict})
       } else {
         this.value = value
       }
