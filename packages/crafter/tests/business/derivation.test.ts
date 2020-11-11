@@ -6,7 +6,7 @@ import { number} from '../../src/Primitive'
 import { object } from '../../src/object'
 import { getGlobal } from '../../src/utils/utils'
 import { observable } from '../../src/lib/observable'
-import { CrafterContainer } from '../../src'
+import { CrafterContainer, IContainer, StepLifeCycle } from '../../src'
 import { ObserverType } from '../../src/observer/IObserver'
 
 /**
@@ -19,16 +19,14 @@ import { ObserverType } from '../../src/observer/IObserver'
  *   through the .get() method:
  *   - Register the Observer aspect of a Derivation in the Container.
  *   - Mark it as alive and stale.
- *   - Compute the value for the first time:
- *     - List all the observables used during the computation
- *     - If the output value is raw value, register the derivation as a dependency
- *     - If the output value is an observable, all the paths to the observable read during
- *       the computation will be stored in the container state.
- *     - Return the value.
- * 2- Observer registration: the return value is read:
+ *   - Compute the value for the first time: list all the observables
+ *     used during the computation
+ *   - Return the value.
+ * 2- Parent observer spies the return:
  *   - Pick only the observable which are used:
+ *     - In case of a raw value, register the derivation ID as a dependency path
  *     - In case of chain call on an observable (value.state.health), only the leaf path is stored.
- *     - In case of a raw value, the Derivation id is stored
+ *     - In case of a observable primitive, register the LeafInstance path as a dependency path
  * 3- The model changed:
  *   - The container will propagate the changed in topological order (child first) in the
  *     active graph (storing only alive observers).
@@ -39,8 +37,8 @@ import { ObserverType } from '../../src/observer/IObserver'
  * 5- Thanks to the topological sort, all the derivations are now in sync with the model and we can safely run
  *    the side effects without worrying about stale data. Each Reaction:
  *      - is ran only if alive and if one of their dependency has changed.
- * 6- When the derivation is not used by a Reaction (directly or indirectly), it will become idle.
- * 
+ * 6- When the derivation is not used by a Reaction (directly or indirectly), it will become idle and the value
+ *    instance will be killed, if any.
  */
 
 const context = getGlobal().$$crafterContext
@@ -92,7 +90,15 @@ describe("Implementation", function() {
       ])
       dispose()
     })
-    test("If the output value is raw value, register the derivation as a dependency", function() {
+    
+    describe("The dependendies are refreshed at each computation", function() {
+      // The if (A) B test thing
+      test.todo("A previous dependency is removed")
+      test.todo("A new dependency is added")
+    })
+  })
+  describe("Parent Observer spies the value", function(){
+    test("In case of a raw value, register the derivation ID as a dependency path", function() {
       const representation = derived(() => model.stats.health + 1)
 
       const dispose = autorun(() => representation.get())
@@ -101,51 +107,71 @@ describe("Implementation", function() {
       expect(/\/Derivation#\d+$/.exec(context.snapshot.observerGraph.nodes[0].dependencies[0]))
       dispose()
     })
-    test("If the output value is an observable object, the paths stored as reaction dependencies comes from the observable value.", function() {
+    test("In case of chain call on an observable (value.state.health), only the leaf path is stored.", function() {
       const representation = derived(() => ({
         name: model.name,
         currentHealth: model.stats.health
       }))
 
-      const dispose = autorun(() => representation.get())
+      const dispose = autorun(() => representation.get().currentHealth)
       const instance = toInstance(representation.get())
 
       expect(context.snapshot.observerGraph.nodes[0].observer.type === ObserverType.Autorun)
       expect(context.snapshot.observerGraph.nodes[0].dependencies.length === 1)
-      expect(context.snapshot.observerGraph.nodes[0].dependencies[0].endsWith('/' + instance.$id)).toBeTruthy()
+      expect(context.snapshot.observerGraph.nodes[0].dependencies[0].endsWith('/' + instance.$id + '/currentHealth')).toBeTruthy()
 
       dispose()
     })
-    test("If the output value is an observable primitive, the path stored as the reaction dependency is the leaf path.", function() {
+    test("In case of a observable primitive, register the LeafInstance path as a dependency path.", function() {
       const representation = derived(() => model.stats.health + 1)
-
+      
       const dispose = autorun(() => representation.get())
-
+      
       expect(context.snapshot.observerGraph.nodes[0].dependencies.length === 1)
       expect(/\/LeafInstance#\d+$/.exec(context.snapshot.observerGraph.nodes[0].dependencies[0]))
-
+      
       dispose()
     })
-    describe("The value is not a primitive", function() {
-      test.todo("Object")
-      test.todo("Array")
-      test.todo("Map")
-      test.todo("Date")
-      test.todo("Instance")//throw
-    })
-    describe("The dependendies are refreshed at each computation", function() {
-      // The if (A) B test thing
-      test.todo("A previous dependency is removed")
-      test.todo("A new dependency is added")
+    test.todo("Array")
+    test.todo("Map")
+    test.todo("Date")
+    test.todo("Instance")
+  })
+  describe("The model changed", function() {
+    test("The computed is stale if some observed instance has changed.", function(){
+      const representation = derived(() => ({
+        name: model.name,
+        currentHealth: model.stats.health
+      }))
+
+      const dispose = autorun(() => representation.get().currentHealth)
+
+      function callBack(c: IContainer) {
+        expect(c.snapshot.observerGraph.nodes[1].observer.isStale).toBeTruthy()
+        c.removeStepListener(StepLifeCycle.DID_PROPAGATE, callBack)
+      }
+
+      context.addStepListener(StepLifeCycle.DID_PROPAGATE, callBack)
+
+      context.step(() => model.stats.health ++)
+      dispose()
     })
   })
-  test.todo("Refine typing during computation")
+
   describe("Aliveness", function(){
-    test.todo("Unregister from the active graph when not used by any reaction")
+    const representation = derived(() => ({
+      name: model.name,
+      currentHealth: model.stats.health
+    }))
+
+    const dispose = autorun(() => representation.get().currentHealth)
+    const derivation = context.snapshot.observerGraph.nodes[1].observer
+    dispose()
+    test("Unregister from the active graph when not used by any reaction", function() {
+      expect(derivation.isStale).toBeTruthy()
+      expect((derivation as any).isAlive).toBeFalsy()
+    })
     test.todo("Kill the instance value at unregistration")
-  })
-  describe("Staleness", function() {
-    test.todo("The computed is stale if some observed instance has changed.")
   })
 })
 

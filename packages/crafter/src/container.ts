@@ -776,15 +776,13 @@ function onDisposeObserver(observer: IObserver, state: ContainerState): void {
   // Dispose observer and remove it from the graph
   tree.nodes
     // The passed target id is already disposed. Avoid infinite loop.
-    .forEach(node => {
-      if (isObserver(node) && observer.id !== node.id) {  
-        disposeComputation(node)
+    .forEach(({observer: o}) => {
+      if (observer.id !== o.id) {  
+        disposeComputation(o)
         removeObserver({
-          observer: node,
+          observer: o,
           dependencyGraph: graph
         })
-      } else {
-        
       }
     })
   // Remove edges from the graph
