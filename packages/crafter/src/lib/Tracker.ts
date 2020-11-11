@@ -31,7 +31,7 @@ export class Tracker implements IObservable, ITracker {
   }
 
   public reportObserved(): void {
-    this.context.notifyRead(this, makePath(this.id))
+    this.context.notifyRead(makePath(this.id))
   }
 
   public reportChanged(): void {

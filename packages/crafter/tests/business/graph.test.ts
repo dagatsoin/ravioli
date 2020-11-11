@@ -177,7 +177,7 @@ const graph3: Graph<{id: string}> = {
   })
 
   test("topologicalSort", function() {
-    expect(topologicalSort(graph3, "id")).toEqual([
+    expect(topologicalSort(graph3)).toEqual([
       "O0",
       "C0",
       "O1",

@@ -593,7 +593,7 @@ function addInterceptor(
         if (instance !== undefined) {
           if (isNode(instance)) {
             // When we retrieve a child node instance we need to force the read notif here
-            this.$$container.notifyRead(this, makePath(getRoot(this).$id, this.$path, propName))
+            this.$$container.notifyRead(makePath(getRoot(this).$id, instance.$path))
           }
           // return the instance if it is a node or the value if it is a leaf
           return unbox(instance)

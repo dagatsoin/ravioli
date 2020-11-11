@@ -1,8 +1,6 @@
 import { Observer } from './Observer'
 import { IObserver, ObserverType } from "./IObserver"
 import { IContainer } from '../IContainer'
-import { Patch } from '../lib/JSONPatch/type'
-import { isDependent } from '../lib/JSONPatch/business'
 
 type AutorunFunction = (p:{isFirstRun: boolean, dispose: () => void}) => void
 
@@ -17,7 +15,9 @@ export class Autorun extends Observer {
       context
     })
     this.fun = fun
-    this.context.initReaction(this)
+    this.context.registerObserver(this)
+    // Run the target function and collect all the observers popping up during execution.
+    this.runAndUpdateDeps() 
   }
 
   public dispose = (): void => {
@@ -45,7 +45,6 @@ export class Autorun extends Observer {
         this.context.onObserverError(this)
         error = e
       } finally {
-        this.dependencies = this.context.getCurrentSpyedObserverDeps(this.id)
         this.context.stopSpyObserver(this.id)
         this._isStale = false
       }

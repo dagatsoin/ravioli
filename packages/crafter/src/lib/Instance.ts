@@ -73,7 +73,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
   }
   
   public get $snapshot(): SNAPSHOT {
-    if (this.$isStale && this.$$container.state.controlState !== ControlState.MUTATION) {
+    if (this.$isStale && this.$$container.controlState !== ControlState.MUTATION) {
       this.$computeSnapshot()
     }
     return this.$prevSnapshot
@@ -84,7 +84,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
   }
 
   public $notifyRead(): void {
-    this.$$container.notifyRead(this, makePath(getRoot(this).$id, this.$path))
+    this.$$container.notifyRead(makePath(getRoot(this).$id, this.$path))
   }
 
   public $createNewSnapshot(): SNAPSHOT {

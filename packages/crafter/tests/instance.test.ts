@@ -1,3 +1,5 @@
+test.todo("Kill an instance removes it from the active graph")
+
 /* import { number, string, undefinedType } from "../src/Primitive"
 import { object } from "../src/object"
 import { toNode, toLeaf, makePath, toInstance, getContext } from "../src/helpers"

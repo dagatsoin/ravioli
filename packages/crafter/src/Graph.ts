@@ -357,7 +357,7 @@ export function searchDFS(graph: Graph<any>, predicate: (nodeId: string) => bool
  * Sort the graph in a topological order. Starting from the first
  * target id of the edge list.
  */
-export function topologicalSort(graph: Graph<any>, idField: string) {
+export function topologicalSort(graph: Graph<any>) {
   const stack: string[] = []
   const visited: string[] = []
 

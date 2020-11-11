@@ -23,16 +23,18 @@ export enum ControlState {
   STALE,
 }
 
+export type ObserverGraphNode = {
+  id: string
+  observer: IObserver | IDerivation<any>, 
+  dependencies: string[]
+}
+
 export type ContainerState = {
   // The migration for the current step
   migration: Migration
 
-  // Current control state of the model in the SAM lifecyle 
-  controlState: ControlState
-
   // List of used ids (used for generate UID)
   uids: string[]
-  spiedObserversDependencies: Map<string, string[]>
 
   // Map of node isntances used in the container
   referencableNodeInstances: Map<string, INodeInstance<any>>
@@ -40,23 +42,6 @@ export type ContainerState = {
   // While running a reaction, list all derivation which are used.
   // This will be used to clean the graph from unused derivations.
   activeDerivations: Map<string, IObserver>
-
-  /**
-   * The stack of running observer ids ans type
-   * All possible observer chaining:
-   * - An autorun is a triggerd by an autorun
-   *   [autorun0, autorun1]
-   * - A derivation is triggered by an autorun
-   *   [autorun0, derivation0]
-   * - A derivation is triggered by a derivation
-   *   [autorun0, derivation0, derivation1]
-   * We can not have:
-   * - A derivation alone
-   *   [derivation0]
-   * - A derivation between two reactions. (A derivation can not trigger a side effect)
-   *   [autorun0, derivation0, autorun1]
-   */
-  spyReactionQueue: {type: ObserverType, id: string}[]
 
   // Store the top level step ID.
   // Only the top level step ID will trigger the learning phase.
@@ -68,25 +53,9 @@ export type ContainerState = {
   // If this counter goes back to 0, that means that the root
   // step is ended
   nestedStepLevel: number
-
-  // While computing new state
-  // Here, the mutation can only come from the computed values setting
-  // their internal state.
-  isComputingNextState: boolean
-
-  // The graph of the active observers and observables.
-  activeGraph: Graph<IObservable | IObserver | IDerivation<any>>
-
-  // The graph of the stale node after a step
-  updatedObservablesGraph: Graph<IObservable>
-
-  // A list of observables used during a step.
-  // Once the step is complete, the manager will
-  // update the derivations then the reactions which depends on them
-  updatedObservables: IInstance[]
-
-  // The list of stale observers for the current step, in topological order
-  staleReactions: IObserver[]
+  
+  // The graph of the active observers and its dependencies.
+  observerGraph: Graph<ObserverGraphNode>
 }
 
 export type Proposal = BasicCommand[]
@@ -96,12 +65,17 @@ export interface IContainer {
   isWrittable: boolean
 //  isTransaction: boolean
   isRunningReaction: boolean
-  state: ContainerState
+  controlState: ControlState
+
   /**
-   * Called during the constructor of a reaction.
-   * This will add the observer and its dependencies to the graph.
+   * Return the paths of the observables used (read) by an observer
    */
-  initReaction(reaction: IObserver): void
+  getObserverDeps(observerId: string): string[]
+
+  /**
+   * Add an observer to the observer graph
+   */
+  registerObserver(observer: IObserver): void
 
   /**
    * A step is the smallest unit of work of Crafter app.
@@ -157,12 +131,6 @@ export interface IContainer {
   startSpyObserver(observer: IObserver): void
 
   /**
-   * Return the deps of the current spyed observer
-   * @param observerId 
-   */
-  getCurrentSpyedObserverDeps(observerId: string): string[]
-
-  /**
    * Stop to collect observable paths and for this observer
    */
   stopSpyObserver(observerId: string): void
@@ -179,7 +147,7 @@ export interface IContainer {
    * @param observable 
    * @param path optional path. If you want to override the path of the observable.
    */
-  notifyRead(observable: IInstance, path?: string): void
+  notifyRead(path?: string): void
   getReferenceTarget<T, S = T>(id: string): INodeInstance<T, S>
   registerAsReferencable(
     id: string,

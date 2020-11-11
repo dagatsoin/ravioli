@@ -52,7 +52,7 @@ describe('life cycle', function() {
       function cb_START() {
         context.removeStepListener(StepLifeCycle.START, cb_START)
         expect(
-          context.snapshot.activeGraph.nodes.filter(isObserver).length
+          context.snapshot.observerGraph.nodes.filter(isObserver).length
         ).toBe(1)
       }
       context.addStepListener(StepLifeCycle.START, cb_START)
@@ -62,7 +62,7 @@ describe('life cycle', function() {
       function cb_START() {
         context.removeStepListener(StepLifeCycle.START, cb_START)
         expect(
-          context.snapshot.activeGraph.nodes.filter(isObservable).length
+          context.snapshot.observerGraph.nodes.filter(isObservable).length
         ).toBe(1)
       }
       context.addStepListener(StepLifeCycle.START, cb_START)
@@ -115,13 +115,17 @@ describe('life cycle', function() {
           cb_DID_PROPAGATE
         )
         expect(
-          context.snapshot.activeGraph.nodes.filter(isObserver)[0].isStale
+          context.snapshot.observerGraph.nodes.filter(isObserver)[0].isStale
         ).toBeTruthy()
       }
       context.addStepListener(StepLifeCycle.DID_PROPAGATE, cb_DID_PROPAGATE)
       context.step(() => model.age++)
     })
   })
+})
+
+describe('Active graph registration', function() {
+  test.todo("Store only last element of a dot notation")
 })
 
 describe('Atomicity', function() {})

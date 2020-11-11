@@ -110,7 +110,7 @@ export function applySnapshot<T>(entity: T, snapshot: T, willReact = true): void
  * @param value 
  * @param willReact will this change will be observed
  */
-export function setValue<T>(entity: T, value: T, willReact = true): void {
+export function setValue<T>(entity: IInstance<T> | T, value: T, willReact = true): void {
   if(__DEV__ && !isInstance(entity)) {
     fail('[CRAFTER] entity is not an instance') 
   }

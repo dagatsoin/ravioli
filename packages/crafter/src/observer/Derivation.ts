@@ -20,9 +20,9 @@ import { IDerivation } from './IDerivation'
  * will send back the cached value.
  */
 
-const type = ObserverType.Computed
+const type = ObserverType.Derivation
 
-export class Computed<T> extends Observer implements IDerivation<T> {
+export class Derivation<T> extends Observer implements IDerivation<T> {
   public get isStale(): boolean {
     return this._isStale
   }
@@ -34,7 +34,7 @@ export class Computed<T> extends Observer implements IDerivation<T> {
   private isIinitialized = false
   private valueContext: IContainer
   private valueId?: string
-  private readonly isBoxed: boolean
+  private readonly isInstance: boolean
   private readonly isStrict: boolean
   private migration: Migration = {forward: [], backward: []}
 
@@ -45,18 +45,16 @@ export class Computed<T> extends Observer implements IDerivation<T> {
       context: options?.contexts?.source
     })
     this.fun = fun
-    this.isBoxed = !!options?.isBoxed
-    this.valueContext = options?.contexts?.output || this.context
+    this.isInstance = options?.isInstance ?? true
+    this.valueContext = options?.contexts?.output ?? this.context
     this.valueId = options?.valueId
-    this.isStrict = options && options.useOptional !== undefined
-      ? options.useOptional === false
-      : true
+    this.isStrict = options?.useOptional ?? true
   }
 
   public get $id(): string {
-    return this.isBoxed
-      ? this.id
-      : toInstance(this.value).$id
+    return this.isInstance
+      ? toInstance(this.value).$id
+      : this.id
   }
 
   public get $migration(): Migration {
@@ -65,16 +63,18 @@ export class Computed<T> extends Observer implements IDerivation<T> {
       : this.migration
   }
 
-  public get(target?: IObservable): T {    
-      this.valueContext.notifyRead(this as any, makePath(this.id))
-    
+  public get(target?: IObservable): T {
+    // FIXME    autorun observes computed instead of the leaf    
+
     if (this._isStale) {
       this.runAndUpdateDeps(target)
     }
+   // FIX ME est ce qu'on a toujours besoin de notifier le container de la lecture de la derivation si c'est une instance qu'il retourne ?
+    this.valueContext.notifyRead(makePath(this.$id))
 
-    if (!isObservable(this.value) || this.isBoxed) {
+    if (!this.isInstance) {
       // The value is a boxed value (could be a primitive or any object)
-   //   this.valueContext.notifyRead(this as any, makePath(this.id))
+   //   this.valueContext.notifyRead(makePath(this.id))
       return this.value
     } else if (isNode(this.value)){
       // The value is an observable node
@@ -105,6 +105,7 @@ export class Computed<T> extends Observer implements IDerivation<T> {
     }
     // The observer runs for the first time or is re employed by an other observer
     if (!this.isAlive) {
+      this.context.registerObserver(this)
       this.isAlive = true
     }
     // Listen to all the observable path this computation will access to.
@@ -123,18 +124,18 @@ export class Computed<T> extends Observer implements IDerivation<T> {
     // Those signals are not useful and must be bypassed by compute the value BEFORE (1) setting it
     // in the observable to prevent and PAUSE spies (2) during the creation.
     /* 1 */
-  const value = target ? this.fun.call(target, target) : this.fun()
-    
-    /* 2 */
-  this.valueContext.pauseSpies()
+    const value = target ? this.fun.call(target, target) : this.fun()
+      
+      /* 2 */
+    this.valueContext.pauseSpies()
     // The observer run for the first time. We set the observable result.
     if (!this.isIinitialized) {
-      // This is a boxed value
-      if (this.isBoxed) {
-        this.value = value
-      } else {
-        const id = this.valueContext.getUID(this.id + '_value')
+      // This derivation returns an observable
+      if (this.isInstance) {
+        const id = this.valueContext.getUID(this.id + '/')
         this.value = observable(value, { context: this.valueContext, isStrict: this.isStrict,  id })
+      } else {
+        this.value = value
       }
 
       this.isIinitialized = true
@@ -142,10 +143,12 @@ export class Computed<T> extends Observer implements IDerivation<T> {
     // The observer has already ran. We update the observable value.
     // Note this $setValue won't emit any migration, because it only happens during the learning phase.
     else {
-      if (isInstance(this.value)) {
-        this.valueContext.step(() => setValue(this.value, value, false))
-        if (!isNode(this.value)) {
-          this.migration.forward = [{op: "replace", path: makePath(this.value.$id), value: toLeaf(this.value).$value}]
+      // This derivation returns an observable
+      if (this.isInstance) {
+        const instance = toInstance<T>(this.value)
+        this.valueContext.step(() => setValue(instance, value, false))
+        if (!isNode(instance)) {
+          this.migration.forward = [{op: "replace", path: makePath(instance.$id), value: toLeaf(instance).$value}]
         }
       } else {
         this.migration.forward = [{op: "replace", path: makePath(this.id), value: this.value}]
@@ -155,29 +158,26 @@ export class Computed<T> extends Observer implements IDerivation<T> {
     this.valueContext.resumeSpies()
 
     // The value is read during an autorun, reset staleness
-    // If not, that means that the user force the update.
-    if (this.context.isRunningReaction || this.valueContext.isRunningReaction) {
+//    if (this.context.isRunningReaction || this.valueContext.isRunningReaction) {
       this._isStale = false
-    }
+  //  }
 
     if (this.valueContext !== this.context) {
-      this.dependencies = [...this.valueContext.getCurrentSpyedObserverDeps(this.id)]
       this.valueContext.stopSpyObserver(this.id)
     } else {
-      this.dependencies = [...this.context.getCurrentSpyedObserverDeps(this.id)]
       this.context.stopSpyObserver(this.id)    
     }
   }
 }
 
 export type ComputedOptions = {
-  isBoxed?: boolean
+  isInstance?: boolean
   computedId?: string
   valueId?: string
   useOptional?: boolean
   contexts?: {output?: IContainer, source?: IContainer}
 }
 
-export function computed<T>(fun: (boundThis?: IObservable) => T, options?: ComputedOptions): IDerivation<T> {
-  return new Computed(fun, options)
+export function derived<T>(fun: (boundThis?: IObservable) => T, options?: ComputedOptions): IDerivation<T> {
+  return new Derivation(fun, options)
 }

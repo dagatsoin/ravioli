@@ -8,7 +8,9 @@ export abstract class Observer implements IObserver {
   public get id(): string {
     return this._id
   }
-  public dependencies: string[] = [];
+  public get dependencies(): string[] {
+    return this.context.getObserverDeps(this._id) 
+  }
   public isObserver: true = true
   protected context: IContainer
   protected _isStale = true
@@ -59,14 +61,14 @@ export function isReaction(observer: any): boolean {
 }
 
 export function isDerivation(observer: any): observer is IDerivation<any> {
-  return observer.type === ObserverType.Computed
+  return observer.type === ObserverType.Derivation
 }
 
 function toString(type: ObserverType): string {
   switch (type) {
     case ObserverType.Autorun:
       return 'Autorun'
-    case ObserverType.Computed:
+    case ObserverType.Derivation:
       return 'Computed'
     case ObserverType.Reaction:
       return 'Reaction'

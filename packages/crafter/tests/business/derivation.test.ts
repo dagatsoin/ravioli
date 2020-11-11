@@ -1,15 +1,108 @@
 import { toLeaf } from '../../src/helpers'
 import { autorun } from '../../src/observer/Autorun'
-import { computed } from '../../src/observer/Computed'
+import { Derivation, derived } from '../../src/observer/Derivation'
 import { number} from '../../src/Primitive'
 import { object } from '../../src/object'
 import { getGlobal } from '../../src/utils/utils'
+import { observable } from '../../src/lib/observable'
+import { CrafterContainer } from '../../src'
+import { ObserverType } from '../../src/observer/IObserver'
+
+/**
+ * This document test and describes the implementation of a Derivation
+ * 
+ * A derivation can output either a raw value or an observable value.
+ * 
+ * Here is the lifecycle of a Derivation used by a Reaction:
+ * 1- Lazy initialization: Derivation are initialized only when a Reaction read them
+ *   through the .get() method:
+ *   - Register the Observer aspect of a Derivation in the Container.
+ *   - Mark it as alive and stale.
+ *   - Compute the value for the first time:
+ *     - List all the observables used during the computation
+ *     - If the output value is raw value, register the derivation as a dependency
+ *     - If the output value is an observable :
+ *       - Cache all the paths of this value. This will used later to compare if a
+ *         Reaction is observing a part of the output value
+ *     - Return the value.
+ * 2- Observer registration: the return value is read:
+ *   - Pick only the observable which are used:
+ *     - In case of chain call on an observable (value.state.health), only the leaf path is stored.
+ *     - In case of a raw value, the Derivation id is stored
+ * 3- The model changed:
+ *   - The container will propagate the changed in topological order (child first) in the
+ *     active graph (storing only alive observers).
+ *     Each Derivation:
+ *       - will set as stale if:
+ *         - the model migration contains some paths to observable which the Derivation depend on.
+ * 4- The Derivation is recomputed if it is stale AND alive. Therefore, the USED data stucture is never stale.
+ * 5- Thanks to the topological sort, all the derivations are now in sync with the model and we can safely run
+ *    the side effects without worrying about stale data. Each Reaction:
+ *      - is ran only if alive and if one of their dependency has changed.
+ *     
+ * 
+ */
 
 const context = getGlobal().$$crafterContext
-
+ 
 beforeEach(context.clearContainer)
 
-test("A computed primitive is as reactive source", function() {
+describe("Implementation", function() {
+  describe("Lazy initialization", function() {
+    test("Register the Derivation as an Observer in the Container", function() {
+      const model = observable({
+        name: "Fraktar",
+        stats: {
+          health: 10
+        }
+      })
+      
+      const representation = derived(() => ({
+        name: model.name,
+        currentHealth: model.stats.health
+      }))
+      
+      autorun(() => representation.get())
+
+      expect(context.snapshot.observerGraph.nodes.length === 2)
+      expect(context.snapshot.observerGraph.nodes[1].observer.type === ObserverType.Derivation)
+    })
+    test.todo("Mark the Derivation as alive and stale.")
+    describe("Active graph registration", function() {
+      test.todo("Boxed value: the derivation is present in the active graph")
+      test.todo("Observable value: the observable instance is present in the active graph")
+    })
+    describe("Dependency registration", function() {
+      test.todo("From derived to parent, the parent registers all the paths to the computed value")
+      test.todo("From child to derived, the derived registers all the paths of the observable value")
+    })
+  })
+  describe("Computation: ", function() {
+    test.todo("The computed create a primitive")
+    describe("The value is not a primitive", function() {
+      test.todo("Object")
+      test.todo("Array")
+      test.todo("Map")
+      test.todo("Date")
+      test.todo("Instance")//throw
+    })
+    describe("The dependendies are refreshed at each computation", function() {
+      // The if (A) B test thing
+      test.todo("A previous dependency is removed")
+      test.todo("A new dependency is added")
+    })
+  })
+  test.todo("Refine typing during computation")
+  describe("Aliveness", function(){
+    test.todo("Unregister from the active graph when not used by any reaction")
+    test.todo("Kill the instance value at unregistration")
+  })
+  describe("Staleness", function() {
+    test.todo("The computed is stale if some observed instance has changed.")
+  })
+})
+
+/* test("Computed notifies read when accessed", function() {
   context.clearContainer()
   const model = object({
     stats: object({
@@ -17,19 +110,20 @@ test("A computed primitive is as reactive source", function() {
     })
   }).create({stats: {health: 0}})
    
-  const health = computed(() => model.stats.health)
+  const observed = derived(() => model.stats.health)
 
-  let run = 0
+  let observedPaths
+  let leafId
 
   const dispose = autorun(() => {
-    health.get()
-    run++
+    observed.get()
+    const spyId = context.snapshot.spyReactionQueue[0]
+    leafId = toLeaf(context.snapshot.observerGraph.nodes[context.snapshot.observerGraph.nodes.length - 1]).$id
+    observedPaths = context.snapshot.spiedObserversDependencies.get(spyId.id)
   })
-  context.step(() => model.stats.health++)
-  expect(run).toBe(2)
+  expect(observedPaths).toEqual(["/" + leafId])
   dispose()
-})
-
+}) */
 /* test('Computed is evaluated and register in the manager lazily, when triggered from an autorun', function() {
   const model = observable({
     name: 'Fraktar',

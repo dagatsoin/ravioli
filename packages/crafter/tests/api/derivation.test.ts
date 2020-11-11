@@ -1,6 +1,37 @@
-import { toLeaf } from '../../src/helpers'
+/**
+ * A derivation is a view of the model. It hides the real data behind a readonly transformed value.
+ * 
+ * A derivation can be composed from other derivations, coming from the same or other models.
+ * 
+ * A derivation output can be any value, a primitive, a complexe object, an observable or even a binary files.
+ * 
+ * A derivation is a memoizing function. If the observables used in the computation have not change, it just returns
+ * a ref to the current value, running updated only when needed. It is possible (and recommanded) to use derivation
+ * in thight loop, like a game engine.
+ * 
+ * Also, if a Derivation has been recomputed but its value did not change, the Reaction won't be retriggered.
+ * 
+ * If you return an observable object, the reactions which use it will react only for the piece
+ * of the observable which actually changed.
+ * 
+ * Eg: If a derivation returns this object
+ * {
+ *   name: "Fraktar"
+ *   stats: {
+ *     health: 10
+ *   }
+ * }
+ * and a Autorun uses only the `name` field. If `health` changes, the autorun will update.
+ * 
+ * For maximum efficiency, it is recommanded to compose complex derivations in smaller derivations.
+ * Eg: in a MMO, the world server is the model. The client just sees a derivation of this world.
+ * If you put something in you inventory, the entire world does not need to recompute. So to avoid
+ * useless computation (even if they are efficient), just split you inventory in a child derivation.
+ * Then, only this derivation will recompute and you won't iterate over thoushands of entities.
+ */
+
 import { autorun } from '../../src/observer/Autorun'
-import { computed } from '../../src/observer/Computed'
+import { derived } from '../../src/observer/Derivation'
 import { number} from '../../src/Primitive'
 import { object } from '../../src/object'
 import { getGlobal } from '../../src/utils/utils'
@@ -9,7 +40,7 @@ const context = getGlobal().$$crafterContext
 
 beforeEach(context.clearContainer)
 
-test("A computed primitive is as reactive source", function() {
+describe("A derivation is reactive", function() {
   context.clearContainer()
   const model = object({
     stats: object({
@@ -17,41 +48,33 @@ test("A computed primitive is as reactive source", function() {
     })
   }).create({stats: {health: 0}})
    
-  const health = computed(() => model.stats.health)
+  const health = derived(() => model.stats.health, {isInstance: false})
 
-  let run = 0
-
-  const dispose = autorun(() => {
-    health.get()
-    run++
-  })
-  context.step(() => model.stats.health++)
-  expect(run).toBe(2)
-  dispose()
-})
-
-test("Computed notifies read when accessed", function() {
-  context.clearContainer()
-  const model = object({
-    stats: object({
-      health: number()
+  test("primitive", function() {
+    let run = 0
+  
+    const dispose = autorun(() => {
+      health.get()
+      run++
     })
-  }).create({stats: {health: 0}})
-   
-  const observed = computed(() => model.stats.health)
-
-  let observedPaths
-  let leafId
-
-  const dispose = autorun(() => {
-    observed.get()
-    const spyId = context.snapshot.spyReactionQueue[0]
-    leafId = toLeaf(context.snapshot.activeGraph.nodes[context.snapshot.activeGraph.nodes.length - 1]).$id
-    observedPaths = context.snapshot.spiedObserversDependencies.get(spyId.id)
+    context.step(() => model.stats.health++)
+    expect(run).toBe(2)
+    dispose()
   })
-  expect(observedPaths).toEqual(["/" + leafId])
-  dispose()
+  test.todo("object")
+  test.todo("observable primitive")
+  test.todo("observable object")
+  test.todo("observable map")
+  test.todo("observable array")
 })
+
+describe("A derivation is readonly", function() {
+  test.todo("I can't write on a derivated observable")
+  test.todo("Even in an step")
+})
+
+test.todo("A derivation can be composed")
+
 /* test('Computed is evaluated and register in the manager lazily, when triggered from an autorun', function() {
   const model = observable({
     name: 'Fraktar',

@@ -181,14 +181,15 @@ describe('reactivity', function() {
     })
   }).create()
 
-/*   test('react on leaf change', function() {
+  test('react on leaf change', function() {
     const dispose = autorun(function({isFirstRun}){
       player.stats.health
       if(!isFirstRun) expect(player.stats.health).toBe(2)
     })
+
     getContext(toInstance(player)).step(() => player.stats.health++)
     dispose()
-  }) */
+  })
   
   test('react on node change, not on leaf change', function() {
     let run = 0
@@ -197,7 +198,7 @@ describe('reactivity', function() {
       player.stats
       run++
     })
- //   context.step(() => player.stats.health++)
+
     context.step(() => player.stats = {
       health: 10,
       force: 1
