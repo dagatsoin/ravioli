@@ -11,8 +11,10 @@ import {
   IContainer,
   applySnapshot,
   CrafterContainer,
+  getGlobal,
 } from '../../src'
 import { isObservable, observable } from '../../src/lib/observable'
+import { derived } from '../../src/observer/derived'
 
 describe('life cycle', function() {
   // We need to compare context. As other tests will update context as well, we need
@@ -52,7 +54,7 @@ describe('life cycle', function() {
       function cb_START() {
         context.removeStepListener(StepLifeCycle.START, cb_START)
         expect(
-          context.snapshot.observerGraph.nodes.filter(isObserver).length
+          context.snapshot.observerGraph.nodes.length
         ).toBe(1)
       }
       context.addStepListener(StepLifeCycle.START, cb_START)
@@ -62,7 +64,7 @@ describe('life cycle', function() {
       function cb_START() {
         context.removeStepListener(StepLifeCycle.START, cb_START)
         expect(
-          context.snapshot.observerGraph.nodes.filter(isObservable).length
+          context.snapshot.observerGraph.nodes.length
         ).toBe(1)
       }
       context.addStepListener(StepLifeCycle.START, cb_START)
@@ -74,7 +76,7 @@ describe('life cycle', function() {
     test('Context should have 1 updated observable', function() {
       function cb_DID_UPDATE() {
         context.removeStepListener(StepLifeCycle.DID_UPDATE, cb_DID_UPDATE)
-        expect(context.snapshot.updatedObservables[0]).toBe(
+        expect((context as any).volatileState.updatedObservables[0]).toBe(
           toInstance(model).$data.age
         )
       }
@@ -107,6 +109,37 @@ describe('life cycle', function() {
     })
   })
 
+  describe('WILL_PROPAGAGE', function() {
+    describe("When initializing derivations with observable result, the steps during the creation of the observable won't trigger any observer", function() {
+      const context = getGlobal().$$crafterContext
+      let bad = false
+
+      function cb_DID_PROPAGATE() {
+        context.removeStepListener(
+          StepLifeCycle.DID_PROPAGATE,
+          cb_DID_PROPAGATE
+        )
+        bad = true
+      }
+
+      const model = observable({age: 10, stats: { hp: 1}})
+
+      const view = derived(() => ({
+        stats: {
+          health: model.stats.hp
+        }
+      }))
+      
+      context.addStepListener(StepLifeCycle.DID_PROPAGATE, cb_DID_PROPAGATE)
+
+      const dispose = autorun(function() {
+        view.get().stats.health
+      })
+         
+      expect(bad).toBeFalsy()
+    })    
+  })
+
   describe('DID_PROPAGATE', function() {
     test('Context should have one stale observer', function() {
       function cb_DID_PROPAGATE() {
@@ -115,11 +148,29 @@ describe('life cycle', function() {
           cb_DID_PROPAGATE
         )
         expect(
-          context.snapshot.observerGraph.nodes.filter(isObserver)[0].isStale
+          context.snapshot.observerGraph.nodes[0].observer.isStale
         ).toBeTruthy()
       }
       context.addStepListener(StepLifeCycle.DID_PROPAGATE, cb_DID_PROPAGATE)
       context.step(() => model.age++)
+    })
+
+    test('A step called after a first propagation will failed', function() {
+      let propagate = 0
+      function cb_DID_PROPAGATE() {
+        propagate++
+        context.step(() => model.age++)
+      }
+      context.addStepListener(StepLifeCycle.DID_PROPAGATE, cb_DID_PROPAGATE)
+      
+
+      expect(() => context.step(() => model.age++)).toThrowError("Crafter Object. Tried to mutate an object while model is locked.")
+      expect(propagate).toBe(1)
+
+      context.removeStepListener(
+        StepLifeCycle.DID_PROPAGATE,
+        cb_DID_PROPAGATE
+      )
     })
   })
 })

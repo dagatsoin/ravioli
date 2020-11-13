@@ -34,6 +34,13 @@ import { isContainer } from '../../src/lib/isNode'
  *     Each Derivation:
  *       - will set as stale if:
  *         - the model migration contains some paths to observable which the Derivation depend on.
+ *      - rerun if stale
+ *      - in the case of an observable output, when the value is recompute:
+ *        - the value is injected in the observable result
+ *        - the Container being in Learning phase, this operation is untracked by the observer. We don't
+ *          repropagate the change but only stack a JSON patch into the container volatile state.
+ *          For collecting the patch, we use the migration listener set during the intialization.
+ *          - 
  * 4- The Derivation is recomputed if it is stale AND alive. Therefore, the USED data stucture is never stale.
  * 5- Thanks to the topological sort, all the derivations are now in sync with the model and we can safely run
  *    the side effects without worrying about stale data. Each Reaction:
@@ -139,7 +146,7 @@ describe("Implementation", function() {
     test.todo("Instance")
   })
   describe("The model changed", function() {
-    test("The computed is stale if some observed instance has changed.", function(){
+    test("The Derivation is re ran if some observed instance has changed.", function(){
       const representation = derived(() => ({
         name: model.name,
         currentHealth: model.stats.health
@@ -148,7 +155,7 @@ describe("Implementation", function() {
       const dispose = autorun(() => representation.get().currentHealth)
 
       function callBack(c: IContainer) {
-        expect(c.snapshot.observerGraph.nodes[1].observer.isStale).toBeTruthy()
+        expect(c.snapshot.observerGraph.nodes[0].observer.isStale).toBeTruthy()
         c.removeStepListener(StepLifeCycle.DID_PROPAGATE, callBack)
       }
 
@@ -178,7 +185,7 @@ describe("Implementation", function() {
     test("Kill the instance value at unregistration", function() {
       expect(context.hasUID(instanceId)).toBeFalsy()
     })
-  })
+  })  
 })
 
 /* test("Computed notifies read when accessed", function() {

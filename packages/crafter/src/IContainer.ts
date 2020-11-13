@@ -61,9 +61,9 @@ export type ContainerState = {
 export type Proposal = BasicCommand[]
 
 export interface IContainer {
+  doNotTrack(fun: () => void): void
   snapshot: ContainerState
   isWrittable: boolean
-//  isTransaction: boolean
   isRunningReaction: boolean
   controlState: ControlState
 

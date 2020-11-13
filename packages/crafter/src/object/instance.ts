@@ -390,7 +390,9 @@ export class ObjectInstance<
     }
     // Some changes occured during proposal presentation
     const didChange = proposalResult.some(({result: {accepted}}) => accepted)
-    this.$updateState(proposalResult, didChange)
+  //  if (this.$$container.emit) {
+      this.$updateState(proposalResult, didChange)
+   // }
   }
 
   public $createChildInstance<I, K extends keyof PROPS>(

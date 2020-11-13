@@ -6,7 +6,7 @@ import { makePath, toInstance, toLeaf, setValue, toNode, getRoot } from '../help
 import { IContainer } from '../IContainer'
 import { isInstance } from '../lib/Instance'
 import { isNode } from '../lib/isNode'
-import { Migration } from '../lib/JSONPatch'
+import { Migration, Patch } from '../lib/JSONPatch'
 import { IDerivation } from './IDerivation'
 
 /**
@@ -36,7 +36,7 @@ export class Derivation<T> extends Observer implements IDerivation<T> {
   private valueId?: string
   private readonly isInstance: boolean
   private readonly isStrict: boolean
-  private migration: Migration = {forward: [], backward: []}
+  private _migration: Migration = {forward: [], backward: []}
 
   constructor(fun: (boundThis?: IObservable) => T, options?: ComputedOptions) {
     super({
@@ -57,10 +57,17 @@ export class Derivation<T> extends Observer implements IDerivation<T> {
       : this.id
   }
 
-  public get $migration(): Migration {
+  public get migration(): Migration {
     return isNode(this.value)
       ? this.value.$state.migration
-      : this.migration
+      : this._migration
+  }
+
+  public notifyChanges(patch: Patch<any>, updatedObservablePaths: string[]) {
+    super.notifyChanges(patch, updatedObservablePaths)
+    if (this.isStale) {
+      this.runAndUpdateDeps()
+    }
   }
 
   public get(target?: IObservable): T {
@@ -132,7 +139,9 @@ export class Derivation<T> extends Observer implements IDerivation<T> {
     if (!this.isIinitialized) {
       // This derivation returns an observable
       if (this.isInstance) {
-        this.value = observable(value, { context: this.valueContext, isStrict: this.isStrict})
+        this.context.doNotTrack(() => 
+          this.value = observable(value, { context: this.valueContext, isStrict: this.isStrict})
+        )
       } else {
         this.value = value
       }
@@ -140,18 +149,14 @@ export class Derivation<T> extends Observer implements IDerivation<T> {
       this.isIinitialized = true
     }
     // The observer has already ran. We update the observable value.
-    // Note this $setValue won't emit any migration, because it only happens during the learning phase.
     else {
       // This derivation returns an observable
       if (this.isInstance) {
         const instance = toInstance<T>(this.value)
-        this.valueContext.step(() => setValue(instance, value, false))
-        if (!isNode(instance)) {
-          this.migration.forward = [{op: "replace", path: makePath(instance.$id), value: toLeaf(instance).$value}]
-        }
+        this.valueContext.doNotTrack(() => setValue(instance, value))
       } else {
-        this.migration.forward = [{op: "replace", path: makePath(this.id), value: this.value}]
         this.value = value
+        this._migration.forward = [{op: "replace", path: makePath(this.id), value}]
       }
     }
     this.valueContext.resumeSpies()

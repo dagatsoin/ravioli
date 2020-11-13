@@ -3,6 +3,6 @@ import { IObserver } from "./IObserver";
 
 export interface IDerivation<T> extends IObserver {
   id: string
- // migration: Migration
+  migration: Migration
   get(): T
 }
