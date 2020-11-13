@@ -716,7 +716,7 @@ export class CrafterContainer implements IContainer {
     this.state.migration.forward.length = 0
     this.state.migration.backward.length = 0
     
-    // Delete updated observable
+    // Reset volatile state
     this.volatileState.updatedObservables = []
     this.volatileState.derivationPatch = []
     this.volatileState.derivationUpdatedObservable = []
@@ -736,6 +736,7 @@ export class CrafterContainer implements IContainer {
     if (managerStateBackup) {
       this.state = managerStateBackup
     }
+    this.clean()
     this.resumeSpies()
   }
 }
