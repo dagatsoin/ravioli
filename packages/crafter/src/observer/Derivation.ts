@@ -27,6 +27,7 @@ export class Derivation<T> extends Observer implements IDerivation<T> {
     return this._isStale
   }
   public $isObservable: true = true
+  public isDerivation: true = true
   public type = type
   public readonly fun: (boundThis?: IObservable) => T
   private value!: T

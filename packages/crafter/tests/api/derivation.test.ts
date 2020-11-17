@@ -35,6 +35,9 @@ import { derived } from "../../src/observer/derived"
 import { number} from '../../src/Primitive'
 import { object } from '../../src/object'
 import { getGlobal } from '../../src/utils/utils'
+import { Derivation } from '../../src/observer/Derivation'
+import { observable } from '../../src/lib/observable'
+import { getContext, toInstance } from '../../src'
 
 const context = getGlobal().$$crafterContext
 
@@ -48,11 +51,11 @@ describe("A derivation is reactive", function() {
     })
   }).create({stats: {health: 0}})
    
-  const health = derived(() => model.stats.health, {isInstance: false})
-
   test("primitive", function() {
     let run = 0
-  
+
+    const health = derived(() => model.stats.health, {isInstance: false})
+
     const dispose = autorun(() => {
       health.get()
       run++
@@ -61,9 +64,52 @@ describe("A derivation is reactive", function() {
     expect(run).toBe(2)
     dispose()
   })
-  test.todo("object")
-  test.todo("observable primitive")
-  test.todo("observable object")
+  test("object", function() {
+    let run = 0
+    const view = derived(() => ({
+      stats: {
+        currentHealth: model.stats.health
+      }
+    }), {isInstance: false})
+
+    const dispose = autorun(() => {
+      view.get()
+      run++
+    })
+    context.step(() => model.stats.health++)
+    expect(run).toBe(2)
+    dispose()
+  })
+  test("observable primitive", function(){
+    let run = 0
+
+    const health = derived(() => model.stats.health)
+
+    const dispose = autorun(() => {
+      health.get()
+      run++
+    })
+    context.step(() => model.stats.health++)
+    expect(run).toBe(2)
+    dispose()
+  })
+  test("observable object", function() {
+    let run = 0
+
+    const health = derived(() => ({
+      stats: {
+        currentHealth: model.stats.health
+      }
+    }))
+
+    const dispose = autorun(() => {
+      health.get().stats.currentHealth
+      run++
+    })
+    context.step(() => model.stats.health++)
+    expect(run).toBe(2)
+    dispose()
+  })
   test.todo("observable map")
   test.todo("observable array")
 })
@@ -73,7 +119,26 @@ describe("A derivation is readonly", function() {
   test.todo("Even in an step")
 })
 
-test.todo("A derivation can be composed")
+test("A derivation can be composed", function() {
+  const model = object({
+    stats: object({
+      health: number(0)
+    })
+  }).create()
+
+  const view = derived(() => ({
+    isAlive: derived(() => model.stats.health > 0)
+  }))
+
+  autorun(({isFirstRun}) => {
+    view.get().isAlive
+    if (!isFirstRun) {
+      expect(view.get().isAlive).toBeTruthy()
+    }
+  })
+
+  context.step(() => model.stats.health++)
+})
 
 /* test('Computed is evaluated and register in the manager lazily, when triggered from an autorun', function() {
   const model = observable({
