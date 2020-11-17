@@ -67,7 +67,7 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   }
 
   public get $value(): TYPE {
-    if (this.$isStale) {
+    if (this.$hasStaleValue) {
       this.$computeValue()
     }
     return this.$prevValue
@@ -79,6 +79,7 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
 
   private $computeValue(): void {
     this.$prevValue = this.$valueComputation(this.$data as any, this.$$container)
+    this.hasStaleValue = false
   }
   
   public abstract $present(proposal: Command[], shouldAddMigration: boolean): void

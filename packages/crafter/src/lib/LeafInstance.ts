@@ -37,7 +37,6 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
       options?.context
     )
     this.$data = value
-    this.$isStale = false
     this.$type = type
     this.$$id = options?.id || this.$$container.getUID('LeafInstance#')
 
@@ -101,7 +100,7 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
   private next(isStale: boolean, addMigration: boolean) {
     if (isStale) {
       this.$$container.addUpdatedObservable(this)
-      this.$invalidateSnapshot();
+      this.$invalidate();
       if (addMigration) {
         this.$$container.addMigration(this.$state.migration, getRoot(this).$id)
       }

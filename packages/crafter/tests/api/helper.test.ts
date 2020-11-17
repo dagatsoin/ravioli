@@ -1,4 +1,4 @@
-import { object, string, getContext, setValue, toInstance, number } from '../../src'
+import { object, string, getContext, setValue, toInstance, number, getNextPart, getLastPart, isOwnLeafPath, makePath, reduceSnapshot, Command, Operation } from '../../src'
 
 test("setValue of a root model", function(){
   const model = object({
@@ -10,10 +10,7 @@ test("setValue of a root model", function(){
   getContext(toInstance(model)).step(() => setValue(model, { name: "Fraktar", stats: { health: 3 }} ))
   expect(toInstance(model).$value).toEqual({ name: "Fraktar", stats: { health: 3 }})
 })
-/* import { observable } from '../src/lib/observable'
-import { getTypeFromValue } from "../src/lib/getTypeFromValue"
-import { toInstance, getSnapshot, sync, getChildKey, getTargetKey, isOwnLeafPath, makePath, reduceSnapshot } from '../src/helpers'
-import { getGlobal } from '../src'
+
 
 test("format path", function() {
   expect(makePath("/", "/player", "stats")).toBe("/player/stats")
@@ -23,15 +20,15 @@ test("format path", function() {
 })
 
 test("getTargetKey", function(){
-  expect(getTargetKey("/")).toBe("/")
-  expect(getTargetKey("/player")).toBe("player")
-  expect(getTargetKey("/player/stats")).toBe("stats")
+  expect(getLastPart("/")).toBe("/")
+  expect(getLastPart("/player")).toBe("player")
+  expect(getLastPart("/player/stats")).toBe("stats")
 })
 
 test("getChildKey", function(){
-  expect(getChildKey("/", "/player/stats/health")).toBe("player")
-  expect(getChildKey("/player/", "/player/stats/health")).toBe("stats")
-  expect(getChildKey("/player/stats/", "/player/stats/health")).toBe("health")
+  expect(getNextPart("/", "/player/stats/health")).toBe("player")
+  expect(getNextPart("/player/", "/player/stats/health")).toBe("stats")
+  expect(getNextPart("/player/stats/", "/player/stats/health")).toBe("health")
 })
 
 test("isOwnLeafPath", function(){
@@ -40,6 +37,25 @@ test("isOwnLeafPath", function(){
   expect(isOwnLeafPath("/player", "/player/stats/health")).toBeFalsy()
 })
 
+test("reduce patch", function() {
+  const patch: Command[] = [
+    {op: Operation.push, path: "/player/inventory", value: {id: "48646"}},
+    {op: Operation.replace, path: "/pets", value: [{id: "74455"}]},
+    {op: Operation.replace, path:"/player/name", value: "Fraktos"},
+    {op: Operation.replace, path:"/player/stats/health", value: 5},
+    {op: Operation.replace, path:"/player/stats", value: { health: 5 }},
+    {op: Operation.replace, path:"/player", value: {name: "Fraktos", stats: { health: 5 }}},
+  ]
+  expect(reduceSnapshot(patch)).toEqual([
+    {op: Operation.push, path: "/player/inventory", value: {id: "48646"}},
+    {op: Operation.replace, path: "/pets", value: [{id: "74455"}]},
+    {op: Operation.replace, path:"/player", value: {name: "Fraktos", stats: { health: 5 }}},
+  ])
+})
+
+
+
+/*
 test('get type from value', function() {
   const type = getTypeFromValue({
     name: 'Fraktar',
@@ -115,19 +131,4 @@ it('should clone an observable and sync its value on each change', function() {
   })
   expect(target.questLog.current.id).toBe(1)
 })
-
-test("reduce patch", function() {
-  const patch = [
-    {op: "push", path: "/player/inventory", value: {id: "48646"}},
-    {op: "replace", path: "/pets", value: [{id: "74455"}]},
-    {op: "replace", path:"/player/name", value: "Fraktos"},
-    {op: "replace", path:"/player/stats/health", value: 5},
-    {op: "replace", path:"/player/stats", value: { health: 5 }},
-    {op: "replace", path:"/player", value: {name: "Fraktos", stats: { health: 5 }}},
-  ]
-  expect(reduceSnapshot(patch)).toEqual([
-    {op: "push", path: "/player/inventory", value: {id: "48646"}},
-    {op: "replace", path: "/pets", value: [{id: "74455"}]},
-    {op: "replace", path:"/player", value: {name: "Fraktos", stats: { health: 5 }}},
-  ])
-}) */
+*/

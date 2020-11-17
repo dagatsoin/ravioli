@@ -27,12 +27,13 @@ export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IWithParent, IObservab
   $type: IType<TYPE, SNAPSHOT>
   $data: any
   $state: State
-  $snapshot: SNAPSHOT
-  $isStale: boolean
+  $hasStaleSnapshot: boolean
+  readonly $snapshot: SNAPSHOT
+  $hasStaleValue: boolean
   readonly $value: TYPE
   $createNewSnapshot(): SNAPSHOT
   $applySnapshot(snapshot: SNAPSHOT): void
-  $invalidateSnapshot(): void
+  $invalidate(): void
   $applySnapshot(snapshot: SNAPSHOT): void // Override to refine snapshot type
 //  $setValue(value: SNAPSHOT): boolean
   $kill(): void

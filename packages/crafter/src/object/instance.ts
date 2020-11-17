@@ -1,6 +1,6 @@
 import {
   fail,
-  getChildKey,
+  getNextPart,
   toInstance,
   getSnapshot,
   toNode,
@@ -198,7 +198,7 @@ export class ObjectInstance<
           const childrenMigrations: (Migration | undefined)[] = []
           
           for(const subCommand of subCommands) {
-            const childKey = getChildKey<TYPE>(this, subCommand.path)
+            const childKey = getNextPart<TYPE>(this.$path, subCommand.path)
 
             if (!childKey) {
               warn('[CRAFTER] Unknown child key', childKey)
@@ -276,7 +276,7 @@ export class ObjectInstance<
             isNodeOp: true,
           })
         } else {
-          const childKey = getChildKey<TYPE>(this, command.path)
+          const childKey = getNextPart<TYPE>(this.$path, command.path)
           let instance: IInstance<any> | undefined = this.$data[childKey]
           
           if (instance === undefined) {
@@ -346,7 +346,7 @@ export class ObjectInstance<
       } else if (command.op === Operation.copy) {
         const changes = copy(this, command)
         const isNodeOp = isNode(
-          this.$data[getChildKey(this, command.from)!]
+          this.$data[getNextPart(this.$path, command.from)!]
         )
         const accepted = changes === undefined
         const result = {
@@ -362,7 +362,7 @@ export class ObjectInstance<
           isNodeOp,
         })
       } else if (command.op === Operation.move) {
-        const fromKey = getChildKey(this, command.from)!
+        const fromKey = getNextPart(this.$path, command.from)!
         if (!fromKey) {
           continue
         }
@@ -442,7 +442,7 @@ export class ObjectInstance<
     if (isStale) {
     //  le node est déjà inclus. Pb de nettoyage ?
       this.$$container.addUpdatedObservable(this)
-      this.$invalidateSnapshot()
+      this.$invalidate()
     }
     this.$$container.addMigration(this.$state.migration, getRoot(this).$id)
   }
@@ -645,7 +645,7 @@ export function splitUpdateOperation(value: any, opPath: string): Proposal {
 }
 
 function getObjectKey(model: INodeInstance<any>, op: BasicCommand): string {
-  const index = String(getChildKey(model, op.path))
+  const index = String(getNextPart(model.$path, op.path))
   if (!isValidObjectIndex(model, index, op)) {
     throw new Error(
       `Crafter ${index} is not a property of the object instance.`

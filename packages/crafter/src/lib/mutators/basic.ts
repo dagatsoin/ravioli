@@ -1,4 +1,4 @@
-import { fail, getChildKey, getSnapshot, toInstance, warn } from '../../helpers'
+import { fail, getNextPart, getSnapshot, toInstance, warn } from '../../helpers'
 import {
   CopyChanges,
   INodeInstance,
@@ -81,8 +81,8 @@ export function copy<T>(
   model: INodeInstance<unknown>,
   command: CopyCommand
 ): CopyChanges | undefined {
-  const from = getChildKey(model, command.from)
-  const to = getChildKey(model, command.path)
+  const from = getNextPart(model.$path, command.from)
+  const to = getNextPart(model.$path, command.path)
   if(from === undefined) {
     fail('[CRAFTER] copy command, command.from is undefined')
     return
@@ -126,8 +126,8 @@ export function move(
   model: INodeInstance<unknown>,
   command: MoveCommand
 ): MoveChanges | undefined {
-  const from = getChildKey(model, command.from)
-  const to = getChildKey(model, command.path)
+  const from = getNextPart(model.$path, command.from)
+  const to = getNextPart(model.$path, command.path)
   if(from === undefined) {
     warn('[CRAFTER] move command, command.from is undefined')
     return

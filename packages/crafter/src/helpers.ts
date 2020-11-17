@@ -152,24 +152,22 @@ export function unique(value: any, index: number, self: any[]): boolean {
 }
 
 /**
- * Return the key of the node children within a path.
- * eg: for a node with the path "/player/stats" and a path "/player/stats/base/health", it will return "base"
+ * Return the last part of a path.
+ * eg: for a node with the path "/player/stats/base/health", it will return "health"
  * @param nodePath
  * @param path 
  */
-export function getTargetKey(_path: string): string {
-  return _path.split('/').filter(s => !!s.length).pop() || '/'
+export function getLastPart(path: string): string {
+  return path.split('/').filter(s => !!s.length).pop() || '/'
 }
 
 /**
- * Return the key of the node children within a path.
+ * Return the next part of a current path given a deeper path.
  * eg: for a node with the path "/player/stats" and a path "/player/stats/base/health", it will return "base"
- * @param nodePath
- * @param path 
  */
-export function getChildKey<T = any>(instance: IInstance<any>, _path: string): keyof T | undefined{
-  const nodePathDepth = instance.$path.split('/').filter(s => !!s.length).length
-  return _path.split('/').filter(s => !!s.length)[nodePathDepth] as keyof T
+export function getNextPart<T = any>(currentPath: string, deeperPath: string): keyof T | undefined{
+  const nodePathDepth = currentPath.split('/').filter(s => !!s.length).length
+  return deeperPath.split('/').filter(s => !!s.length)[nodePathDepth] as keyof T
 }
 
 /**
@@ -200,22 +198,22 @@ export function sync<T extends IObservable>(observable: T): T {
 /**
  * Return true if the path target a key of a node.
  */
-export function isOwnLeafPath(node: INodeInstance<any>, path: string): boolean {
-  return getChildKey(node, path) === getTargetKey(path)
+export function isOwnLeafPath(nodePath: string, path: string): boolean {
+  return getNextPart(nodePath, path) === getLastPart(path)
 }
 
 /**
- * Return true if it is the instance path
+ * Return true if it is the same path
  */
-export function isInstancePath(instance: IInstance<any>, path: string): boolean {
-  return instance.$path === path
+export function isSamePath(pathA: string, pathB: string): boolean {
+  return pathA === pathB
 }
 
 /**
  * Return true id the path target a grand child or further descendant
  */
-export function isGrandChildPath(commandPath: string, instance: INodeInstance<any>) {
-  return !isOwnLeafPath(instance, commandPath) && !isInstancePath(instance, commandPath)
+export function isGrandChildOrFurtherPath(commandPath: string, instance: INodeInstance<any>) {
+  return !isOwnLeafPath(instance.$path, commandPath) && !isSamePath(instance.$path, commandPath)
 }
 
 export function isChildPath(nodePath: string, _path: string): boolean {

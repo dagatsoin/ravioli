@@ -20,7 +20,8 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
   public $$container: IContainer
   public $parentKey: string | number | undefined
   public $parent: IInstance<any, any> | undefined
-  public $isStale = true
+  public $hasStaleSnapshot = true
+  public $hasStaleValue = true
 
   protected $$id!: string
 
@@ -65,22 +66,24 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
     }
   }
 
-  public $invalidateSnapshot(): void {
-    this.$isStale = true
-    if (this.$parent && !this.$parent.$isStale) {
-      this.$parent.$invalidateSnapshot()
+  public $invalidate(): void {
+    this.$hasStaleSnapshot = true
+    this.$hasStaleValue = true
+    // Stop the propagation if parent is already stale
+    if (this.$parent && (this.$parent.$hasStaleSnapshot || this.$parent.$hasStaleValue)) {
+      this.$parent.$invalidate()
     }
   }
   
   public get $snapshot(): SNAPSHOT {
-    if (this.$isStale && this.$$container.controlState !== ControlState.MUTATION) {
+    if (this.$hasStaleSnapshot && this.$$container.controlState !== ControlState.MUTATION) {
       this.$computeSnapshot()
     }
     return this.$prevSnapshot
   }
   public $computeSnapshot(): void {
     this.$prevSnapshot = this.$snapshotComputation(this.$data as any, this.$$container)
-    this.$isStale = false
+    this.$hasStaleSnapshot = false
   }
 
   public $notifyRead(): void {

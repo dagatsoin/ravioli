@@ -8,34 +8,6 @@ import { getGlobal } from '../../src/utils/utils'
 import { autorun } from '../../src/observer/Autorun'
 
 describe('factory', function() {
-/*   test('Object Type', function() {
-    const Player = object({
-      name: string(),
-      level: number(),
-      stats: object({
-        force: number(),
-        health: number(),
-      }),
-    })
-
-    expect(isNodeType(Player)).toBeTruthy()
-    expect(isNodeType((Player as any).properties.stats)).toBeTruthy()
-    expect(
-      isLeafType((Player as any).properties.stats.properties.health)
-    ).toBeTruthy()
-  })
-  test("Create instance from simple object type", function() {
-    const Fraktar = object({
-      name: string(),
-      level: number()
-    }).create({
-      name: "Fraktar",
-      level: 1
-    })
-    expect(Fraktar.name).toBe("Fraktar")
-    expect(Fraktar.level).toBe(1)
-  })*/
-
   test('Create instance from a complexe object Type', function() {
     const Item = object({
       id: string(),
@@ -207,16 +179,20 @@ describe('reactivity', function() {
     expect(run).toBe(2)
     dispose()
   })
-  
-  
 })
 
-/*
-test('value', function() {
+describe('get value', function() {
   const model = object({
     name: string(),
   }).create({ name: 'Fraktar' })
-  expect(toNode(model).$value).toEqual({ name: 'Fraktar' })
+  test("get value after creation", function() {
+    expect(toNode(model).$value).toEqual({ name: 'Fraktar' })
+  })
+
+  test("get value after a step", function(){
+    getContext(toInstance(model)).step(()=>model.name = "Fraktos")
+    expect(toNode(model).$value).toEqual({ name: 'Fraktos' })
+  })
 })
 
 test('snapshot', function() {
@@ -267,7 +243,7 @@ test('Validate a snapshot against an object Type', function() {
   ).toBeFalsy()
 })
 
- 
+ /*
 test('object can have array member', function() {
   const Player = object({
     name: string(),
