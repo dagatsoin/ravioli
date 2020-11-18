@@ -1,13 +1,13 @@
-/* import { ArrayType } from '../array/type'
+import { ArrayType } from '../array/type'
 import {
   clone,
   fail,
-  getChildKey,
+  getNextPart,
   toInstance,
   toNode,
   getSnapshot,
   isChildPath,
-  isInstancePath,
+  isSamePath,
   isOwnLeafPath,
   unbox,
   getRoot,
@@ -32,7 +32,6 @@ import {
   UnshiftCommand,
 } from '../lib/JSONPatch'
 import {
-  add,
   createAddMigration,
   createCopyMigration,
   createMoveMigration,
@@ -50,7 +49,7 @@ import { isUnknownType, isPrimitive } from '../Primitive'
 import { getTypeFromValue } from "../lib/getTypeFromValue"
 import { ReferenceType, reference, isReferenceType } from '../lib/reference'
 import { INodeType } from '../lib/INodeType'
-import { isNodeType, isShapeMutationCommand, SortCommand, Operation } from '../lib'
+import { isNodeType, isShapeMutationOperation, SortCommand, Operation } from '../lib'
 
 // List all the Array method keys that should be bound into a container.
 const methodKeys = [
@@ -184,7 +183,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   ): void {
     proposal.forEach(command => {
       // Apply only if the path concerns this node or a leaf child.
-      if (isInstancePath(this.$path, command.path)) {
+      if (isSamePath(this.$path, command.path)) {
         present(this, [command], shouldAddMigration)
       } else if (isOwnLeafPath(this.$path, command.path)) {
         if (isBasicCommand(command)) {
@@ -195,7 +194,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
       } // Or delegate to children
       else if (isChildPath(this.$path, command.path)) {
         const childInstance = this.$data[
-          Number(getChildKey(this.$path, command.path))
+          Number(getNextPart(this.$path, command.path))
         ]
         // Get the concerned child key
         toNode(childInstance).$present([command], shouldAddMigration)
@@ -208,7 +207,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
    * If it is the case it is time to refined the type with by
    * infer the given value.
    */
-  /*public $setValue(_value: INPUT): void {
+  public $setValue(_value: INPUT): void {
     if (!this.$$container.isWrittable) {
       throw new Error(
         'Crafter Array. Tried to set an array value while model is locked.'
@@ -245,7 +244,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
    * All methods must be bound to this instance. Because in some case, eg. Union type. The caller will be the
    * container instance (UnionInstance), not the ArrayInstance.
    */
-/*
+
   public copyWithin = (
     target: number,
     start: number,
@@ -260,7 +259,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   ): SUBTYPE[] => {
     const newArray = clone(this)
 
-    this.$$container.transaction(() => {
+    this.$$container.step(() => {
       newArray.push(
         ...items.reduce<SUBTYPE[]>((_items, item) => {
           if (Array.isArray(item)) {
@@ -614,7 +613,7 @@ function replace(
 
   const replaced = getSnapshot(model.$data[index])
   const instance = toInstance(model.$data[index])
-  instance.$setValue(value)
+  instance.$present([{op: Operation.replace, value, path: instance.$path}])
 
   // Attach
   attach(instance, Number(index), model)
@@ -625,13 +624,13 @@ function replace(
 
 /**
  * Accept the value if the model is writtable
- *//*
+ */
 function present(
   model: ArrayInstance<any>,
   proposal: Proposal[],
   willEmitPatch: boolean = true
 ): void {
-  // No direct manipulation. Mutations must occure only during a transaction.
+  // No direct manipulation. Mutations must occure only during a step.
   if (!model.$$container.isWrittable) {
     throw new Error(
       `Crafter Array. Tried to mutate an array while model is locked. Hint: if you want sort an observable array, you must copy it first eg: [...observableArray].sort()`
@@ -659,7 +658,7 @@ function present(
       try {
         model.refineTypeIfNeeded(command.value)
         const index = getArrayIndex(model, command)
-        add(model, command.value, index.toString())
+        add(model, command.value, index)
         mergeMigrations(createAddMigration(command), proposalMigration)
       } catch (e) {
         // Is an alias of replace
@@ -727,11 +726,11 @@ function present(
       throw new Error(`Crafter Array.$applyOperation: ${
         (proposal as any).op
       } is not a supported command. This error happened
-        during a migration command. The transaction is cancelled and the model is reset to its previous value.`)
+        during a migration command. The step is cancelled and the model is reset to its previous value.`)
     }
   })
   // Those commands update the length of the array
-  if (proposalMigration.forward.some(isShapeMutationCommand)) {
+  if (proposalMigration.forward.some(isShapeMutationOperation)) {
     model.$$container.addUpdatedObservable(model)
   }
   if (willEmitPatch) {
@@ -754,7 +753,7 @@ function generateValue<T>(data: DataArray<T>, context: IContainer): T[] {
 }
 
 function build(array: ArrayInstance<any>, items: any[]): void {
-  array.$$container.transaction(() => array.push(...items))
+  array.$$container.step(() => array.push(...items))
 }
 
 function push<T>(
@@ -1172,13 +1171,13 @@ function sort(model: ArrayInstance<any>, proposal: SortCommandWithCompareFn): So
   // 4- store the moved commands as a SortCommands array
 
   /* 1 */
-/*  const oldIndexes = model.$data.map(toInstance).map(({ $id }) => $id)
+  const oldIndexes = model.$data.map(toInstance).map(({ $id }) => $id)
   /* 2 */
-/*  model.$data
+  model.$data
     .sort(proposal.compareFn)
     /* 3 */
 
- /*   .forEach((instance, index) => {
+    .forEach((instance, index) => {
       attach(instance, index, model)
     })
   
@@ -1189,7 +1188,7 @@ function sort(model: ArrayInstance<any>, proposal: SortCommandWithCompareFn): So
   }
   
   /* 4 */
-/*  return newIndexes.map((id, index) => ({
+  return newIndexes.map((id, index) => ({
     id,
     from: oldIndexes.indexOf(id),
     to: index,
@@ -1349,7 +1348,7 @@ export type SortCommands = {
 }[]
 
 function getArrayIndex(model: ArrayInstance<any>, proposal: Proposal): number {
-  const index = Number(getChildKey(model.$path, proposal.path))
+  const index = Number(getNextPart(model.$path, proposal.path))
   if (!isValidArrayIndex(model, index, proposal)) {
     throw new Error(`Crafter ${index} is not a valid array index.`)
   }
@@ -1358,7 +1357,7 @@ function getArrayIndex(model: ArrayInstance<any>, proposal: Proposal): number {
 
 /**
  * Return true if the string is a valid Array index.
- *//*
+ */
 function isValidArrayIndex(
   model: ArrayInstance<any>,
   index: number,
@@ -1374,5 +1373,20 @@ function isValidArrayIndex(
 }
 
 function addObservedLength(arrayInstance: ArrayInstance<any>): void {
-  arrayInstance.$$container.notifyRead(arrayInstance, makePath(getRoot(arrayInstance).$id, arrayInstance.$path, 'length'))
-} */
+  arrayInstance.$$container.notifyRead(makePath(getRoot(arrayInstance).$id, arrayInstance.$path, 'length'))
+}
+
+/**
+ * Add an item to a an array at a given index
+ *
+ */
+function add(
+  model: ArrayInstance<any>,
+  value: any,
+  index: number
+): void {
+  const instance = model.$createChildInstance(value)
+  model.$data[index] = instance
+  model.addInterceptor(model, index)
+  instance.$attach(model, index)
+}
