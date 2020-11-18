@@ -242,15 +242,26 @@ export function removeNodeEdges({
  * Called on each step.
  * Return true to stop the crawl.
  *
- * onFork(): void
+ * onFork(nodeId: string): void
  * Called each time the crawler reaches a fork.
  * Return true to stop the crawl.
  *
- * onLeaf(): void
+ * onLeaf(nodeId: string): void
  * Called each time the crawler reaches a leaf.
  *
- * onStepBack(): void
+ * onStepBack(nodeId: string): void
  * Called when the crawler step back to the previous node.
+ * 
+ * stopCrawlThisBranch:(nodeId: string, isVisited: boolean) => boolean
+ * By default, if the crawler hits an already visited node, we stop to crawl this branch
+ * Some exception exists, eg graph which diverge then converge on the same point.
+ * eg: 
+ * 30 <----+ 20 <-------+ 11
+ *              ^       ^ 
+ *              |       |
+ *              +       +
+ *           10 <-------+ 00
+ * You will need to use this hook to prevent stoping when the crawler will visite 20 for the 2nd time
  */
 function crawlDepthFirst<T>({
   fromId,
@@ -267,7 +278,7 @@ function crawlDepthFirst<T>({
   onFork?:(nodeId: string) => boolean
   onLeaf?:(nodeId: string) => void
   onStepBack?:(nodeId: string) => void,
-  stopCrawlThisBranch?:(nodeId: string) => boolean
+  stopCrawlThisBranch?:(nodeId: string, isVisited: boolean) => boolean
 }): void {
   // Track visited to prevent circular deps
   const visited: string[] = [];
@@ -282,16 +293,20 @@ function crawlDepthFirst<T>({
       throw new Error(`[GRAPH] crawlDepthFirst Unknown node with id ${currentNodeId}`)
     }
    
-    // Node is already visited, skip.
+    // Check if node is already visited.
+    // - by default, stop the branch crawl
+    // - unless the stopCrawlThisBranch condition is defined
+    const isVisited = visited.includes(currentNodeId)
     if (
-      visited.includes(currentNodeId) ||
-      (stopCrawlThisBranch && stopCrawlThisBranch(currentNodeId))
+      stopCrawlThisBranch
+        ? stopCrawlThisBranch(currentNodeId, isVisited)
+        : isVisited
     ) {
       return false; // will stop crawling this branch
     }
     visited.push(currentNodeId);
 
-    const sourceIds = getSourceIds(currentNodeId, graph);
+    const targetIds = getTargetIds(currentNodeId, graph);
 
     stop = !!onNode?.(currentNodeId);
 
@@ -300,19 +315,19 @@ function crawlDepthFirst<T>({
     }
 
     // Found a fork
-    if (sourceIds.length > 1) {
-      onFork && onFork(currentNodeId);
+    if (targetIds.length > 1) {
+      onFork?.(currentNodeId);
     }
 
     // Found a leaf
-    if (!sourceIds.length) {
-      onLeaf && onLeaf(currentNodeId);
+    if (!targetIds.length) {
+      onLeaf?.(currentNodeId);
     }
 
     // Crawl through each fork branch
-    for (let i = 0; i < sourceIds.length; i++) {
-      const isLastBranch = i === sourceIds.length - 1;
-      stop = step(sourceIds[i]);
+    for (let i = 0; i < targetIds.length; i++) {
+      const isLastBranch = i === targetIds.length - 1;
+      stop = step(targetIds[i]);
 
       // Stop the recursion
       if (stop) {
@@ -322,7 +337,7 @@ function crawlDepthFirst<T>({
       // This was the last branch of the fork. Step back
       // to previous node.
       if (isLastBranch) {
-        onStepBack && onStepBack(currentNodeId);
+        onStepBack?.(currentNodeId);
       }
     }
     return false
@@ -362,7 +377,7 @@ export function topologicalSort(graph: Graph<any>) {
   const visited: string[] = []
 
   while (stack.length < graph.nodes.length) {
-    const fromId = graph.edges.find(({ target }) => !stack.includes(target))?.target;
+    const fromId = graph.edges.find(({ source }) => !stack.includes(source))?.source;
     if (fromId === undefined) {
       // All linked nodes has been visited. Found some isolated nodes. Add it at the end of the stack.
       const isolated = graph.nodes.filter(({id}) => !visited.includes(id)).map(({id}) => id)
@@ -391,16 +406,16 @@ export function topologicalSort(graph: Graph<any>) {
       }
     });
   }
-  return stack;
+  return stack.reverse();
 }
 
 /**
  * Return source ids of a target
  */
-function getSourceIds(targetId: string, graph: Graph<any>) {
+function getTargetIds(nodeId: string, graph: Graph<any>) {
   return graph.edges
-    .filter(edge => edge.target === targetId)
-    .map(({ source }) => source);
+    .filter(edge => edge.source === nodeId)
+    .map(({ target }) => target);
 }
 
 export function getAllPathsFrom<T>({
@@ -428,6 +443,35 @@ export function getAllPathsFrom<T>({
     },
     onStepBack() {
       crawlerState.pop()
+    },
+    stopCrawlThisBranch(nodeId, isVisited) {
+      // The node has been visited
+      if (isVisited) {
+        // The crawler found another path to the same node
+        // Before stoping, copy all the paths from this node.
+        // For each new path, prepend the crawler path.
+        const knownPathsFromThisNode = completePaths
+          .filter(path => {
+            // Ensure this is not a leaf
+            const index = path.indexOf(nodeId)
+            return index > -1 && index < path.length -1
+          })
+          .reduce<string[][]>((paths, path) => {
+            const subPath = path.slice(path.indexOf(nodeId)) // an already know path from nodeId
+            // Deduplicate subpath  
+            if (paths.some(existingSubPath => existingSubPath.every((n, i) => subPath[i] === n))) {
+              paths.push(crawlerState.concat(subPath))
+            }
+            return paths
+          },[])
+        if (knownPathsFromThisNode.length) {
+          completePaths.push(...knownPathsFromThisNode)
+          return true
+        }
+        return false
+      }
+      // Stop the crawl of this branch
+      return false
     }
   })
 

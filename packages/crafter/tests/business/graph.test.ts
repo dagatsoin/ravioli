@@ -20,15 +20,15 @@ v              +
 +------------+ 3 <------+--------+4
 */
   const graph: Graph<{id: string}> = {edges: [
-    { target: '0', source: '1'},
-    { target: '0', source: '2'},
-    { target: '0', source: '3'},
-    { target: '1', source: '2'},
-    { target: '1', source: '6'},
-    { target: '1', source: '7'},
-    { target: '2', source: '3'},
-    { target: '3', source: '4'},
-    { target: '3', source: '5'}
+    { source: '1', target: '0'},
+    { source: '2', target: '0'},
+    { source: '3', target: '0'},
+    { source: '2', target: '1'},
+    { source: '6', target: '1'},
+    { source: '7', target: '1'},
+    { source: '3', target: '2'},
+    { source: '4', target: '3'},
+    { source: '5', target: '3'}
   ], nodes: [
     { id: '0' },
     { id: '1' },
@@ -58,15 +58,15 @@ A0 <--+ C2 <--------+
 */
   const graph2: Graph<{id: string}> = {
     edges: [
-      { target: 'C0', source: 'O0'},
-      { target: 'C2', source: 'C0'},
-      { target: 'A0', source: 'C2'},
-      { target: 'C3', source: 'C2'},
-      { target: 'C4', source: 'C3'},
-      { target: 'A1', source: 'C4'},
-      { target: 'C4', source: 'O0'},
-      { target: 'C1', source: 'O1'},
-      { target: 'C2', source: 'C1'},
+      { source: 'O0', target: 'C0'},
+      { source: 'C0', target: 'C2'},
+      { source: 'C2', target: 'A0'},
+      { source: 'C2', target: 'C3'},
+      { source: 'C3', target: 'C4'},
+      { source: 'C4', target: 'A1'},
+      { source: 'O0', target: 'C4'},
+      { source: 'O1', target: 'C1'},
+      { source: 'C1', target: 'C2'},
     ],
     nodes: [
       { id: 'O0' },
@@ -98,15 +98,15 @@ A2                 C1 <-----+ O1
 */
 const graph3: Graph<{id: string}> = {
   edges: [
-    { target: 'C0', source: 'O0'},
-    { target: 'C2', source: 'C0'},
-    { target: 'A0', source: 'C2'},
-    { target: 'C3', source: 'C2'},
-    { target: 'C4', source: 'C3'},
-    { target: 'A1', source: 'C4'},
-    { target: 'C4', source: 'O0'},
-    { target: 'C1', source: 'O1'},
-    { target: 'C2', source: 'C1'},
+    { source: 'O0', target: 'C0'},
+    { source: 'C0', target: 'C2'},
+    { source: 'C2', target: 'A0'},
+    { source: 'C2', target: 'C3'},
+    { source: 'C3', target: 'C4'},
+    { source: 'C4', target: 'A1'},
+    { source: 'O0', target: 'C4'},
+    { source: 'O1', target: 'C1'},
+    { source: 'C1', target: 'C2'},
   ],
   nodes: [
     { id: 'O0' },
@@ -127,9 +127,9 @@ const graph3: Graph<{id: string}> = {
       targetId: '0',
       graph
     })).toEqual([
-      { target: '0', source: '1'},
-      { target: '1', source: '6'},
-      { target: '1', source: '7'},
+      { source: '1', target: '0'},
+      { source: '6', target: '1'},
+      { source: '7', target: '1'},
     ])
   })
 
@@ -177,17 +177,18 @@ const graph3: Graph<{id: string}> = {
   })
 
   test("topologicalSort", function() {
+    console.log(topologicalSort(graph3))
     expect(topologicalSort(graph3)).toEqual([
-      "O0",
-      "C0",
+      "A2",
       "O1",
       "C1",
+      "O0",
+      "C0",
       "C2",
-      "A0",
       "C3",
       "C4",
       "A1",
-      "A2",
+      "A0",
     ])
   })
 })
