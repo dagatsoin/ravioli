@@ -1,6 +1,5 @@
 import { IInstance } from "./IInstance";
-import { IWithParent } from "./IWithParent";
 
-export interface ILeafInstance<T> extends IInstance<T>, IWithParent{
+export interface ILeafInstance<T> extends IInstance<T> {
   $isLeaf: true
 }

@@ -1,4 +1,4 @@
-/* import { ArrayCommand } from '../src/lib/JSONPatch'
+import { ArrayCommand, Operation } from '../src/lib/JSONPatch'
 import { array } from '../src/array'
 import { string, number } from '../src/Primitive'
 import { isInstance } from '../src/lib/Instance'
@@ -13,7 +13,7 @@ test('Create array of primitive', function() {
   expect(isInstance(players)).toBeTruthy()
   expect(isNode(players)).toBeTruthy()
   expect(players[0]).toBe('Fraktar')
-  expect(toNode(players).$migration).toEqual({ backward: [], forward: [] })
+  expect(toNode(players).$state.migration).toEqual({ backward: [], forward: [] })
 })
 
 test('Create array of object', function() {
@@ -40,7 +40,7 @@ test('Create array of object', function() {
 test('set value', function() {
   const model = object({ arr: array(string()) })
   const instance = model.create()
-  getContext(toInstance(instance)).transaction(() => {
+  getContext(toInstance(instance)).step(() => {
     instance.arr = ['a', 'b']
     expect(instance.arr.slice()).toEqual(['a', 'b'])
   })
@@ -100,7 +100,7 @@ test('apply snapshot', function() {
 
   const inventory = Inventory.create()
 
-  getContext(toInstance(inventory)).transaction(() => {
+  getContext(toInstance(inventory)).step(() => {
     Inventory.applySnapshot(toNode<typeof Inventory['Type']>(inventory), [
       {
         id: 'sword',
@@ -125,7 +125,7 @@ describe('attach/detach', function() {
     const instance = model.create()
     const arrNode = toNode(instance.arr)
     expect(getPath(arrNode)).toBe('/arr')
-    getContext(toInstance(instance)).transaction(
+    getContext(toInstance(instance)).step(
       () => (instance.arr = [{ name: 'Fraktar' }, { name: 'Elweïn' }])
     )
     expect(getPath(toNode(instance.arr[0]))).toBe('/arr/0')
@@ -135,7 +135,7 @@ describe('attach/detach', function() {
     const model = array(object({ name: string() }))
     const instance = model.create([{ name: 'Fraktar' }])
     const nodeRef = instance[0]
-    getContext(toInstance(instance)).transaction(() => instance.pop())
+    getContext(toInstance(instance)).step(() => instance.pop())
     expect(toNode(nodeRef).$parent).toBeUndefined()
     expect(toNode(nodeRef).$parentKey).toBe('')
   })
@@ -195,63 +195,63 @@ describe('Basic JSON command', function() {
   })
 
   test('add', function() {
-    getContext(toInstance(world)).transaction(() => {
-      toNode(world).$present({
-        op: 'add',
+    getContext(toInstance(world)).step(() => {
+      toNode(world).$present<ArrayCommand>([{
+        op: Operation.add,
         path: '/players/5',
         value: {
           name: 'Troll',
           hp: 0,
           level: 5,
         },
-      })
+      }])
     })
     expect(world.players[5].name).toBe('Troll')
   })
 
   test('replace', function() {
-    getContext(toInstance(world)).transaction(() => {
-      toNode(world).$present({
-        op: 'replace',
+    getContext(toInstance(world)).step(() => {
+      toNode(world).$present<ArrayCommand>([{
+        op: Operation.replace,
         path: '/players/4',
         value: {
           name: 'Troll',
           hp: 0,
           level: 5,
         },
-      })
+      }])
     })
     expect(world.players[4].name).toBe('Troll')
   })
 
   test('remove', function() {
-    getContext(toInstance(world)).transaction(() => {
-      toNode(world).$present({
-        op: 'remove',
+    getContext(toInstance(world)).step(() => {
+      toNode(world).$present<ArrayCommand>([{
+        op: Operation.remove,
         path: '/players/4',
-      })
+      }])
     })
     expect(world.players[4]).toBeUndefined()
   })
 
   test('move', function() {
-    getContext(toInstance(world)).transaction(() => {
-      toNode(world).$present({
-        op: 'move',
+    getContext(toInstance(world)).step(() => {
+      toNode(world).$present<ArrayCommand>([{
+        op: Operation.move,
         from: '/players/0',
         path: '/players/1',
-      })
+      }])
     })
     expect(world.players[1].name).toBe('Fraktar')
   })
 
   test('copy', function() {
-    getContext(toInstance(world)).transaction(() => {
-      toNode(world).$present({
-        op: 'copy',
+    getContext(toInstance(world)).step(() => {
+      toNode(world).$present<ArrayCommand>([{
+        op: Operation.copy,
         from: '/players/0',
         path: '/players/1',
-      })
+      }])
     })
     expect(world.players[1].name).toBe('Fraktar')
   })
@@ -307,7 +307,7 @@ describe('Array methods', function() {
 
   describe('copyWithin', function() {
     test('primitive', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         expect(world.connectedPlayers.copyWithin(0, 1, 2).slice()).toEqual([
           'Elwein',
           'Elwein',
@@ -319,7 +319,7 @@ describe('Array methods', function() {
     })
 
     test('objects', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         world.players.copyWithin(0, 1, 3)
         expect(world.players[0].name).toBe('Elwein')
         expect(world.players[1].name).toBe('Dreadbond')
@@ -332,12 +332,12 @@ describe('Array methods', function() {
 
     describe('JSON command', function() {
       test('on object array: JSON patch generation', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.players.copyWithin(0, 1, 3)
-          expect(toNode(world.players).$migration).toEqual({
+          expect(toNode(world.players).$state.migration).toEqual({
             forward: [
               {
-                op: 'copyWithin',
+                op: Operation.copyWithin,
                 path: '/players',
                 target: 0,
                 start: 1,
@@ -346,7 +346,7 @@ describe('Array methods', function() {
             ],
             backward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/players',
                 value: [
                   {
@@ -370,7 +370,7 @@ describe('Array methods', function() {
 
       test('on object array: JSON patch apply forward', function() {
         let shouldBe: any
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           shouldBe = clone(world)
             .players.copyWithin(0, 1, 3)
             .slice()
@@ -378,16 +378,14 @@ describe('Array methods', function() {
 
         const forward: ArrayCommand[] = [
           {
-            op: 'copyWithin',
+            op: Operation.copyWithin,
             path: '/players',
             target: 0,
             start: 1,
             end: 3,
           },
         ]
-        getContext(toInstance(world)).transaction(() =>
-          forward.forEach(op => toNode(world.players).$present(op))
-        )
+        getContext(toInstance(world)).step(() => toNode(world.players).$present<ArrayCommand>(forward))
         expect(world.players.slice()).toEqual(shouldBe)
         expect(toNode(world.players[0]).$path).toEqual('/players/0')
         expect(toNode(world.players[1]).$path).toEqual('/players/1')
@@ -396,11 +394,11 @@ describe('Array methods', function() {
       test('on object array: JSON patch apply backward', function() {
         const shouldBe = getSnapshot(world).players
         let arrayToReverse: any
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           arrayToReverse = world.players.copyWithin(0, 1, 3)
         })
         const reverse: ArrayCommand = {
-          op: 'splice',
+          op: Operation.splice,
           path: '/players',
           value: [
             {
@@ -417,8 +415,8 @@ describe('Array methods', function() {
           deleteCount: 2,
           start: 0,
         }
-        getContext(toInstance(world)).transaction(() =>
-          toNode(toInstance(arrayToReverse)).$present(reverse)
+        getContext(toInstance(world)).step(() =>
+          toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([reverse])
         )
         const reversed = getSnapshot(toInstance(arrayToReverse))
         expect(reversed).toEqual(shouldBe)
@@ -427,12 +425,12 @@ describe('Array methods', function() {
       })
 
       test('on primitive array: JSON patch generation', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.connectedPlayers.copyWithin(0, 1, 3)
-          expect(toNode(world.players).$migration).toEqual({
+          expect(toNode(world.players).$state.migration).toEqual({
             forward: [
               {
-                op: 'copyWithin',
+                op: Operation.copyWithin,
                 path: '/connectedPlayers',
                 target: 0,
                 start: 1,
@@ -441,7 +439,7 @@ describe('Array methods', function() {
             ],
             backward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/connectedPlayers',
                 start: 0,
                 deleteCount: 2,
@@ -454,51 +452,43 @@ describe('Array methods', function() {
 
       test('on primitive array: JSON patch apply forward', function() {
         let shouldBe: any
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           shouldBe = clone(world)
             .connectedPlayers.copyWithin(0, 1, 3)
             .slice()
         })
         const forward: ArrayCommand[] = [
           {
-            op: 'copyWithin',
+            op: Operation.copyWithin,
             path: '/connectedPlayers',
             target: 0,
             start: 1,
             end: 3,
           },
         ]
-        getContext(toInstance(world)).transaction(() =>
-          forward.forEach(op =>
-            toNode(world.connectedPlayers).$present(op)
-          )
-        )
+        getContext(toInstance(world)).step(() => toNode(world.connectedPlayers).$present<ArrayCommand>(forward))
         expect(world.connectedPlayers.slice()).toEqual(shouldBe)
       })
 
       test('on primitive array: JSON patch apply backward', function() {
         const shouldBe = getSnapshot(world.connectedPlayers)
         let arrayToReverse: any
-        getContext(toInstance(world)).transaction(
+        getContext(toInstance(world)).step(
           () => (arrayToReverse = world.connectedPlayers.copyWithin(0, 1, 3))
         )
         const reverse: ArrayCommand[] = [
           {
-            op: 'replace',
+            op: Operation.replace,
             path: '/connectedPlayers/0',
             value: 'Fraktar',
           },
           {
-            op: 'replace',
+            op: Operation.replace,
             path: '/connectedPlayers/1',
             value: 'Elwein',
           },
         ]
-        getContext(toInstance(world)).transaction(() =>
-          reverse.forEach(op =>
-            toNode(toInstance(arrayToReverse)).$present(op)
-          )
-        )
+        getContext(toInstance(world)).step(() => toNode(toInstance(arrayToReverse)).$present<ArrayCommand>(reverse))
         const reversed = getSnapshot(toInstance(arrayToReverse))
         expect(reversed).toEqual(shouldBe)
       })
@@ -524,7 +514,7 @@ describe('Array methods', function() {
 
   describe('pop', function() {
     test('primitive', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         expect(world.connectedPlayers.pop()).toBe('Ghost')
         expect(world.connectedPlayers.slice()).toEqual([
           'Fraktar',
@@ -536,7 +526,7 @@ describe('Array methods', function() {
     })
 
     test('objects', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         expect(world.players.pop()!.name).toBe('Ghost')
         expect(world.players.length).toBe(4)
       })
@@ -544,18 +534,18 @@ describe('Array methods', function() {
 
     describe('JSON command', function() {
       test('on object array: JSON patch generation', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.players.pop()
-          expect(toNode(world.players).$migration).toEqual({
+          expect(toNode(world.players).$state.migration).toEqual({
             forward: [
               {
-                op: 'pop',
+                op: Operation.pop,
                 path: '/players',
               },
             ],
             backward: [
               {
-                op: 'push',
+                op: Operation.push,
                 path: '/players',
                 value: [
                   {
@@ -572,17 +562,17 @@ describe('Array methods', function() {
 
       test('on object array: JSON patch apply forward', function() {
         let shouldBe: any
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           const _clone = clone(world)
           _clone.players.pop()
           shouldBe = _clone.players.slice()
         })
 
-        getContext(toInstance(world)).transaction(() =>
-          toNode(world.players).$present({
-            op: 'pop',
+        getContext(toInstance(world)).step(() =>
+          toNode(world.players).$present<ArrayCommand>([{
+            op: Operation.pop,
             path: '/players',
-          })
+          }])
         )
         expect(world.players.slice()).toEqual(shouldBe)
       })
@@ -591,12 +581,12 @@ describe('Array methods', function() {
         const cloned = clone(world)
         const shouldBe = getSnapshot(cloned).players
         const arrayToReverse = world
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.players.pop()
         })
-        getContext(toInstance(world)).transaction(() =>
-          toNode(arrayToReverse).$present({
-            op: 'push',
+        getContext(toInstance(world)).step(() =>
+          toNode(arrayToReverse).$present<ArrayCommand>([{
+            op: Operation.push,
             path: '/players',
             value: [
               {
@@ -605,25 +595,25 @@ describe('Array methods', function() {
                 hp: 5,
               },
             ],
-          })
+          }])
         )
         const reversed = getSnapshot(toInstance(arrayToReverse)).players
         expect(reversed).toEqual(shouldBe)
       })
 
       test('on primitive array: JSON patch generation', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.connectedPlayers.pop()
-          expect(toNode(world.players).$migration).toEqual({
+          expect(toNode(world.players).$state.migration).toEqual({
             forward: [
               {
-                op: 'pop',
+                op: Operation.pop,
                 path: '/connectedPlayers',
               },
             ],
             backward: [
               {
-                op: 'push',
+                op: Operation.push,
                 path: '/connectedPlayers',
                 value: ['Ghost'],
               },
@@ -634,17 +624,17 @@ describe('Array methods', function() {
 
       test('on primitive array: JSON patch apply forward', function() {
         let shouldBe: any
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           const _clone = clone(world)
           _clone.connectedPlayers.pop()
           shouldBe = _clone.connectedPlayers.slice()
         })
 
-        getContext(toInstance(world)).transaction(() =>
-          toNode(world.connectedPlayers).$present({
-            op: 'pop',
+        getContext(toInstance(world)).step(() =>
+          toNode(world.connectedPlayers).$present<ArrayCommand>([{
+            op: Operation.pop,
             path: '/connectedPlayers',
-          })
+          }])
         )
 
         expect(world.connectedPlayers.slice()).toEqual(shouldBe)
@@ -654,13 +644,13 @@ describe('Array methods', function() {
         const shouldBe = getSnapshot(world.connectedPlayers)
         const cloned = clone(world)
         const arrayToReverse = cloned.connectedPlayers
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           arrayToReverse.pop()
-          toNode(toInstance(arrayToReverse)).$present({
-            op: 'push',
+          toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([{
+            op: Operation.push,
             path: '/connectedPlayers',
             value: ['Ghost'],
-          })
+          }])
         })
         const reversed = getSnapshot(world)
         const sn = reversed.connectedPlayers
@@ -685,7 +675,7 @@ describe('Array methods', function() {
 
   describe('fill', function() {
     test('primitive', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         expect(world.connectedPlayers.fill('guest').slice()).toEqual([
           'guest',
           'guest',
@@ -697,7 +687,7 @@ describe('Array methods', function() {
     })
 
     test('objects', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         world.players.fill(
           {
             name: 'Dreadbond',
@@ -720,7 +710,7 @@ describe('Array methods', function() {
 
     describe('JSON command', function() {
       test('on object array: JSON patch generation', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.players.fill(
             {
               name: 'Dreadbond',
@@ -730,10 +720,10 @@ describe('Array methods', function() {
             1,
             4
           )
-          expect(toNode(world.players).$migration).toEqual({
+          expect(toNode(world.players).$state.migration).toEqual({
             forward: [
               {
-                op: 'fill',
+                op: Operation.fill,
                 path: '/players',
                 value: {
                   name: 'Dreadbond',
@@ -746,7 +736,7 @@ describe('Array methods', function() {
             ],
             backward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/players',
                 value: [
                   {
@@ -775,7 +765,7 @@ describe('Array methods', function() {
 
       test('on object array: JSON patch apply forward', function() {
         let shouldBe: any
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           shouldBe = clone(world)
             .players.fill(
               {
@@ -789,9 +779,9 @@ describe('Array methods', function() {
             .slice()
         })
 
-        getContext(toInstance(world)).transaction(() =>
-          toNode(toInstance(world.players)).$present({
-            op: 'fill',
+        getContext(toInstance(world)).step(() =>
+          toNode(toInstance(world.players)).$present<ArrayCommand>([{
+            op: Operation.fill,
             path: '/players',
             value: {
               name: 'Dreadbond',
@@ -800,7 +790,7 @@ describe('Array methods', function() {
             },
             start: 1,
             end: 4,
-          })
+          }])
         )
         expect(world.players.slice()).toEqual(shouldBe)
         expect(world.players[0].name).toBe('Fraktar')
@@ -816,7 +806,7 @@ describe('Array methods', function() {
       test('on object array: JSON patch apply backward', function() {
         const shouldBe = getSnapshot(toInstance(world)).players
         let arrayToReverse: any
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           arrayToReverse = world.players.fill(
             {
               name: 'Dreadbond',
@@ -827,9 +817,9 @@ describe('Array methods', function() {
             4
           )
         })
-        getContext(toInstance(world)).transaction(() =>
-          toNode(toInstance(arrayToReverse)).$present({
-            op: 'splice',
+        getContext(toInstance(world)).step(() =>
+          toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/players',
             value: [
               {
@@ -850,7 +840,7 @@ describe('Array methods', function() {
             ],
             deleteCount: 3,
             start: 1,
-          })
+          }])
         )
         const reversed = getSnapshot(toInstance(world)).players
         expect(reversed).toEqual(shouldBe)
@@ -865,12 +855,12 @@ describe('Array methods', function() {
       })
 
       test('on primitive array: JSON patch generation', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.connectedPlayers.fill('Dreadbond', 1, 4)
-          expect(toNode(world.connectedPlayers).$migration).toEqual({
+          expect(toNode(world.connectedPlayers).$state.migration).toEqual({
             forward: [
               {
-                op: 'fill',
+                op: Operation.fill,
                 path: '/connectedPlayers',
                 value: 'Dreadbond',
                 start: 1,
@@ -879,7 +869,7 @@ describe('Array methods', function() {
             ],
             backward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/connectedPlayers',
                 start: 1,
                 deleteCount: 3,
@@ -892,19 +882,19 @@ describe('Array methods', function() {
 
       test('on primitive array: JSON patch apply forward', function() {
         let shouldBe: any
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           shouldBe = clone(world)
             .connectedPlayers.fill('Dreadbond', 1, 3)
             .slice()
         })
-        getContext(toInstance(world)).transaction(() =>
-          toNode(toInstance(world.connectedPlayers)).$present({
-            op: 'fill',
+        getContext(toInstance(world)).step(() =>
+          toNode(toInstance(world.connectedPlayers)).$present<ArrayCommand>([{
+            op: Operation.fill,
             path: '/connectedPlayers',
             value: 'Dreadbond',
             start: 1,
             end: 3,
-          })
+          }])
         )
 
         expect(world.connectedPlayers.slice()).toEqual(shouldBe)
@@ -913,17 +903,17 @@ describe('Array methods', function() {
       test('on primitive array: JSON patch apply backward', function() {
         const shouldBe = getSnapshot(toInstance(world)).connectedPlayers
         let arrayToReverse: any
-        getContext(toInstance(world)).transaction(
+        getContext(toInstance(world)).step(
           () => (arrayToReverse = world.connectedPlayers.copyWithin(0, 1, 3))
         )
-        getContext(toInstance(world)).transaction(() =>
-          toNode(toInstance(arrayToReverse)).$present({
-            op: 'splice',
+        getContext(toInstance(world)).step(() =>
+          toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/connectedPlayers',
             start: 0,
             deleteCount: 3,
             value: ['Fraktar', 'Elwein', 'Dreadbond'],
-          })
+          }])
         )
         const reversed = getSnapshot(toInstance(world))
         const sn = reversed.connectedPlayers
@@ -978,7 +968,7 @@ describe('Array methods', function() {
 
   describe('reverse', function() {
     test('reversion', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         world.players.reverse()
         expect(world.players.map(({ name }) => name)).toEqual([
           'Ghost',
@@ -995,18 +985,18 @@ describe('Array methods', function() {
       })
     })
     test('JSON patch generation', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         world.connectedPlayers.reverse()
-        expect(toNode(world.connectedPlayers).$migration).toEqual({
+        expect(toNode(world.connectedPlayers).$state.migration).toEqual({
           forward: [
             {
-              op: 'reverse',
+              op: Operation.reverse,
               path: '/connectedPlayers',
             },
           ],
           backward: [
             {
-              op: 'reverse',
+              op: Operation.reverse,
               path: '/connectedPlayers',
             },
           ],
@@ -1016,16 +1006,16 @@ describe('Array methods', function() {
 
     test('JSON patch apply forward', function() {
       let shouldBe: any
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         shouldBe = clone(world)
           .connectedPlayers.reverse()
           .slice()
       })
-      getContext(toInstance(world)).transaction(() =>
-        toNode(world.connectedPlayers).$present({
-          op: 'reverse',
+      getContext(toInstance(world)).step(() =>
+        toNode(world.connectedPlayers).$present<ArrayCommand>([{
+          op: Operation.reverse,
           path: '/connectedPlayers',
-        })
+        }])
       )
 
       expect(world.connectedPlayers.slice()).toEqual(shouldBe)
@@ -1034,14 +1024,14 @@ describe('Array methods', function() {
     test('JSON patch apply backward', function() {
       const shouldBe = getSnapshot(toInstance(world)).connectedPlayers
       let arrayToReverse: any
-      getContext(toInstance(world)).transaction(
+      getContext(toInstance(world)).step(
         () => (arrayToReverse = world.connectedPlayers.reverse())
       )
-      getContext(toInstance(world)).transaction(() =>
-        toNode(toInstance(arrayToReverse)).$present({
-          op: 'reverse',
+      getContext(toInstance(world)).step(() =>
+        toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([{
+          op: Operation.reverse,
           path: '/connectedPlayers',
-        })
+        }])
       )
       const reversed = getSnapshot(toInstance(world))
       const sn = reversed.connectedPlayers
@@ -1051,14 +1041,14 @@ describe('Array methods', function() {
 
   describe('shift', function() {
     test('primitive', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         expect(world.connectedPlayers.shift()).toEqual('Fraktar')
       })
       expect(world.connectedPlayers.length).toBe(4)
     })
 
     test('objects', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         expect(world.players.shift()!.name).toEqual('Fraktar')
       })
       expect(world.players.length).toBe(4)
@@ -1066,18 +1056,18 @@ describe('Array methods', function() {
 
     describe('JSON command', function() {
       test('on object array: JSON patch generation', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.players.shift()
-          expect(toNode(world.players).$migration).toEqual({
+          expect(toNode(world.players).$state.migration).toEqual({
             forward: [
               {
-                op: 'shift',
+                op: Operation.shift,
                 path: '/players',
               },
             ],
             backward: [
               {
-                op: 'unshift',
+                op: Operation.unshift,
                 path: '/players',
                 value: [
                   {
@@ -1094,29 +1084,29 @@ describe('Array methods', function() {
 
       test('on object array: JSON patch apply forward', function() {
         let shouldBe: any
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           shouldBe = clone(world)
           shouldBe.players.shift()
         })
 
-        getContext(toInstance(world)).transaction(() =>
-          toNode(world.players).$present({
-            op: 'shift',
+        getContext(toInstance(world)).step(() =>
+          toNode(world.players).$present<ArrayCommand>([{
+            op: Operation.shift,
             path: '/players',
-          })
+          }])
         )
-        expect(toNode(world.players).length).toBe(4)
+        expect(toNode(world.players)).toBe(4)
       })
 
       test('on object array: JSON patch apply backward', function() {
         const shouldBe = getSnapshot(toInstance(world)).players
 
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.players.shift()
         })
-        getContext(toInstance(world)).transaction(() =>
-          toNode(world).$present({
-            op: 'splice',
+        getContext(toInstance(world)).step(() =>
+          toNode(world).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/players',
             value: [
               {
@@ -1127,7 +1117,7 @@ describe('Array methods', function() {
             ],
             start: 0,
             deleteCount: 0,
-          })
+          }])
         )
         const reversed = getSnapshot(toInstance(world)).players
         expect(reversed).toEqual(shouldBe)
@@ -1152,14 +1142,14 @@ describe('Array methods', function() {
 
   describe('push', function() {
     test('primitive', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         expect(world.connectedPlayers.push('guest')).toEqual(6)
       })
       expect(world.connectedPlayers.length).toBe(6)
     })
 
     test('objects', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         expect(world.players.push({ name: 'guest', level: 0, hp: 0 })).toEqual(
           6
         )
@@ -1170,19 +1160,19 @@ describe('Array methods', function() {
 
     describe('JSON command', function() {
       test('on object array: JSON patch generation', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.players.push({ name: 'guest', level: 0, hp: 0 })
-          expect(toNode(world.players).$migration).toEqual({
+          expect(toNode(world.players).$state.migration).toEqual({
             forward: [
               {
-                op: 'push',
+                op: Operation.push,
                 path: '/players',
                 value: [{ name: 'guest', level: 0, hp: 0 }],
               },
             ],
             backward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/players',
                 start: 5,
                 deleteCount: 1,
@@ -1194,17 +1184,17 @@ describe('Array methods', function() {
 
       test('on object array: JSON patch apply forward', function() {
         let shouldBe: any
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           shouldBe = clone(world)
           shouldBe.players.push({ name: 'guest', level: 0, hp: 0 })
         })
 
-        getContext(toInstance(world)).transaction(() =>
-          toNode(toInstance(world.players)).$present({
-            op: 'push',
+        getContext(toInstance(world)).step(() =>
+          toNode(toInstance(world.players)).$present<ArrayCommand>([{
+            op: Operation.push,
             path: '/players',
             value: [{ name: 'guest', level: 0, hp: 0 }],
-          })
+          }])
         )
         expect(getSnapshot(toInstance(world.players[5]))).toEqual({
           name: 'guest',
@@ -1217,14 +1207,14 @@ describe('Array methods', function() {
       test('on object array: JSON patch apply backward', function() {
         const shouldBe = getSnapshot(toInstance(world)).players
 
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.players.push({ name: 'guest', level: 0, hp: 0 })
         })
-        getContext(toInstance(world)).transaction(() =>
-          toNode(world).$present({
-            op: 'pop',
+        getContext(toInstance(world)).step(() =>
+          toNode(world).$present<ArrayCommand>([{
+            op: Operation.pop,
             path: '/players',
-          })
+          }])
         )
         const reversed = getSnapshot(toInstance(world)).players
         expect(reversed).toEqual(shouldBe)
@@ -1233,7 +1223,7 @@ describe('Array methods', function() {
   })
   describe('splice', function() {
     test('primitive', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         world.connectedPlayers.splice(0, 1, 'Elwein')
         expect(world.connectedPlayers.slice()).toEqual([
           'Elwein',
@@ -1246,7 +1236,7 @@ describe('Array methods', function() {
     })
 
     test('objects', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         world.players.splice(0, 1, getSnapshot(toInstance(world.players[1])))
         expect(world.players[0].name).toBe('Elwein')
         expect(world.players[1].name).toBe('Elwein')
@@ -1259,12 +1249,12 @@ describe('Array methods', function() {
 
     describe('JSON command', function() {
       test('on object array, length is untouched: JSON patch generation', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.players.splice(1, 2, world.players[0], world.players[0])
-          expect(toNode(world.players).$migration).toEqual({
+          expect(toNode(world.players).$state.migration).toEqual({
             forward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/players',
                 value: [
                   {
@@ -1284,7 +1274,7 @@ describe('Array methods', function() {
             ],
             backward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/players',
                 value: [
                   {
@@ -1307,7 +1297,7 @@ describe('Array methods', function() {
       })
 
       test('on object array, change to bigger array: JSON patch generation', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.players.splice(
             1,
             2,
@@ -1327,10 +1317,10 @@ describe('Array methods', function() {
               hp: 0,
             }
           )
-          expect(toNode(world.players).$migration).toEqual({
+          expect(toNode(world.players).$state.migration).toEqual({
             forward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/players',
                 value: [
                   {
@@ -1355,7 +1345,7 @@ describe('Array methods', function() {
             ],
             backward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/players',
                 value: [
                   {
@@ -1378,7 +1368,7 @@ describe('Array methods', function() {
       })
 
       test('on object array, change to smaller array: JSON patch generation', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.players.splice(
             1,
             4,
@@ -1398,10 +1388,10 @@ describe('Array methods', function() {
               hp: 0,
             }
           )
-          expect(toNode(world.players).$migration).toEqual({
+          expect(toNode(world.players).$state.migration).toEqual({
             forward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/players',
                 value: [
                   {
@@ -1426,7 +1416,7 @@ describe('Array methods', function() {
             ],
             backward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/players',
                 value: [
                   {
@@ -1460,7 +1450,7 @@ describe('Array methods', function() {
 
       test('on object array, length is untouched: JSON patch apply forward', function() {
         let shouldBe: any
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           shouldBe = clone(world)
           shouldBe.players.splice(
             1,
@@ -1478,9 +1468,9 @@ describe('Array methods', function() {
           )
         })
 
-        getContext(toInstance(world)).transaction(() =>
-          toNode(toInstance(world.players)).$present({
-            op: 'splice',
+        getContext(toInstance(world)).step(() =>
+          toNode(toInstance(world.players)).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/players',
             start: 1,
             deleteCount: 1,
@@ -1496,7 +1486,7 @@ describe('Array methods', function() {
                 hp: 8,
               },
             ],
-          })
+          }])
         )
         expect(getSnapshot(toInstance(world.players))).toEqual(
           getSnapshot(toInstance(shouldBe.players))
@@ -1508,7 +1498,7 @@ describe('Array methods', function() {
       test('on object array, length is untouched: JSON patch apply backward', function() {
         const shouldBe = getSnapshot(toInstance(world)).players
         let arrayToReverse: any
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           arrayToReverse = clone(world)
           arrayToReverse.players.splice(1, 1, {
             name: 'Fraktar',
@@ -1516,9 +1506,9 @@ describe('Array methods', function() {
             hp: 8,
           })
         })
-        getContext(toInstance(world)).transaction(() =>
-          toNode(toInstance(arrayToReverse)).$present({
-            op: 'splice',
+        getContext(toInstance(world)).step(() =>
+          toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/players',
             value: [
               {
@@ -1529,7 +1519,7 @@ describe('Array methods', function() {
             ],
             deleteCount: 1,
             start: 1,
-          })
+          }])
         )
         const reversed = getSnapshot(toInstance(arrayToReverse)).players
         expect(reversed).toEqual(shouldBe)
@@ -1538,7 +1528,7 @@ describe('Array methods', function() {
       })
 
       test('on object array, change to smaller array: JSON patch apply forward', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           const smallerArray = clone(world)
           smallerArray.players.splice(
             1,
@@ -1560,9 +1550,9 @@ describe('Array methods', function() {
             }
           )
           const targetSnapshot = getSnapshot(toInstance(smallerArray))
-          getContext(toInstance(world)).transaction(() =>
-            toNode(world).$present({
-              op: 'splice',
+          getContext(toInstance(world)).step(() =>
+            toNode(world).$present<ArrayCommand>([{
+              op: Operation.splice,
               path: '/players',
               value: [
                 {
@@ -1583,14 +1573,14 @@ describe('Array methods', function() {
               ],
               deleteCount: 4,
               start: 1,
-            })
+            }])
           )
           expect(getSnapshot(toInstance(world))).toEqual(targetSnapshot)
         })
       })
 
       test('on object array, change to smaller array: JSON patch apply backward', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           const smallerArray = clone(world)
           smallerArray.players.splice(
             1,
@@ -1611,8 +1601,8 @@ describe('Array methods', function() {
               hp: 0,
             }
           )
-          toNode(smallerArray).$present({
-            op: 'splice',
+          toNode(smallerArray).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/players',
             value: [
               {
@@ -1638,7 +1628,7 @@ describe('Array methods', function() {
             ],
             deleteCount: 3,
             start: 1,
-          })
+          }])
           expect(getSnapshot(toInstance(smallerArray))).toEqual(
             getSnapshot(toInstance(world))
           )
@@ -1646,7 +1636,7 @@ describe('Array methods', function() {
       })
 
       test('on object array, change to bigger array: JSON patch apply forward', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           const bigger = clone(world)
           bigger.players.splice(
             1,
@@ -1668,8 +1658,8 @@ describe('Array methods', function() {
             }
           )
           const targetSnapshot = getSnapshot(toInstance(bigger))
-          toNode(world).$present({
-            op: 'splice',
+          toNode(world).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/players',
             value: [
               {
@@ -1690,13 +1680,13 @@ describe('Array methods', function() {
             ],
             deleteCount: 2,
             start: 1,
-          })
+          }])
           expect(getSnapshot(toInstance(world))).toEqual(targetSnapshot)
         })
       })
 
       test('on object array, change to bigger array: JSON patch apply backward', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           const biggerArray = clone(world)
           biggerArray.players.splice(
             1,
@@ -1705,8 +1695,8 @@ describe('Array methods', function() {
             { name: 'Troll', level: 0, hp: 0 },
             { name: 'Troll', level: 0, hp: 0 }
           )
-          toNode(biggerArray).$present({
-            op: 'splice',
+          toNode(biggerArray).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/players',
             value: [
               {
@@ -1722,7 +1712,7 @@ describe('Array methods', function() {
             ],
             deleteCount: 3,
             start: 1,
-          })
+          }])
           expect(getSnapshot(toInstance(biggerArray))).toEqual(
             getSnapshot(toInstance(world))
           )
@@ -1730,12 +1720,12 @@ describe('Array methods', function() {
       })
 
       test('on primitive array, length is untouched: JSON patch generation', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.connectedPlayers.splice(0, 1, 'Elwein')
-          expect(toNode(world.players).$migration).toEqual({
+          expect(toNode(world.players).$state.migration).toEqual({
             forward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/connectedPlayers',
                 start: 0,
                 deleteCount: 1,
@@ -1744,7 +1734,7 @@ describe('Array methods', function() {
             ],
             backward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/connectedPlayers',
                 start: 0,
                 deleteCount: 1,
@@ -1756,12 +1746,12 @@ describe('Array methods', function() {
       })
 
       test('on primitive array, change to smaller array: JSON patch generation', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           world.connectedPlayers.splice(1, 4, 'Troll', 'Troll', 'Troll')
-          expect(toNode(world).$migration).toEqual({
+          expect(toNode(world).$state.migration).toEqual({
             forward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/connectedPlayers',
                 value: ['Troll', 'Troll', 'Troll'],
                 deleteCount: 4,
@@ -1770,7 +1760,7 @@ describe('Array methods', function() {
             ],
             backward: [
               {
-                op: 'splice',
+                op: Operation.splice,
                 path: '/connectedPlayers',
                 value: ['Elwein', 'Dreadbond', 'Cha', 'Ghost'],
                 deleteCount: 3,
@@ -1783,19 +1773,19 @@ describe('Array methods', function() {
 
       test('on primitive array, length is untouched: JSON patch apply forward', function() {
         let shouldBe: any
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           shouldBe = clone(world)
           shouldBe.connectedPlayers.splice(1, 1, 'Troll')
         })
 
-        getContext(toInstance(world)).transaction(() =>
-          toNode(world).$present({
-            op: 'splice',
+        getContext(toInstance(world)).step(() =>
+          toNode(world).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/connectedPlayers',
             start: 1,
             deleteCount: 1,
             value: ['Troll'],
-          })
+          }])
         )
         expect(world.connectedPlayers.slice()).toEqual(
           shouldBe.connectedPlayers.slice()
@@ -1805,49 +1795,49 @@ describe('Array methods', function() {
       test('on primitive array, length is untouched: JSON patch apply backward', function() {
         const shouldBe = getSnapshot(toInstance(world)).connectedPlayers
         const arrayToReverse = clone(world).connectedPlayers
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           arrayToReverse.splice(1, 1, 'Troll')
         })
-        getContext(toInstance(world)).transaction(() =>
-          toNode(toInstance(arrayToReverse)).$present({
-            op: 'splice',
+        getContext(toInstance(world)).step(() =>
+          toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/connectedPlayers',
             value: ['Elwein'],
             deleteCount: 1,
             start: 1,
-          })
+          }])
         )
         const reversed = getSnapshot(toInstance(arrayToReverse))
         expect(reversed).toEqual(shouldBe)
       })
 
       test('on primitive array, change to smaller array: JSON patch apply forward', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           const smallerArray = clone(world)
           smallerArray.connectedPlayers.splice(1, 4, 'Troll', 'Troll', 'Troll')
           const targetSnapshot = getSnapshot(toInstance(smallerArray))
-          toNode(world).$present({
-            op: 'splice',
+          toNode(world).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/connectedPlayers',
             value: ['Troll', 'Troll', 'Troll'],
             deleteCount: 4,
             start: 1,
-          })
+          }])
           expect(getSnapshot(toInstance(world))).toEqual(targetSnapshot)
         })
       })
 
       test('on primitive array, change to smaller array: JSON patch apply backward', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           const smallerArray = clone(world)
           smallerArray.connectedPlayers.splice(1, 4, 'Troll', 'Troll', 'Troll')
-          toNode(smallerArray).$present({
-            op: 'splice',
+          toNode(smallerArray).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/connectedPlayers',
             value: ['Elwein', 'Dreadbond', 'Cha', 'Ghost'],
             deleteCount: 3,
             start: 1,
-          })
+          }])
           expect(getSnapshot(toInstance(smallerArray))).toEqual(
             getSnapshot(toInstance(world))
           )
@@ -1855,32 +1845,32 @@ describe('Array methods', function() {
       })
 
       test('on primitive array, change to bigger array: JSON patch apply forward', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           const bigger = clone(world)
           bigger.connectedPlayers.splice(1, 2, 'Troll', 'Troll', 'Troll')
           const targetSnapshot = getSnapshot(toInstance(bigger))
-          toNode(world).$present({
-            op: 'splice',
+          toNode(world).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/connectedPlayers',
             value: ['Troll', 'Troll', 'Troll'],
             deleteCount: 2,
             start: 1,
-          })
+          }])
           expect(getSnapshot(toInstance(world))).toEqual(targetSnapshot)
         })
       })
 
       test('on primitive array, change to bigger array: JSON patch apply backward', function() {
-        getContext(toInstance(world)).transaction(() => {
+        getContext(toInstance(world)).step(() => {
           const biggerArray = clone(world)
           biggerArray.connectedPlayers.splice(1, 2, 'Troll', 'Troll', 'Troll')
-          toNode(biggerArray).$present({
-            op: 'splice',
+          toNode(biggerArray).$present<ArrayCommand>([{
+            op: Operation.splice,
             path: '/connectedPlayers',
             value: ['Elwein', 'Dreadbond'],
             deleteCount: 3,
             start: 1,
-          })
+          }])
           expect(getSnapshot(toInstance(biggerArray))).toEqual(
             getSnapshot(toInstance(world))
           )
@@ -1890,7 +1880,7 @@ describe('Array methods', function() {
   })
 
   test('sort', function() {
-    getContext(toInstance(world)).transaction(() => {
+    getContext(toInstance(world)).step(() => {
       expect(
         world.players.sort((a: any, b: any) => (a.name > b.name ? 1 : -1))[0]
           .name
@@ -1904,7 +1894,7 @@ describe('Array methods', function() {
       .map(({ $id }: any) => $id)
     const commands = [
       {
-        op: 'sort',
+        op: Operation.sort,
         path: '/players',
         commands: [
           {
@@ -1935,17 +1925,13 @@ describe('Array methods', function() {
         ],
       },
     ]
-    getContext(toInstance(world)).transaction(() =>
-      commands.forEach(command =>
-        toNode(toInstance(world.players)).$present(command)
-      )
-    )
+    getContext(toInstance(world)).step(() => toNode(toInstance(world.players)).$present<ArrayCommand>(commands))
     expect(world.players[4].name).toBe('Fraktar')
   })
 
   describe('unshift', function() {
     test('with primitive array', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         world.connectedPlayers.unshift('Troll', 'Troll')
       })
       expect(world.connectedPlayers.slice()).toEqual([
@@ -1959,7 +1945,7 @@ describe('Array methods', function() {
       ])
     })
     test('with object array', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         world.players.unshift(
           {
             name: 'Troll',
@@ -2012,19 +1998,19 @@ describe('Array methods', function() {
       ])
     })
     test('with primitive array: JSON patch generation', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         world.connectedPlayers.unshift('Troll', 'Troll')
-        expect(toNode(world).$migration).toEqual({
+        expect(toNode(world).$state.migration).toEqual({
           forward: [
             {
-              op: 'unshift',
+              op: Operation.unshift,
               path: '/connectedPlayers',
               value: ['Troll', 'Troll'],
             },
           ],
           backward: [
             {
-              op: 'splice',
+              op: Operation.splice,
               path: '/connectedPlayers',
               start: 0,
               deleteCount: 2,
@@ -2034,7 +2020,7 @@ describe('Array methods', function() {
       })
     })
     test('with object array: JSON patch generation', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         world.players.unshift(
           {
             name: 'Troll',
@@ -2047,10 +2033,10 @@ describe('Array methods', function() {
             level: 0,
           }
         )
-        expect(toNode(world).$migration).toEqual({
+        expect(toNode(world).$state.migration).toEqual({
           forward: [
             {
-              op: 'unshift',
+              op: Operation.unshift,
               path: '/players',
               value: [
                 {
@@ -2068,7 +2054,7 @@ describe('Array methods', function() {
           ],
           backward: [
             {
-              op: 'splice',
+              op: Operation.splice,
               path: '/players',
               start: 0,
               deleteCount: 2,
@@ -2079,12 +2065,12 @@ describe('Array methods', function() {
     })
 
     test('with primitive array: JSON patch forward application', function() {
-      getContext(toInstance(world)).transaction(() =>
-        toNode(world).$present({
-          op: 'unshift',
+      getContext(toInstance(world)).step(() =>
+        toNode(world).$present<ArrayCommand>([{
+          op: Operation.unshift,
           path: '/connectedPlayers',
           value: ['Troll', 'Troll'],
-        })
+        }])
       )
       expect(world.connectedPlayers.slice()).toEqual([
         'Troll',
@@ -2097,7 +2083,7 @@ describe('Array methods', function() {
       ])
     })
     test('with object array: JSON patch forward application', function() {
-      getContext(toInstance(world)).transaction(() =>
+      getContext(toInstance(world)).step(() =>
         world.players.unshift(
           {
             name: 'Troll',
@@ -2150,16 +2136,16 @@ describe('Array methods', function() {
       ])
     })
     test('with primitive array: JSON patch backward application', function() {
-      getContext(toInstance(world)).transaction(() => {
+      getContext(toInstance(world)).step(() => {
         world.connectedPlayers.unshift('Troll', 'Troll')
       })
-      getContext(toInstance(world)).transaction(() =>
-        toNode(world).$present({
-          op: 'splice',
+      getContext(toInstance(world)).step(() =>
+        toNode(world).$present<ArrayCommand>([{
+          op: Operation.splice,
           path: '/connectedPlayers',
           start: 0,
           deleteCount: 2,
-        })
+        }])
       )
       expect(world.connectedPlayers.slice()).toEqual([
         'Fraktar',
@@ -2170,7 +2156,7 @@ describe('Array methods', function() {
       ])
     })
     test('with object array: JSON patch backward application', function() {
-      getContext(toInstance(world)).transaction(() =>
+      getContext(toInstance(world)).step(() =>
         world.players.unshift(
           {
             name: 'Troll',
@@ -2184,13 +2170,13 @@ describe('Array methods', function() {
           }
         )
       )
-      getContext(toInstance(world)).transaction(() =>
-        toNode(world).$present({
-          op: 'splice',
+      getContext(toInstance(world)).step(() =>
+        toNode(world).$present<ArrayCommand>([{
+          op: Operation.splice,
           path: '/players',
           start: 0,
           deleteCount: 2,
-        })
+        }])
       )
       expect(getSnapshot(toInstance(world.players))).toEqual([
         {
@@ -2223,19 +2209,19 @@ describe('Array methods', function() {
   })
 
   test('set length', function() {
-    getContext(toInstance(world)).transaction(() => {
+    getContext(toInstance(world)).step(() => {
       world.players.length = 1
-      expect(toNode(world.players).$migration).toEqual({
+      expect(toNode(world.players).$state.migration).toEqual({
         forward: [
           {
-            op: 'setLength',
+            op: Operation.setLength,
             value: 1,
             path: '/players',
           },
         ],
         backward: [
           {
-            op: 'splice',
+            op: Operation.splice,
             start: 1,
             deleteCount: 0,
             path: '/players',
@@ -2283,4 +2269,3 @@ describe('Array methods', function() {
     expect(a.filter(c => c > 1)).toEqual([2, 3])
   })
 })
- */

@@ -58,7 +58,7 @@ export type ContainerState = {
   observerGraph: Graph<ObserverGraphNode>
 }
 
-export type Proposal = BasicCommand[]
+export type Proposal<C extends Command = Command> = C[]
 
 export interface IContainer {
   doNotTrack(fun: () => void): void

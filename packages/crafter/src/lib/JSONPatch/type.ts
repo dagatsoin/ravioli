@@ -31,87 +31,103 @@ export type SortCommands = {
   to: number
 }[]
 
-export type AddCommand<T = any> = Command & {
+export type AddCommand<T = any> = {
   op: Operation.add
+  path: string
   value: T
 }
 
-export type RemoveCommand = Command & {
+export type RemoveCommand = {
   op: Operation.remove
+  path: string
 }
-export type ReplaceCommand<T = any> = Command & {
+export type ReplaceCommand<T = any> = {
   op: Operation.replace
+  path: string
   value: T
 }
-export type MoveCommand = Command & {
+export type MoveCommand = {
   op: Operation.move
+  path: string
   from: string
 }
-export type CopyCommand = Command & {
+export type CopyCommand = {
   op: Operation.copy
+  path: string
   from: string
 }
-export type SpliceCommand<T = any> = Command & {
+export type SpliceCommand<T = any> = {
   op: Operation.splice
+  path: string
   value?: T[]
   start: number
   deleteCount?: number | undefined
 }
 
-export type PushCommand<T = any> = Command & {
+export type PushCommand<T = any> = {
   op: Operation.push
+  path: string
   value: T[]
 }
 
-export type UnshiftCommand<T = any> = Command & {
+export type UnshiftCommand<T = any> = {
   op: Operation.unshift
+  path: string
   value: T[]
 }
 
-export type SetLengthCommand = Command & {
+export type SetLengthCommand = {
   op: Operation.setLength
+  path: string
   value: number
 }
 
-export type CopyWithinCommand = Command & {
+export type CopyWithinCommand = {
   op: Operation.copyWithin
+  path: string
   target: number
   start: number
   end?: number
 }
 
-export type FillCommand<T = any> = Command & {
+export type FillCommand<T = any> = {
   op: Operation.fill
+  path: string
   value: T
   start?: number
   end?: number
 }
 
-export type ReverseCommand = Command & {
+export type ReverseCommand = {
   op: Operation.reverse
+  path: string
 }
 
-export type ShiftCommand = Command & {
+export type ShiftCommand = {
   op: Operation.shift
+  path: string
 }
 
-export type PopCommand = Command & {
+export type PopCommand = {
   op: Operation.pop
+  path: string
 }
 
-export type SortCommand = Command & {
+export type SortCommandWithFn<T = any> = {
   op: Operation.sort
+  path: string
+  compareFn?: (a: T, b: T) => number
+}
+
+export type SortCommand = {
+  op: Operation.sort
+  path: string
   commands: SortCommands
 }
 
-export type ClearCommand = Command & {
+export type ClearCommand = {
   op: Operation.clear
-}
-
-export type Command = {
-  op: Operation
   path: string
-  value?: any
 }
 
 export type BasicCommand<T = any> =
@@ -132,9 +148,15 @@ export type ArrayCommand<T = any> =
   | ShiftCommand
   | PopCommand
   | SortCommand
+  | SortCommandWithFn
   | UnshiftCommand<T>
 
 export type MapCommand<T = any> = BasicCommand<T> | ClearCommand
+
+export type Command =
+  | BasicCommand
+  | ArrayCommand
+  | MapCommand
 
 export type Patch<C extends Command = any> = C[]
 

@@ -4,6 +4,7 @@ import { ControlState, IContainer } from '../IContainer'
 import { getGlobal } from '../utils/utils'
 import { makePath, getRoot } from '../helpers'
 import { Command, Operation } from './JSONPatch'
+import { DataNode } from './INodeInstance'
 
 export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT> {
   
@@ -29,7 +30,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
   private $prevSnapshot: SNAPSHOT = (undefined as unknown) as SNAPSHOT
 
   public abstract $type: IType<T, SNAPSHOT>
-  public abstract $data: T
+  public abstract $data: DataNode
   public get $path(){
     // TODO cache this
     return this.$parent ? makePath(this.$parent.$path, this.$parentKey?.toString() ?? '') : '/'
@@ -94,7 +95,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
     return this.$snapshotComputation(this.$data as any, this.$$container)
   }
 
-  public abstract $present(proposal: Command[], addMigration: boolean): void
+  public abstract $present<C extends Command = Command>(proposal: C[], addMigration: boolean): void
 }
 
 export function isInstance<T = any>(thing: any): thing is IInstance<T> {

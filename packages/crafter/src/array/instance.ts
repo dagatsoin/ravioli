@@ -18,6 +18,7 @@ import { DataArray, INodeInstance, RemoveChanges, ReplaceChanges } from '../lib/
 import { isInstance } from '../lib/Instance'
 import {
   ArrayCommand,
+  Command,
   CopyWithinCommand,
   FillCommand,
   isBasicCommand,
@@ -28,6 +29,7 @@ import {
   ReverseCommand,
   SetLengthCommand,
   ShiftCommand,
+  SortCommandWithFn,
   SpliceCommand,
   UnshiftCommand,
 } from '../lib/JSONPatch'
@@ -44,7 +46,7 @@ import { NodeInstance } from '../lib/NodeInstance'
 import { isNode } from "../lib/isNode"
 import { Snapshot } from '../lib/Snapshot'
 import { setNonEnumerable, mergeMigrations } from '../utils/utils'
-import { IContainer } from '../IContainer'
+import { IContainer, Proposal } from '../IContainer'
 import { isUnknownType, isPrimitive } from '../Primitive'
 import { getTypeFromValue } from "../lib/getTypeFromValue"
 import { ReferenceType, reference, isReferenceType } from '../lib/reference'
@@ -108,7 +110,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   public $data: DataArray<SUBTYPE> = []
   public $refFactory: ReferenceType<INodeType<SUBTYPE, SUBTYPE>> | undefined = undefined
   public $isPrimitiveArray: 'unknown' | boolean = 'unknown'
-  
+
   constructor(
     type: ArrayType<SUBTYPE>,
     items: SUBTYPE[] | Snapshot<SUBTYPE>[],
@@ -178,7 +180,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   }
 
   public $present(
-    proposal: ArrayCommand<SUBTYPE>[],
+    proposal: Proposal<ArrayCommand<SUBTYPE>>,
     shouldAddMigration: boolean = false
   ): void {
     proposal.forEach(command => {
@@ -574,9 +576,13 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   
   public refineTypeIfNeeded(value: SUBTYPE | IInstance<SUBTYPE>) {
     if (isUnknownType(this.$type.itemType)) {
-      this.$type.itemType = isInstance(value)
-      ? value.$type
-      : getTypeFromValue(value as any)
+      const type = isInstance(value)
+        ? value.$type
+        : getTypeFromValue(value as any)
+      if (type === undefined) {
+        throw new Error("RefineTypeIfNeeded does not support Derivation")
+      }
+      this.$type.itemType = type
       // If the type is a primitive, set the flag to true
       // This will speed up the iteration by not trying to take the string a reference id.
       this.$isPrimitiveArray = isPrimitive(value)
@@ -588,18 +594,6 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     })
   }
 }
-
-// Special case: sort command.
-// Array.sort can take a predicate function to sort the array.
-// This is only included here to be used with the Array instance
-// as ArrayOperation must contains only serializable value.
-type SortCommandWithCompareFn<T = any> = {
-  op: Operation.sort
-  path: string
-  compareFn?: (a: T, b: T) => number
-}
-
-type Proposal<T = any> = ArrayCommand<T> | SortCommandWithCompareFn<T>
 
 function replace(
   model: ArrayInstance<unknown>,
@@ -627,7 +621,7 @@ function replace(
  */
 function present(
   model: ArrayInstance<any>,
-  proposal: Proposal[],
+  proposal: Proposal<ArrayCommand>,
   willEmitPatch: boolean = true
 ): void {
   // No direct manipulation. Mutations must occure only during a step.
@@ -666,10 +660,10 @@ function present(
       }
     } else if (command.op === 'copy') {
       const changes = copy(model, command)
-      mergeMigrations(createCopyMigration(command, changes), proposalMigration)
+      changes && mergeMigrations(createCopyMigration(command, changes), proposalMigration)
     } else if (command.op === 'move') {
       const changes = move(model, command)
-      mergeMigrations(createMoveMigration(command, changes), proposalMigration)
+      changes && mergeMigrations(createMoveMigration(command, changes), proposalMigration)
     } else if (command.op === 'splice') {
       const changes = splice(model, command)
       if (changes) {
@@ -683,8 +677,8 @@ function present(
     } else if (command.op === 'sort') {
       // Sort can be a serialized list of moved command (SortCommands)
       // or a command with a compMigration<CopyWithinOperation, SpliceOperation>n function (not serializable)
-      const changes = isSortCommand(command)
-        ? sort(model, command)
+      const changes = hasSortFn(command)
+        ? sort(model, command.compareFn)
         : sortWithMoveOps(model, command.commands)
       if (changes) {
         mergeMigrations(createSortPatch(model, changes), proposalMigration)
@@ -1162,7 +1156,7 @@ function pop(model: ArrayInstance<any>): PopChanges | undefined {
   }
 }
 
-function sort(model: ArrayInstance<any>, proposal: SortCommandWithCompareFn): SortCommands | undefined{
+function sort(model: ArrayInstance<any>, compareFn: SortCommandWithFn['compareFn']): SortCommands | undefined{
   // As sort can use a function in this parameters. We will convert
   // the sort function into a succession of move commands to log the changes.
   // 1- backup the actual index order
@@ -1174,7 +1168,7 @@ function sort(model: ArrayInstance<any>, proposal: SortCommandWithCompareFn): So
   const oldIndexes = model.$data.map(toInstance).map(({ $id }) => $id)
   /* 2 */
   model.$data
-    .sort(proposal.compareFn)
+    .sort(compareFn)
     /* 3 */
 
     .forEach((instance, index) => {
@@ -1195,7 +1189,7 @@ function sort(model: ArrayInstance<any>, proposal: SortCommandWithCompareFn): So
   }))
 }
 
-function isSortCommand(command: any): command is SortCommandWithCompareFn {
+function hasSortFn(command: any): command is SortCommandWithFn {
   return !!command.compareFn
 }
 
@@ -1347,9 +1341,9 @@ export type SortCommands = {
   to: number
 }[]
 
-function getArrayIndex(model: ArrayInstance<any>, proposal: Proposal): number {
-  const index = Number(getNextPart(model.$path, proposal.path))
-  if (!isValidArrayIndex(model, index, proposal)) {
+function getArrayIndex(model: ArrayInstance<any>, command: ArrayCommand): number {
+  const index = Number(getNextPart(model.$path, command.path))
+  if (!isValidArrayIndex(model, index, command)) {
     throw new Error(`Crafter ${index} is not a valid array index.`)
   }
   return index
@@ -1361,13 +1355,13 @@ function getArrayIndex(model: ArrayInstance<any>, proposal: Proposal): number {
 function isValidArrayIndex(
   model: ArrayInstance<any>,
   index: number,
-  proposal: Proposal<any>
+  command: ArrayCommand
 ): boolean {
   const i = Number(index)
   return !isNaN(i) &&
   // TODO add can be out of positive range (and create empty slots if necessary)
   i >= 0 && // not negative i
-    proposal.op === 'add'
+    command.op === Operation.add
     ? i <= model.length // add command could be an alias of push command. Must be not greater than length
     : i < model.length // other command must be in range
 }

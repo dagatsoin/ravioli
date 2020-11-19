@@ -1,7 +1,5 @@
-import { IObservable } from '../IObservable'
 import { IInstance } from './IInstance'
 import { Snapshot } from './Snapshot'
-import { IWithParent } from './IWithParent'
 
 export type DataObject<T> = { [key in keyof T]: IInstance<any> }
 export type DataArray<T> = (IInstance<T> | IInstance<T, string>)[]
@@ -26,8 +24,7 @@ export type ReplaceChanges = {
   replaced: Snapshot<any>
 }
 export interface INodeInstance<TYPE, SNAPSHOT = TYPE>
-  extends IInstance<TYPE, SNAPSHOT>, IWithParent,
-    IObservable {
+  extends IInstance<TYPE, SNAPSHOT> {
   $isNode: true
   $parent: INodeInstance<any, any> | undefined
   $nativeTypeKeys: string[] // The keys of the methods which are specific to the node type (Array, Map) and unumerables

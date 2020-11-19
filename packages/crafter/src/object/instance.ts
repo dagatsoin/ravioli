@@ -22,6 +22,7 @@ import {
   Operation,
   Command,
   Migration,
+  ReplaceCommand,
 } from '../lib/JSONPatch'
 import {
   createCopyMigration,
@@ -150,7 +151,7 @@ export class ObjectInstance<
   /**
    * Accept the value if the model is writtable
    */
-  public $present(proposal: Proposal, addMigration = true): void {
+  public $present(proposal: Proposal<BasicCommand>, addMigration = true): void {
     // No direct manipulation. Mutations must occure only during a transaction.
     if (!this.$$container.isWrittable) {
       fail(`Crafter Object. Tried to mutate an object while model is locked.`)
@@ -628,7 +629,7 @@ function isObject(thing: any): thing is object {
   )
 }
 
-export function splitUpdateOperation(value: any, opPath: string): Proposal {
+export function splitUpdateOperation(value: any, opPath: string): Proposal<ReplaceCommand> {
   return isObject(value)
     ? Object.keys(value).map(key => ({
         op: Operation.replace,
