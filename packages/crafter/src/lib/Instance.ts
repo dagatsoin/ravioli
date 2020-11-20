@@ -95,7 +95,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
     return this.$snapshotComputation(this.$data as any, this.$$container)
   }
 
-  public abstract $present<C extends Command = Command>(proposal: C[], addMigration: boolean): void
+  public abstract $present(proposal: Command[], addMigration: boolean): void
 }
 
 export function isInstance<T = any>(thing: any): thing is IInstance<T> {

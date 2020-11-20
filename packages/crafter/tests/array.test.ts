@@ -196,7 +196,7 @@ describe('Basic JSON command', function() {
 
   test('add', function() {
     getContext(toInstance(world)).step(() => {
-      toNode(world).$present<ArrayCommand>([{
+      toNode(world).$present([{
         op: Operation.add,
         path: '/players/5',
         value: {
@@ -211,7 +211,7 @@ describe('Basic JSON command', function() {
 
   test('replace', function() {
     getContext(toInstance(world)).step(() => {
-      toNode(world).$present<ArrayCommand>([{
+      toNode(world).$present([{
         op: Operation.replace,
         path: '/players/4',
         value: {
@@ -226,7 +226,7 @@ describe('Basic JSON command', function() {
 
   test('remove', function() {
     getContext(toInstance(world)).step(() => {
-      toNode(world).$present<ArrayCommand>([{
+      toNode(world).$present([{
         op: Operation.remove,
         path: '/players/4',
       }])
@@ -236,7 +236,7 @@ describe('Basic JSON command', function() {
 
   test('move', function() {
     getContext(toInstance(world)).step(() => {
-      toNode(world).$present<ArrayCommand>([{
+      toNode(world).$present([{
         op: Operation.move,
         from: '/players/0',
         path: '/players/1',
@@ -247,7 +247,7 @@ describe('Basic JSON command', function() {
 
   test('copy', function() {
     getContext(toInstance(world)).step(() => {
-      toNode(world).$present<ArrayCommand>([{
+      toNode(world).$present([{
         op: Operation.copy,
         from: '/players/0',
         path: '/players/1',
@@ -385,7 +385,7 @@ describe('Array methods', function() {
             end: 3,
           },
         ]
-        getContext(toInstance(world)).step(() => toNode(world.players).$present<ArrayCommand>(forward))
+        getContext(toInstance(world)).step(() => toNode(world.players).$present(forward))
         expect(world.players.slice()).toEqual(shouldBe)
         expect(toNode(world.players[0]).$path).toEqual('/players/0')
         expect(toNode(world.players[1]).$path).toEqual('/players/1')
@@ -416,7 +416,7 @@ describe('Array methods', function() {
           start: 0,
         }
         getContext(toInstance(world)).step(() =>
-          toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([reverse])
+          toNode(toInstance(arrayToReverse)).$present([reverse])
         )
         const reversed = getSnapshot(toInstance(arrayToReverse))
         expect(reversed).toEqual(shouldBe)
@@ -466,7 +466,7 @@ describe('Array methods', function() {
             end: 3,
           },
         ]
-        getContext(toInstance(world)).step(() => toNode(world.connectedPlayers).$present<ArrayCommand>(forward))
+        getContext(toInstance(world)).step(() => toNode(world.connectedPlayers).$present(forward))
         expect(world.connectedPlayers.slice()).toEqual(shouldBe)
       })
 
@@ -488,7 +488,7 @@ describe('Array methods', function() {
             value: 'Elwein',
           },
         ]
-        getContext(toInstance(world)).step(() => toNode(toInstance(arrayToReverse)).$present<ArrayCommand>(reverse))
+        getContext(toInstance(world)).step(() => toNode(toInstance(arrayToReverse)).$present(reverse))
         const reversed = getSnapshot(toInstance(arrayToReverse))
         expect(reversed).toEqual(shouldBe)
       })
@@ -569,7 +569,7 @@ describe('Array methods', function() {
         })
 
         getContext(toInstance(world)).step(() =>
-          toNode(world.players).$present<ArrayCommand>([{
+          toNode(world.players).$present([{
             op: Operation.pop,
             path: '/players',
           }])
@@ -585,7 +585,7 @@ describe('Array methods', function() {
           world.players.pop()
         })
         getContext(toInstance(world)).step(() =>
-          toNode(arrayToReverse).$present<ArrayCommand>([{
+          toNode(arrayToReverse).$present([{
             op: Operation.push,
             path: '/players',
             value: [
@@ -631,7 +631,7 @@ describe('Array methods', function() {
         })
 
         getContext(toInstance(world)).step(() =>
-          toNode(world.connectedPlayers).$present<ArrayCommand>([{
+          toNode(world.connectedPlayers).$present([{
             op: Operation.pop,
             path: '/connectedPlayers',
           }])
@@ -646,7 +646,7 @@ describe('Array methods', function() {
         const arrayToReverse = cloned.connectedPlayers
         getContext(toInstance(world)).step(() => {
           arrayToReverse.pop()
-          toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([{
+          toNode(toInstance(arrayToReverse)).$present([{
             op: Operation.push,
             path: '/connectedPlayers',
             value: ['Ghost'],
@@ -780,7 +780,7 @@ describe('Array methods', function() {
         })
 
         getContext(toInstance(world)).step(() =>
-          toNode(toInstance(world.players)).$present<ArrayCommand>([{
+          toNode(toInstance(world.players)).$present([{
             op: Operation.fill,
             path: '/players',
             value: {
@@ -818,7 +818,7 @@ describe('Array methods', function() {
           )
         })
         getContext(toInstance(world)).step(() =>
-          toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([{
+          toNode(toInstance(arrayToReverse)).$present([{
             op: Operation.splice,
             path: '/players',
             value: [
@@ -888,7 +888,7 @@ describe('Array methods', function() {
             .slice()
         })
         getContext(toInstance(world)).step(() =>
-          toNode(toInstance(world.connectedPlayers)).$present<ArrayCommand>([{
+          toNode(toInstance(world.connectedPlayers)).$present([{
             op: Operation.fill,
             path: '/connectedPlayers',
             value: 'Dreadbond',
@@ -907,7 +907,7 @@ describe('Array methods', function() {
           () => (arrayToReverse = world.connectedPlayers.copyWithin(0, 1, 3))
         )
         getContext(toInstance(world)).step(() =>
-          toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([{
+          toNode(toInstance(arrayToReverse)).$present([{
             op: Operation.splice,
             path: '/connectedPlayers',
             start: 0,
@@ -1012,7 +1012,7 @@ describe('Array methods', function() {
           .slice()
       })
       getContext(toInstance(world)).step(() =>
-        toNode(world.connectedPlayers).$present<ArrayCommand>([{
+        toNode(world.connectedPlayers).$present([{
           op: Operation.reverse,
           path: '/connectedPlayers',
         }])
@@ -1028,7 +1028,7 @@ describe('Array methods', function() {
         () => (arrayToReverse = world.connectedPlayers.reverse())
       )
       getContext(toInstance(world)).step(() =>
-        toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([{
+        toNode(toInstance(arrayToReverse)).$present([{
           op: Operation.reverse,
           path: '/connectedPlayers',
         }])
@@ -1090,7 +1090,7 @@ describe('Array methods', function() {
         })
 
         getContext(toInstance(world)).step(() =>
-          toNode(world.players).$present<ArrayCommand>([{
+          toNode(world.players).$present([{
             op: Operation.shift,
             path: '/players',
           }])
@@ -1105,7 +1105,7 @@ describe('Array methods', function() {
           world.players.shift()
         })
         getContext(toInstance(world)).step(() =>
-          toNode(world).$present<ArrayCommand>([{
+          toNode(world).$present([{
             op: Operation.splice,
             path: '/players',
             value: [
@@ -1190,7 +1190,7 @@ describe('Array methods', function() {
         })
 
         getContext(toInstance(world)).step(() =>
-          toNode(toInstance(world.players)).$present<ArrayCommand>([{
+          toNode(toInstance(world.players)).$present([{
             op: Operation.push,
             path: '/players',
             value: [{ name: 'guest', level: 0, hp: 0 }],
@@ -1211,7 +1211,7 @@ describe('Array methods', function() {
           world.players.push({ name: 'guest', level: 0, hp: 0 })
         })
         getContext(toInstance(world)).step(() =>
-          toNode(world).$present<ArrayCommand>([{
+          toNode(world).$present([{
             op: Operation.pop,
             path: '/players',
           }])
@@ -1469,7 +1469,7 @@ describe('Array methods', function() {
         })
 
         getContext(toInstance(world)).step(() =>
-          toNode(toInstance(world.players)).$present<ArrayCommand>([{
+          toNode(toInstance(world.players)).$present([{
             op: Operation.splice,
             path: '/players',
             start: 1,
@@ -1507,7 +1507,7 @@ describe('Array methods', function() {
           })
         })
         getContext(toInstance(world)).step(() =>
-          toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([{
+          toNode(toInstance(arrayToReverse)).$present([{
             op: Operation.splice,
             path: '/players',
             value: [
@@ -1551,7 +1551,7 @@ describe('Array methods', function() {
           )
           const targetSnapshot = getSnapshot(toInstance(smallerArray))
           getContext(toInstance(world)).step(() =>
-            toNode(world).$present<ArrayCommand>([{
+            toNode(world).$present([{
               op: Operation.splice,
               path: '/players',
               value: [
@@ -1601,7 +1601,7 @@ describe('Array methods', function() {
               hp: 0,
             }
           )
-          toNode(smallerArray).$present<ArrayCommand>([{
+          toNode(smallerArray).$present([{
             op: Operation.splice,
             path: '/players',
             value: [
@@ -1658,7 +1658,7 @@ describe('Array methods', function() {
             }
           )
           const targetSnapshot = getSnapshot(toInstance(bigger))
-          toNode(world).$present<ArrayCommand>([{
+          toNode(world).$present([{
             op: Operation.splice,
             path: '/players',
             value: [
@@ -1695,7 +1695,7 @@ describe('Array methods', function() {
             { name: 'Troll', level: 0, hp: 0 },
             { name: 'Troll', level: 0, hp: 0 }
           )
-          toNode(biggerArray).$present<ArrayCommand>([{
+          toNode(biggerArray).$present([{
             op: Operation.splice,
             path: '/players',
             value: [
@@ -1779,7 +1779,7 @@ describe('Array methods', function() {
         })
 
         getContext(toInstance(world)).step(() =>
-          toNode(world).$present<ArrayCommand>([{
+          toNode(world).$present([{
             op: Operation.splice,
             path: '/connectedPlayers',
             start: 1,
@@ -1799,7 +1799,7 @@ describe('Array methods', function() {
           arrayToReverse.splice(1, 1, 'Troll')
         })
         getContext(toInstance(world)).step(() =>
-          toNode(toInstance(arrayToReverse)).$present<ArrayCommand>([{
+          toNode(toInstance(arrayToReverse)).$present([{
             op: Operation.splice,
             path: '/connectedPlayers',
             value: ['Elwein'],
@@ -1816,7 +1816,7 @@ describe('Array methods', function() {
           const smallerArray = clone(world)
           smallerArray.connectedPlayers.splice(1, 4, 'Troll', 'Troll', 'Troll')
           const targetSnapshot = getSnapshot(toInstance(smallerArray))
-          toNode(world).$present<ArrayCommand>([{
+          toNode(world).$present([{
             op: Operation.splice,
             path: '/connectedPlayers',
             value: ['Troll', 'Troll', 'Troll'],
@@ -1831,7 +1831,7 @@ describe('Array methods', function() {
         getContext(toInstance(world)).step(() => {
           const smallerArray = clone(world)
           smallerArray.connectedPlayers.splice(1, 4, 'Troll', 'Troll', 'Troll')
-          toNode(smallerArray).$present<ArrayCommand>([{
+          toNode(smallerArray).$present([{
             op: Operation.splice,
             path: '/connectedPlayers',
             value: ['Elwein', 'Dreadbond', 'Cha', 'Ghost'],
@@ -1849,7 +1849,7 @@ describe('Array methods', function() {
           const bigger = clone(world)
           bigger.connectedPlayers.splice(1, 2, 'Troll', 'Troll', 'Troll')
           const targetSnapshot = getSnapshot(toInstance(bigger))
-          toNode(world).$present<ArrayCommand>([{
+          toNode(world).$present([{
             op: Operation.splice,
             path: '/connectedPlayers',
             value: ['Troll', 'Troll', 'Troll'],
@@ -1864,7 +1864,7 @@ describe('Array methods', function() {
         getContext(toInstance(world)).step(() => {
           const biggerArray = clone(world)
           biggerArray.connectedPlayers.splice(1, 2, 'Troll', 'Troll', 'Troll')
-          toNode(biggerArray).$present<ArrayCommand>([{
+          toNode(biggerArray).$present([{
             op: Operation.splice,
             path: '/connectedPlayers',
             value: ['Elwein', 'Dreadbond'],
@@ -1892,7 +1892,7 @@ describe('Array methods', function() {
     const ids = toNode(world.players)
       .$data.map(toInstance)
       .map(({ $id }: any) => $id)
-    const commands = [
+    const commands: ArrayCommand[] = [
       {
         op: Operation.sort,
         path: '/players',
@@ -1925,7 +1925,7 @@ describe('Array methods', function() {
         ],
       },
     ]
-    getContext(toInstance(world)).step(() => toNode(toInstance(world.players)).$present<ArrayCommand>(commands))
+    getContext(toInstance(world)).step(() => toNode(toInstance(world.players)).$present(commands))
     expect(world.players[4].name).toBe('Fraktar')
   })
 
@@ -2066,7 +2066,7 @@ describe('Array methods', function() {
 
     test('with primitive array: JSON patch forward application', function() {
       getContext(toInstance(world)).step(() =>
-        toNode(world).$present<ArrayCommand>([{
+        toNode(world).$present([{
           op: Operation.unshift,
           path: '/connectedPlayers',
           value: ['Troll', 'Troll'],
@@ -2140,7 +2140,7 @@ describe('Array methods', function() {
         world.connectedPlayers.unshift('Troll', 'Troll')
       })
       getContext(toInstance(world)).step(() =>
-        toNode(world).$present<ArrayCommand>([{
+        toNode(world).$present([{
           op: Operation.splice,
           path: '/connectedPlayers',
           start: 0,
@@ -2171,7 +2171,7 @@ describe('Array methods', function() {
         )
       )
       getContext(toInstance(world)).step(() =>
-        toNode(world).$present<ArrayCommand>([{
+        toNode(world).$present([{
           op: Operation.splice,
           path: '/players',
           start: 0,
