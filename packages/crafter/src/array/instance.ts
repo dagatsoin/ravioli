@@ -620,8 +620,7 @@ function replace(
  */
 function present(
   model: ArrayInstance<any>,
-  proposal: Proposal<ArrayCommand>,
-  willEmitPatch: boolean = true
+  proposal: Proposal<ArrayCommand>
 ): void {
   // No direct manipulation. Mutations must occure only during a step.
   if (!model.$$container.isWrittable) {
@@ -726,8 +725,8 @@ function present(
   if (proposalMigration.forward.some(isShapeMutationOperation)) {
     model.$$container.addUpdatedObservable(model)
   }
-  if (willEmitPatch) {
-    model.$addMigration(proposalMigration)
+  if (model.$$container.willReact) {
+    model.$$container.addMigration(model.$state.migration, getRoot(model).$id)
   }
 }
 

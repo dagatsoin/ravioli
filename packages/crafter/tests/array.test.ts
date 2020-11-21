@@ -7,35 +7,44 @@ import { toNode, getContext, clone, toInstance, getSnapshot } from '../src/helpe
 import { object } from '../src/object'
 import { INodeInstance } from '../src/lib/INodeInstance'
 
-test('Create array of primitive', function() {
-  const Players = array(string())
-  const players = Players.create(['Fraktar', 'Dreadbond', 'Elwein'])
-  expect(isInstance(players)).toBeTruthy()
-  expect(isNode(players)).toBeTruthy()
-  expect(players[0]).toBe('Fraktar')
-  expect(toNode(players).$state.migration).toEqual({ backward: [], forward: [] })
+describe('factory', function() {
+  test('Create array of primitive', function() {
+    const Players = array(string())
+    const players = Players.create(['Fraktar', 'Dreadbond', 'Elwein'])
+    expect(isInstance(players)).toBeTruthy()
+    expect(isNode(players)).toBeTruthy()
+    expect(players[0]).toBe('Fraktar')
+    expect(toNode(players).$state.migration).toEqual({ backward: [], forward: [] })
+  })
+  
+  test('Create array of objects', function() {
+    const Players = array(
+      object({
+        name: string(),
+        level: number(),
+        hp: number(),
+      })
+    )
+    const players = Players.create([
+      {
+        name: 'Fraktar',
+        level: 1,
+        hp: 10,
+      },
+    ])
+    
+    expect(isInstance(players)).toBeTruthy()
+    expect(isNode(players)).toBeTruthy()
+    expect(players[0].name).toBe('Fraktar')
+  })
 })
 
-test('Create array of object', function() {
-  const Players = array(
-    object({
-      name: string(),
-      level: number(),
-      hp: number(),
-    })
-  )
-  const players = Players.create([
-    {
-      name: 'Fraktar',
-      level: 1,
-      hp: 10,
-    },
-  ])
-
-  expect(isInstance(players)).toBeTruthy()
-  expect(isNode(players)).toBeTruthy()
-  expect(players[0].name).toBe('Fraktar')
+describe('mutation', function() {
+  test.todo('replace leaf child')
+  test.todo('replace node child')
+  test.todo('replace whole array')
 })
+
 
 test('set value', function() {
   const model = object({ arr: array(string()) })
