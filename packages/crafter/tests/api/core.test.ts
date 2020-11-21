@@ -131,7 +131,7 @@ describe('Reactivity', function() {
 
   afterEach(function() {
    // disposers.forEach(d => d())
-    applySnapshot(model, initialSnapshot, false)
+    applySnapshot(model, initialSnapshot)
   })
 
   describe('Node replacement', function() {

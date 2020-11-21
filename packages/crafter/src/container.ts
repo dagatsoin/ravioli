@@ -51,6 +51,10 @@ export class CrafterContainer implements IContainer {
     return this.volatileState.controlState
   }
 
+  public get willReact(): boolean {
+    return this.volatileState.willReact
+  }
+
   public getObserverDeps(observerId: string): string[] {
     return this.state.observerGraph.nodes.find(({observer: {id}}) => id === observerId)?.dependencies ?? []
   }
@@ -108,9 +112,9 @@ export class CrafterContainer implements IContainer {
     derivationUpdatedObservable: IObservable[]
 
     /**
-     * Flag to know if the step is done during a derivation initialization.
+     * Flag to know if the step mutations will be tracked.
      */
-    isDerivationInit: boolean
+    willReact: boolean
   } ={
     spiedObserversDependencies: new Map(),
     spyReactionQueue: [],
@@ -119,7 +123,7 @@ export class CrafterContainer implements IContainer {
     updatedObservables: [],
     derivationPatch: [],
     derivationUpdatedObservable: [],
-    isDerivationInit: false
+    willReact: true
   }
 
   // Listeners to migration event triggered after each step
@@ -134,7 +138,7 @@ export class CrafterContainer implements IContainer {
   }
 
   public get isWrittable(): boolean {
-    return this.volatileState.controlState === ControlState.MUTATION || this.volatileState.isDerivationInit//this.volatileState.controlState === ControlState.STALE
+    return this.volatileState.controlState === ControlState.MUTATION || !this.volatileState.willReact//this.volatileState.controlState === ControlState.STALE
   }
   
 /*   public get isTransaction(): boolean {
@@ -219,9 +223,9 @@ export class CrafterContainer implements IContainer {
    */
   public doNotTrack(fun: () => any): any {
 
-    this.volatileState.isDerivationInit = true
+    this.volatileState.willReact = false
     const result = fun()
-    this.volatileState.isDerivationInit = false
+    this.volatileState.willReact = true
     return result
   }
 
@@ -237,7 +241,7 @@ export class CrafterContainer implements IContainer {
   public step(fun: () => any): any {
 
     // If this step is a subsequent step of a doNotTrack function.
-    if (this.volatileState.isDerivationInit) {
+    if (!this.volatileState.willReact) {
       return fun()
     }
 

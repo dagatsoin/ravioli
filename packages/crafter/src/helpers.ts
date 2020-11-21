@@ -96,12 +96,12 @@ export function getSnapshot<T extends IType<any>>(
  * @param snapshot
  * @param willReact will this change will be observed
  */
-export function applySnapshot<T>(entity: T, snapshot: T, willReact = true): void {
+export function applySnapshot<T>(entity: T, snapshot: T): void {
   const instance = toInstance<T>(entity)
   if(!instance.$type.isValidSnapshot(snapshot)) {
     throw new Error('[CRAFTER] Incompatible snapshot')
   }
-  instance.$$container.step(()=>instance.$present([{op: Operation.replace, path: instance.$path, value: snapshot}], willReact))
+  instance.$$container.step(()=>instance.$present([{op: Operation.replace, path: instance.$path, value: snapshot}]))
 }
 
 /**
@@ -110,12 +110,12 @@ export function applySnapshot<T>(entity: T, snapshot: T, willReact = true): void
  * @param value 
  * @param willReact will this change will be observed
  */
-export function setValue<T>(entity: IInstance<T> | T, value: T, willReact = true): void {
+export function setValue<T>(entity: IInstance<T> | T, value: T): void {
   if(__DEV__ && !isInstance(entity)) {
     fail('[CRAFTER] entity is not an instance') 
   }
   const instance = toInstance<T>(entity)
-  instance.$present([{op: Operation.replace, path: instance.$path, value}], willReact)
+  instance.$present([{op: Operation.replace, path: instance.$path, value}])
 }
 
 /**
@@ -191,7 +191,7 @@ export function makePath(...segments: string[]): string {
 
 export function sync<T extends IObservable>(observable: T): T {
   const target = clone(observable)
-  toNode(observable).$$container.addStepListener(StepLifeCycle.WILL_END, ({snapshot:{migration}}) => migration.forward.forEach(c => toNode(target).$present(c, true)))
+  toNode(observable).$$container.addStepListener(StepLifeCycle.WILL_END, ({snapshot:{migration}}) => migration.forward.forEach(c => toNode(target).$present(c)))
   return target
 }
 

@@ -180,16 +180,15 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   }
 
   public $present(
-    proposal: Proposal<ArrayCommand<SUBTYPE>>,
-    shouldAddMigration: boolean = false
+    proposal: Proposal<ArrayCommand<SUBTYPE>>
   ): void {
     proposal.forEach(command => {
       // Apply only if the path concerns this node or a leaf child.
       if (isSamePath(this.$path, command.path)) {
-        present(this, [command], shouldAddMigration)
+        present(this, [command])
       } else if (isOwnLeafPath(this.$path, command.path)) {
         if (isBasicCommand(command)) {
-          present(this, [command], shouldAddMigration)
+          present(this, [command])
         } else {
           fail('[CRAFTER] Array.$applyCommand LeafInstance accepts only basic JSON write commands')
         }
@@ -199,7 +198,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
           Number(getNextPart(this.$path, command.path))
         ]
         // Get the concerned child key
-        toNode(childInstance).$present([command], shouldAddMigration)
+        toNode(childInstance).$present([command])
       }
     })
   }

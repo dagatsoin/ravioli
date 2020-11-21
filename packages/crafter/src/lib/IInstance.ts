@@ -44,7 +44,6 @@ export interface IInstance<TYPE, SNAPSHOT = TYPE> extends IObservable {
   $notifyRead(): void
   /**
    * Present an JSON command list to the instance.
-   * If shouldAddMigration is true, this will emit a migration.
    */
-  $present(proposal: Proposal<Command>, addMigration?: boolean): void
+  $present(proposal: Proposal<Command>): void
 }

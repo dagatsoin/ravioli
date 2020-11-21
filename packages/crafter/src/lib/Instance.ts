@@ -30,7 +30,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
   private $prevSnapshot: SNAPSHOT = (undefined as unknown) as SNAPSHOT
 
   public abstract $type: IType<T, SNAPSHOT>
-  public abstract $data: DataNode
+  public abstract $data: DataNode | T
   public get $path(){
     // TODO cache this
     return this.$parent ? makePath(this.$parent.$path, this.$parentKey?.toString() ?? '') : '/'
@@ -63,7 +63,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
 
   public $applySnapshot(snapshot: SNAPSHOT): void {
     if (this.$type.isValidSnapshot(snapshot)) {
-      this.$present([{op: Operation.replace, value: snapshot, path: this.$path}], false)
+      this.$present([{op: Operation.replace, value: snapshot, path: this.$path}])
     }
   }
 
@@ -95,7 +95,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
     return this.$snapshotComputation(this.$data as any, this.$$container)
   }
 
-  public abstract $present(proposal: Command[], addMigration: boolean): void
+  public abstract $present(proposal: Command[]): void
 }
 
 export function isInstance<T = any>(thing: any): thing is IInstance<T> {

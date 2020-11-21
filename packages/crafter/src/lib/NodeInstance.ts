@@ -82,6 +82,6 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
     this.hasStaleValue = false
   }
   
-  public abstract $present(proposal: Command[], shouldAddMigration: boolean): void
+  public abstract $present(proposal: Command[]): void
   public abstract $createChildInstance<I>(item: I, index: any): IInstance<I>
 }

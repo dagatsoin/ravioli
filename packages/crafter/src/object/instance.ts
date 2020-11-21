@@ -142,16 +142,13 @@ export class ObjectInstance<
   } */
 
   public $setValue(value: TYPE, addMigration: boolean) {
-    this.$present(
-      [{ op: Operation.replace, value, path: this.$path }],
-      addMigration
-    )
+    this.$present([{ op: Operation.replace, value, path: this.$path }])
   }
 
   /**
    * Accept the value if the model is writtable
    */
-  public $present(proposal: Proposal<BasicCommand>, addMigration = true): void {
+  public $present(proposal: Proposal<BasicCommand>): void {
     // No direct manipulation. Mutations must occure only during a transaction.
     if (!this.$$container.isWrittable) {
       fail(`Crafter Object. Tried to mutate an object while model is locked.`)
@@ -232,8 +229,11 @@ export class ObjectInstance<
                     : undefined
                 )
               } else { */
-                const child = this.$data[childKey]
-                child.$present([subCommand], false) // don't report migration to the container for the sub commands
+                const child = this.$data[childKey];
+                // don't report migration to the container for the sub commands
+                (child as IInstance<any>).$$container.doNotTrack(() => {
+                  (child as IInstance<any>).$present([subCommand]) 
+                })
                 // The change is valid when the child instance did change
                 childrenMigrations.push(
                   instanceDidChange(child)
@@ -302,7 +302,7 @@ export class ObjectInstance<
               warn('[CRAFTER] Unknown child key', childKey)
             }
           } else {
-            instance.$present([command], addMigration)
+            instance.$present([command])
           }
         }
       } else if (command.op === Operation.remove) {
@@ -316,7 +316,7 @@ export class ObjectInstance<
         }
         const result = {
           accepted,
-          migration: accepted && addMigration
+          migration: accepted && this.$$container.willReact
             ? createRemoveMigration(command, { removed })
             : undefined,
         }
@@ -336,7 +336,7 @@ export class ObjectInstance<
         }
         const result = {
           accepted,
-          migration: accepted && addMigration ? createAddMigration(command) : undefined,
+          migration: accepted && this.$$container.willReact ? createAddMigration(command) : undefined,
         }
 
         proposalResult.push({
@@ -352,7 +352,7 @@ export class ObjectInstance<
         const accepted = changes === undefined
         const result = {
           accepted,
-          migration: accepted && addMigration
+          migration: accepted && this.$$container.willReact
             ? createCopyMigration(command, changes!)
             : undefined
         }
@@ -372,7 +372,7 @@ export class ObjectInstance<
         const accepted = changes !== undefined
         const result = {
           accepted,
-          migration: accepted && addMigration
+          migration: accepted && this.$$container.willReact
             ? createMoveMigration(command, changes!)
             : undefined
         }
@@ -546,16 +546,17 @@ function build(obj: ObjectInstance<any, any, any, any>, value = {}): void {
           configurable: true,
         })
       } else {
-        obj.$present(
-          [
-            {
-              op: Operation.add,
-              path: makePath(obj.$path, key),
-              value: value[key],
-            },
-          ],
-          false
-        )
+        obj.$$container.doNotTrack(()=> {
+          obj.$present(
+            [
+              {
+                op: Operation.add,
+                path: makePath(obj.$path, key),
+                value: value[key],
+              },
+            ]
+          )
+        })
       }
     })
   })
@@ -611,8 +612,7 @@ function addInterceptor(
               value: value instanceof Map ? Array.from(value.entries()) : value,
               path: makePath(obj.$path, propName),
             },
-          ],
-          true
+          ]
         )
       },
       enumerable: true,

@@ -73,11 +73,11 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
     return this.$$id
   }
 
-  public $present (proposal: ReplaceCommand[], addMigration = true): void {
+  public $present (proposal: ReplaceCommand[]): void {
     // As a leaf instance only supports replace command, we just treat the last command
     const command = proposal[proposal.length-1]
     const didChange = this.setValue(command.value)
-    this.updateState(command, didChange, addMigration)
+    this.updateState(command, didChange)
   }
 
   public setValue(value: T): boolean {
@@ -86,7 +86,7 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
     return backup !== this.$data
   }
 
-  private updateState(command: ReplaceCommand, didChange: boolean, addMigration: boolean){
+  private updateState(command: ReplaceCommand, didChange: boolean){
     this.$state = {
       didChange,
       migration: didChange ? createReplaceMigration(command, {replaced: this.$snapshot}) : {forward: [], backward: []}
@@ -94,14 +94,14 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
 
     // The data has changed, this instance is now stale
     const isStale = didChange
-    this.next(isStale, addMigration)
+    this.next(isStale)
   }
 
-  private next(isStale: boolean, addMigration: boolean) {
+  private next(isStale: boolean) {
     if (isStale) {
       this.$$container.addUpdatedObservable(this)
       this.$invalidate();
-      if (addMigration) {
+      if (this.$$container.willReact) {
         this.$$container.addMigration(this.$state.migration, getRoot(this).$id)
       }
     }

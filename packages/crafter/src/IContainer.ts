@@ -66,6 +66,7 @@ export interface IContainer {
   isWrittable: boolean
   isRunningReaction: boolean
   controlState: ControlState
+  readonly willReact: boolean
 
   /**
    * Return the paths of the observables used (read) by an observer

@@ -37,7 +37,7 @@ export class IdentifierInstance<T extends string> extends Instance<T, T> {
   public get $id(): string {
     return this.$$id
   }
-  public $present(proposal: Command[], addMigration: boolean): void {
+  public $present(proposal: Command[]): void {
     fail(`[CRAFTER] Identifier: attempt to present a proposal to an identifier.`)
   }
   // Implementation will be chosen by the constructor

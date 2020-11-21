@@ -39,7 +39,7 @@ test("isOwnLeafPath", function(){
 
 test("reduce patch", function() {
   const patch: Command[] = [
-    {op: Operation.push, path: "/player/inventory", value: {id: "48646"}},
+    {op: Operation.push, path: "/player/inventory", value: [{id: "48646"}]},
     {op: Operation.replace, path: "/pets", value: [{id: "74455"}]},
     {op: Operation.replace, path:"/player/name", value: "Fraktos"},
     {op: Operation.replace, path:"/player/stats/health", value: 5},
@@ -47,7 +47,7 @@ test("reduce patch", function() {
     {op: Operation.replace, path:"/player", value: {name: "Fraktos", stats: { health: 5 }}},
   ]
   expect(reduceSnapshot(patch)).toEqual([
-    {op: Operation.push, path: "/player/inventory", value: {id: "48646"}},
+    {op: Operation.push, path: "/player/inventory", value: [{id: "48646"}]},
     {op: Operation.replace, path: "/pets", value: [{id: "74455"}]},
     {op: Operation.replace, path:"/player", value: {name: "Fraktos", stats: { health: 5 }}},
   ])
