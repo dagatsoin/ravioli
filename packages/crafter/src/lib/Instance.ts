@@ -71,7 +71,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
     this.$hasStaleSnapshot = true
     this.$hasStaleValue = true
     // Stop the propagation if parent is already stale
-    if (this.$parent && (this.$parent.$hasStaleSnapshot || this.$parent.$hasStaleValue)) {
+    if (this.$parent && (!this.$parent.$hasStaleSnapshot || !this.$parent.$hasStaleValue)) {
       this.$parent.$invalidate()
     }
   }
