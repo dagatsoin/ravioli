@@ -12,9 +12,10 @@ import {
   unbox,
   getRoot,
   makePath,
+  warn,
 } from '../helpers'
 import { IInstance } from '../lib/IInstance'
-import { DataArray, INodeInstance, RemoveChanges, ReplaceChanges } from '../lib/INodeInstance'
+import { AddChanges, DataArray, INodeInstance, RemoveChanges, ReplaceChanges } from '../lib/INodeInstance'
 import { isInstance } from '../lib/Instance'
 import {
   ArrayCommand,
@@ -23,6 +24,7 @@ import {
   FillCommand,
   isBasicCommand,
   Migration,
+  MoveCommand,
   PopCommand,
   PushCommand,
   RemoveCommand,
@@ -97,13 +99,11 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   }
 
   public set length(value: number) {
-    present(this as any, [
-      {
-        op: Operation.setLength,
-        path: this.$path,
-        value,
-      },
-    ])
+    applyCommand(this as any, {
+      op: Operation.setLength,
+      path: this.$path,
+      value,
+    })
   }
 
   public $type: ArrayType<SUBTYPE>
@@ -183,24 +183,42 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     proposal: Proposal<ArrayCommand<SUBTYPE>>
   ): void {
     proposal.forEach(command => {
-      // Apply only if the path concerns this node or a leaf child.
-      if (isSamePath(this.$path, command.path)) {
-        present(this, [command])
-      } else if (isOwnLeafPath(this.$path, command.path)) {
-        if (isBasicCommand(command)) {
-          present(this, [command])
-        } else {
-          fail('[CRAFTER] Array.$applyCommand LeafInstance accepts only basic JSON write commands')
-        }
-      } // Or delegate to children
-      else if (isChildPath(this.$path, command.path)) {
+      // Delegate to children
+      if (isChildPath(this.$path, command.path)) {
         const childInstance = this.$data[
           Number(getNextPart(this.$path, command.path))
         ]
         // Get the concerned child key
         toNode(childInstance).$present([command])
+      } else {
+        const migration = applyCommand(this, command)
+        const didChange = !!migration?.forward.length
+        this.$updateState(migration, didChange)
       }
     })
+  }
+
+  private $updateState(migration: Migration | undefined, didChange: boolean) {
+    this.$state = {
+      didChange,
+      migration: migration || { forward: [], backward: []}
+    }
+    // The node is stale only when :
+    // - its shape has been modified
+    // - a command targeted its value and made some changes
+    const isStale = migration?.forward.some(command => command.op === Operation.setLength) ?? false
+
+    this.$next(isStale)
+  }
+
+  private $next(isStale: boolean) {
+    // The proposal has updated the shape of the model
+    if (isStale) {
+    //  le node est déjà inclus. Pb de nettoyage ?
+      this.$$container.addUpdatedObservable(this)
+      this.$invalidate()
+    }
+    this.$$container.addMigration(this.$state.migration, getRoot(this).$id)
   }
 
   /**
@@ -208,29 +226,8 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
    * If it is the case it is time to refined the type with by
    * infer the given value.
    */
-  public $setValue(_value: INPUT): void {
-    if (!this.$$container.isWrittable) {
-      throw new Error(
-        'Crafter Array. Tried to set an array value while model is locked.'
-      )
-    }
-    if (_value.length) {
-      this.refineTypeIfNeeded(_value[0])
-    }
-    const value = isInstance(_value) ? getSnapshot(_value) : _value
-
-    // Reset instance
-    this.$data = [] as any
-    Object.keys(this).forEach(k => delete this[k])
-    // Replace members
-    this.$data.push(...value.map((i: SUBTYPE) => this.$createChildInstance<SUBTYPE>(i)))
-    for (let i = 0; i < this.length; i++) {
-      this.$addInterceptor(i)
-    }
-    this.$attachChildren()
-
-    // The value of the array changed, notify the container.
-    this.$$container.addUpdatedObservable(this)
+  public $setValue(value: SUBTYPE[]): void {
+    this.$present([{ op: Operation.replace, value: value as any, path: this.$path }])
   }
 
   public $kill(): void {
@@ -251,7 +248,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     start: number,
     end?: number | undefined
   ): this => {
-    present(this, [{ op: Operation.copyWithin, path: this.$path, target, start, end }])
+    applyCommand(this, { op: Operation.copyWithin, path: this.$path, target, start, end })
     return this
   }
 
@@ -354,7 +351,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     start?: number | undefined,
     end?: number | undefined
   ): this => {
-    present(this, [{ op: Operation.fill, path: this.$path, value, start, end }])
+    applyCommand(this, { op: Operation.fill, path: this.$path, value, start, end })
     return this
   }
 
@@ -408,13 +405,13 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   }
 
   public reverse = (): SUBTYPE[] => {
-    present(this, [{ op: Operation.reverse, path: this.$path }])
+    applyCommand(this, { op: Operation.reverse, path: this.$path })
     return this
   }
 
   public shift = (): SUBTYPE | undefined => {
     const item = this.$data[0]
-    present(this, [{ op: Operation.shift, path: this.$path }])
+    applyCommand(this, { op: Operation.shift, path: this.$path })
     return item ? unbox(item) : undefined
   }
 
@@ -434,7 +431,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
   public sort = (
     compareFn?: ((a: SUBTYPE, b: SUBTYPE) => number) | undefined
   ): this => {
-    present(this, [{ op: Operation.sort, path: this.$path, compareFn }])
+    applyCommand(this, { op: Operation.sort, path: this.$path, compareFn })
     return this
   }
 
@@ -443,15 +440,13 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     deleteCount?: number | undefined,
     ...items: SUBTYPE[]
   ): SUBTYPE[] => {
-    present(this, [
-      {
-        op: Operation.splice,
-        path: this.$path,
-        start,
-        deleteCount,
-        value: items.length ? items : undefined,
-      },
-    ])
+    applyCommand(this, {
+      op: Operation.splice,
+      path: this.$path,
+      start,
+      deleteCount,
+      value: items.length ? items : undefined,
+    })
     return this.$data
       .slice(start, start + (deleteCount || this.length))
       .map(item => unbox(item))
@@ -467,7 +462,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
 
   public pop = (): SUBTYPE | undefined => {
     const item = this[this.length - 1]
-    present(this, [{ op: Operation.pop, path: this.$path }])
+    applyCommand(this, { op: Operation.pop, path: this.$path })
     return item
   }
 
@@ -476,7 +471,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
       return this.length
     }
 
-    present(this, [{ op: Operation.push, value: items, path: this.$path }])
+    applyCommand(this, { op: Operation.push, value: items, path: this.$path })
 
     return this.length
   }
@@ -486,7 +481,7 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
       return this.length
     }
 
-    present(this, [{ op: Operation.unshift, value: items, path: this.$path }])
+    applyCommand(this, { op: Operation.unshift, value: items, path: this.$path })
 
     return this.length
   }
@@ -548,16 +543,14 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
           if (instance) {
             // Notify the read of the child node
             if (isNode(instance)) {
-              this.$$container.notifyRead(instance, makePath(getRoot(this).$id, this.$path, index.toString()))
+              this.$$container.notifyRead(makePath(getRoot(this).$id, this.$path, index.toString()))
             }
             // return the instance if it is a node or the value if it is a leaf
             return unbox(instance)
           }
         },
         set(value: any) {
-          present(this, [
-            { op: Operation.replace, value, path: makePath(this.$path, index.toString()) },
-          ])
+          applyCommand(this, { op: Operation.replace, value, path: makePath(this.$path, index.toString()) })
         },
         enumerable: true,
         configurable: true,
@@ -598,136 +591,217 @@ function replace(
   model: ArrayInstance<unknown>,
   value: any,
   index: string | number
-): ReplaceChanges {
-  // Some index may have been deleted by previous command
-  if (model[index] === undefined) {
-    model.$addInterceptor(index)
-  }
-
+): ReplaceChanges | undefined {
   const replaced = getSnapshot(model.$data[index])
   const instance = toInstance(model.$data[index])
   instance.$present([{op: Operation.replace, value, path: instance.$path}])
-
-  // Attach
-  attach(instance, Number(index), model)
-  return {
-    replaced,
+  // Child did change
+  if (instance.$state.migration.forward.length) {
+    // Attach  
+    attach(instance, Number(index), model)
+    return {
+      replaced,
+    }
   }
+  return undefined
 }
 
 /**
  * Accept the value if the model is writtable
  */
-function present(
+function applyCommand(
   model: ArrayInstance<any>,
-  proposal: Proposal<ArrayCommand>
-): void {
+  command: ArrayCommand
+): Migration<any, any> {
   // No direct manipulation. Mutations must occure only during a step.
   if (!model.$$container.isWrittable) {
     throw new Error(
       `Crafter Array. Tried to mutate an array while model is locked. Hint: if you want sort an observable array, you must copy it first eg: [...observableArray].sort()`
     )
   }
-  const proposalMigration: Migration<any, any> = {
+  let proposalMigration: Migration<any, any> = {
     forward: [],
     backward: []
   }
 
-  proposal.forEach(command => {
-    if (command.op === 'replace') {
-      const changes = replace(
-        model,
-        command.value,
-        getArrayIndex(model, command)
-      )
-      mergeMigrations(createReplaceMigration(command, changes), proposalMigration)
-    } else if (command.op === 'remove') {
-      const changes = removeFromArray(model, command)
-      if (changes) {
-        mergeMigrations(createRemoveMigration(command, changes), proposalMigration)
+  if (command.op === 'replace') {
+    if(command.path === model.$path) {
+      const itemMigrations: Migration[] = [];
+      const oldValue = model.$snapshot;
+      const prevLength = oldValue.length;
+      (command.value as any[]).forEach((value, i) => {
+        // Item is not defined, maybe deleted by a previous command
+        if (model.$data[i] === undefined) {
+          add(model, value, i)
+          itemMigrations.push(
+            createAddMigration(
+              {op: Operation.add, path: makePath(model.$path, i.toString()), value}
+            )
+          )
+        }
+        // Item exists, replace the value
+        else {
+          const changes = replace(model, value, i)
+          if (changes) {
+            itemMigrations.push(
+              createReplaceMigration(
+                {op: Operation.replace, path: makePath(model.$path, i.toString()), value},
+                changes
+              )
+            )
+          }
+        }
+      })
+      // All values has been accepted
+      if (command.value.length === itemMigrations.length) {
+       proposalMigration = mergeMigrations(
+          createReplaceMigration(
+            command,
+            {replaced: oldValue}
+          ),
+          proposalMigration
+        )    
+      } 
+      // Just some values did change, report atomic changes
+      else {
+        itemMigrations.forEach(function(migration) {
+         proposalMigration = mergeMigrations(migration, proposalMigration)
+        })
       }
-    } else if (command.op === 'add') {
-      try {
-        model.refineTypeIfNeeded(command.value)
-        const index = getArrayIndex(model, command)
-        add(model, command.value, index)
-        mergeMigrations(createAddMigration(command), proposalMigration)
-      } catch (e) {
-        // Is an alias of replace
-        present(model, [{ ...command, op: Operation.replace }])
+      // New value has less items
+      if (prevLength > command.value.length) {
+        // Remove excendent nodes
+        for (let j = command.value.length; j < prevLength; j++) {
+          applyCommand(model, {op: Operation.remove, path: makePath(model.$path, j.toString())})
+        }
       }
-    } else if (command.op === 'copy') {
-      const changes = copy(model, command)
-      changes && mergeMigrations(createCopyMigration(command, changes), proposalMigration)
-    } else if (command.op === 'move') {
-      const changes = move(model, command)
-      changes && mergeMigrations(createMoveMigration(command, changes), proposalMigration)
-    } else if (command.op === 'splice') {
-      const changes = splice(model, command)
-      if (changes) {
-        mergeMigrations(createSplicePatch(command, changes), proposalMigration)
+    } 
+    // Atomic replacement
+    else {
+      const index = getArrayIndex(model, command)
+      if (!isValidArrayIndex(model, index, command)) {
+        throw new Error(`Crafter ${index} is not a valid array index.`)
       }
-    } else if (command.op === 'copyWithin') {
-      const changes = copyWithin(model, command)
-      if (changes) {
-        mergeMigrations(createCopyWithinPatch(command, changes), proposalMigration)
+      // Item is not defined, maybe deleted by a previous command
+      if (model.$data[index] === undefined) {
+        applyCommand(model, {op: Operation.add, value: command.value, path: command.path})
+      } else {
+        const changes = replace(
+          model,
+          command.value,
+          index
+        )
+        if (changes) {
+         proposalMigration = mergeMigrations(
+            createReplaceMigration(
+              command,
+              {replaced: changes.replaced}
+            ),
+            proposalMigration
+          )
+        }
       }
-    } else if (command.op === 'sort') {
-      // Sort can be a serialized list of moved command (SortCommands)
-      // or a command with a compMigration<CopyWithinOperation, SpliceOperation>n function (not serializable)
-      const changes = hasSortFn(command)
-        ? sort(model, command.compareFn)
-        : sortWithMoveOps(model, command.commands)
-      if (changes) {
-        mergeMigrations(createSortPatch(model, changes), proposalMigration)
-      }
-    } else if (command.op === 'fill') {
-      model.refineTypeIfNeeded(command.value)
-      const changes = fill(model, command)
-      mergeMigrations(createFillPatch(command, changes), proposalMigration)
-    } else if (command.op === 'reverse') {
-      reverse(model)
-      mergeMigrations(createReversePatch(command), proposalMigration)
-    } else if (command.op === 'shift') {
-      const changes = shift(model)
-      if (changes) {
-        mergeMigrations(createShiftPatch(command, changes), proposalMigration)
-      }
-    } else if (command.op === 'pop') {
-      const changes = pop(model)
-      if (changes) {
-        mergeMigrations(createPopPatch(command, changes), proposalMigration)
-      }
-    } else if (command.op === 'push') {
-      model.refineTypeIfNeeded(command.value)
-      const changes = push(model, command)
-      if (changes) {
-        mergeMigrations(createPushPatch(model, command), proposalMigration)
-      }
-    } else if (command.op === 'unshift') {
-      const changes = unshift(model, command)
-      if (changes) {
-        mergeMigrations(createUnshiftPatch(command), proposalMigration)
-      }
-    } else if (command.op === 'setLength') {
-      const changes = setLength(model, command)
-      if (changes) {
-        mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
-      }
-    } else {
-      throw new Error(`Crafter Array.$applyOperation: ${
-        (proposal as any).op
-      } is not a supported command. This error happened
-        during a migration command. The step is cancelled and the model is reset to its previous value.`)
     }
-  })
-  // Those commands update the length of the array
-  if (proposalMigration.forward.some(isShapeMutationOperation)) {
-    model.$$container.addUpdatedObservable(model)
+  } else if (command.op === 'remove') {
+    const changes = splice(model, getArrayIndex(model, command), 1)
+    if (changes?.removed) {
+     proposalMigration = mergeMigrations(
+        createRemoveMigration(
+          command,
+          {removed: changes.removed}
+        ),
+        proposalMigration
+      )
+     proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
+    }
+  } else if (command.op === 'add') {
+    try {
+      model.refineTypeIfNeeded(command.value)
+      const index = getArrayIndex(model, command)
+      add(model, command.value, index)
+     proposalMigration = mergeMigrations(createAddMigration(command), proposalMigration)
+     proposalMigration = mergeMigrations(createSetLengthPatch(model, {prevLength: model.$data.length - 1 }), proposalMigration)
+    } catch (e) {
+      // Is an alias of replace
+      applyCommand(model, { ...command, op: Operation.replace })
+    }
+  } else if (command.op === 'copy') {
+    const changes = copy(model, command)
+    if (changes?.replaced) {
+     proposalMigration = mergeMigrations(createCopyMigration(command, changes), proposalMigration)
+    }
+  } else if (command.op === 'move') {
+    const success = moveInArray(model, command)
+    if (success){
+     proposalMigration = mergeMigrations(createMoveInArrayMigration(command), proposalMigration)
+    }
+  } else if (command.op === 'splice') {
+    const changes = splice(model, command.start, command.deleteCount, command.value)
+    if (changes) {
+     proposalMigration = mergeMigrations(createSplicePatch(command, changes), proposalMigration)
+      if (changes?.prevLength && changes?.prevLength !== model.$data.length) {
+       proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
+      }
+    }
+  } else if (command.op === 'copyWithin') {
+    const changes = copyWithin(model, command)
+    if (changes.replaced.length) {
+     proposalMigration = mergeMigrations(createCopyWithinPatch(command, changes), proposalMigration)
+    }
+  } else if (command.op === 'sort') {
+    // Sort can be a serialized list of moved command (SortCommands)
+    // or a command with a compMigration<CopyWithinOperation, SpliceOperation>n function (not serializable)
+    const changes = hasSortFn(command)
+      ? sort(model, command.compareFn)
+      : sortWithMoveOps(model, command.commands)
+    if (changes) {
+     proposalMigration = mergeMigrations(createSortPatch(model, changes), proposalMigration)
+    }
+  } else if (command.op === 'fill') {
+    model.refineTypeIfNeeded(command.value)
+    const changes = fill(model, command)
+   proposalMigration = mergeMigrations(createFillPatch(command, changes), proposalMigration)
+  } else if (command.op === 'reverse') {
+    reverse(model)
+   proposalMigration = mergeMigrations(createReversePatch(command), proposalMigration)
+  } else if (command.op === 'shift') {
+    const changes = shift(model)
+    if (changes) {
+     proposalMigration = mergeMigrations(createShiftPatch(command, changes), proposalMigration)
+     proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
+    }
+  } else if (command.op === 'pop') {
+    const changes = pop(model)
+    if (changes) {
+     proposalMigration = mergeMigrations(createPopPatch(command, changes), proposalMigration)
+     proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
+    }
+  } else if (command.op === 'push') {
+    model.refineTypeIfNeeded(command.value)
+    const changes = push(model, command)
+    if (changes) {
+     proposalMigration = mergeMigrations(createPushPatch(model, command), proposalMigration)
+     proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
+    }
+  } else if (command.op === 'unshift') {
+    const changes = unshift(model, command)
+    if (changes) {
+     proposalMigration = mergeMigrations(createUnshiftPatch(command), proposalMigration)
+     proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
+    }
+  } else if (command.op === 'setLength') {
+    const changes = setLength(model, command)
+    if (changes) {
+     proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
+    }
+  } else {
+    throw new Error(`Crafter Array.$present: ${
+      (command as any).op
+    } is not a supported command. This error happened
+      during a migration command. The step is cancelled and the model is reset to its previous value.`)
   }
-  if (model.$$container.willReact) {
-    model.$$container.addMigration(model.$state.migration, getRoot(model).$id)
-  }
+  
+  return proposalMigration
 }
 
 function generateSnapshot<T>(data: DataArray<T>, context: IContainer): T[] {
@@ -747,6 +821,53 @@ function generateValue<T>(data: DataArray<T>, context: IContainer): T[] {
 function build(array: ArrayInstance<any>, items: any[]): void {
   array.$$container.step(() => array.push(...items))
 }
+
+function createMoveInArrayMigration(command: MoveCommand): Migration {
+  return {
+    forward: [command],
+    backward: [{
+      op: Operation.move,
+      path: command.from,
+      from: command.path,
+    }]
+  }
+}
+
+/**
+ * Move item in an array.
+ * Return true if the operation is successful
+ * Return false if the from or to index are out of bounds
+ */
+function moveInArray(
+  model: ArrayInstance<any>,
+  command: MoveCommand
+): boolean {
+  const from = Number(getNextPart(model.$path, command.from))
+  const to = Number(getNextPart(model.$path, command.path))
+  if(from === undefined) {
+    warn('[CRAFTER] move command, command.from is undefined')
+    return false
+  }
+  if(to === undefined) {
+    warn('[CRAFTER] move command, command.to is undefined')
+    return false
+  }
+
+  model.$data.splice(to, 0, model.$data.splice(from, 1)[0]);
+
+  // Reattach all moved items
+  const startIndex = from < to
+    ? from
+    : to
+
+  for (let i = startIndex; i < model.$data.length; i++) {
+    model.$data[i].$detach()
+    attach(model.$data[i], i, model)
+  }
+
+  return true
+}
+
 
 function push<T>(
   model: ArrayInstance<T>,
@@ -863,38 +984,12 @@ function attach(item: IInstance<any>, index: number, model: ArrayInstance<any>) 
   }
 }
 
-function removeFromArray<T>(
-  model: ArrayInstance<T>,
-  command: RemoveCommand
-): RemoveChanges | undefined {
-  const index = Number(getArrayIndex(model, command))
-  const removed = getSnapshot(model.$data[index])
-  const removedItem = model.$data[index]
-
-  if (removedItem === undefined) {
-    return
-  }
-
-  // Detach and free UID
-  kill(removedItem, model)
-  
-  // Delete data
-  model.$data.splice(index, 1)
-
-  // Delete accessor
-  delete model[index]
-
-  return {
-    removed,
-  }
-}
-
 function splice<T>(
   model: ArrayInstance<T>,
-  command: SpliceCommand<T>
+  start: number,
+  deleteCount: number = 0,
+  items: T[] = []
 ): SpliceChanges | undefined {
-  const { start, deleteCount, value: items = [] } = command
-
   // Retain the length before the splice command
   const arrayLengthBeforeSplice = model.length
 
@@ -1061,7 +1156,7 @@ function fill<T>(
   }
 
   return {
-    replaced,
+    replaced
   }
 }
 
@@ -1340,11 +1435,7 @@ export type SortCommands = {
 }[]
 
 function getArrayIndex(model: ArrayInstance<any>, command: ArrayCommand): number {
-  const index = Number(getNextPart(model.$path, command.path))
-  if (!isValidArrayIndex(model, index, command)) {
-    throw new Error(`Crafter ${index} is not a valid array index.`)
-  }
-  return index
+  return Number(getNextPart(model.$path, command.path))
 }
 
 /**
@@ -1379,6 +1470,6 @@ function add(
 ): void {
   const instance = model.$createChildInstance(value)
   model.$data[index] = instance
-  model.addInterceptor(model, index)
+  model.$addInterceptor(index)
   instance.$attach(model, index)
 }

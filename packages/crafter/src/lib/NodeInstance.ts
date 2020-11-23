@@ -23,7 +23,6 @@ import { IContainer } from '../IContainer'
 export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   extends Instance<TYPE, SNAPSHOT>
   implements INodeInstance<TYPE, SNAPSHOT> {
-  [x: string]: any
   public $isObservable: true = true
   public $isRefreshingDependencies: boolean = false
   public $isNode: true = true
@@ -79,7 +78,7 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
 
   private $computeValue(): void {
     this.$prevValue = this.$valueComputation(this.$data as any, this.$$container)
-    this.hasStaleValue = false
+    this.$hasStaleValue = false
   }
   
   public abstract $present(proposal: Command[]): void

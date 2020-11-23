@@ -158,9 +158,9 @@ export type Command =
   | ArrayCommand
   | MapCommand
 
-export type Patch<C extends Command = any> = C[]
+export type Patch<C extends Command = Command> = C[]
 
-export type Migration<C extends Command = any, R extends Command = any> = {
+export type Migration<C extends Command = Command, R extends Command = Command> = {
   forward: C[]
   backward: R[]
 }

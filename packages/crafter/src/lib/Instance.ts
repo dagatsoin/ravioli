@@ -77,7 +77,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
   }
   
   public get $snapshot(): SNAPSHOT {
-    if (this.$hasStaleSnapshot && this.$$container.controlState !== ControlState.MUTATION) {
+    if (this.$hasStaleSnapshot) {
       this.$computeSnapshot()
     }
     return this.$prevSnapshot

@@ -130,7 +130,7 @@ function getObjectPaths(object: {}, root: string = '/'): string[] {
  *    - it is an atomic shape update command with explicit target path: add, remove, set, delete
  *    - OR [
  *       - AND [
- *        - one of the updated observables path matches the array child affected by the operation
+ *        - one of the updated observables path matches the children array affected by the operation
  *        - the matched updated observables path matches one of the path of the observer dependencies 
  *       ]
  *       - AND [
@@ -146,7 +146,7 @@ function getObjectPaths(object: {}, root: string = '/'): string[] {
  * @param observer 
  * @param param1 
  */
-export function isDependent(observer: IObserver, {path, op, value}: Command, updatedObservablePaths: string[]) {
+export function isDependent(observer: IObserver, {path, op, value}: Command & {value?: any}, updatedObservablePaths: string[]) {
   return (
     /* 1 */
     (

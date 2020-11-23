@@ -1,11 +1,12 @@
-import { ArrayCommand, Operation } from '../src/lib/JSONPatch'
-import { array } from '../src/array'
-import { string, number } from '../src/Primitive'
-import { isInstance } from '../src/lib/Instance'
-import { isNode } from "../src/lib/isNode"
-import { toNode, getContext, clone, toInstance, getSnapshot } from '../src/helpers'
-import { object } from '../src/object'
-import { INodeInstance } from '../src/lib/INodeInstance'
+import { ArrayCommand, Operation } from '../../src/lib/JSONPatch'
+import { array } from '../../src/array'
+import { string, number, boolean } from '../../src/Primitive'
+import { isInstance } from '../../src/lib/Instance'
+import { isNode } from "../../src/lib/isNode"
+import { toNode, getContext, clone, toInstance, getSnapshot, setValue } from '../../src/helpers'
+import { object } from '../../src/object'
+import { INodeInstance } from '../../src/lib/INodeInstance'
+import { autorun } from '../../src/observer'
 
 describe('factory', function() {
   test('Create array of primitive', function() {
@@ -39,13 +40,185 @@ describe('factory', function() {
   })
 })
 
-describe('mutation', function() {
-  test.todo('replace leaf child')
-  test.todo('replace node child')
-  test.todo('replace whole array')
+describe('JSON commands', function(){
+  const players = array(object({
+    name: string(),
+    level: number()
+  })).create()
+  const instance = toInstance(players)
+  const context = getContext(instance)
+
+  beforeEach(function() {
+    context.step(function() {
+      setValue(players, [{
+        name: 'Fraktar',
+        level: 100
+      }, {
+        name: 'Elwëïn',
+        level: 100
+      }, {
+        name: 'Dreadbond',
+        level: 100
+      }])
+    })
+  })
+  test('add', function() {
+    context.step(() => instance.$present([{op: Operation.add, path: '/3', value: {
+      name: 'Charlize',
+      level: 1
+    }}]))
+    expect(players.length).toBe(4)
+  })
+  test('remove', function() {
+    context.step(() => instance.$present([{op: Operation.remove, path: '/0'}]))
+    expect(players.length).toBe(2)
+  })
+  test('replace', function() {
+    context.step(() => instance.$present([{op: Operation.replace, path: '/0', value: {
+      name:'Fraktos',
+      level: 100
+    }}]))
+    expect(players[0].name).toBe("Fraktos")
+  })
+  test('move', function() {
+    context.step(() => instance.$present([
+      {op: Operation.move, from: '/0', path: '/1'}
+    ]))
+    expect(players[0].name).toBe('Elwëïn')
+    expect(players[1].name).toBe("Fraktar")
+  })
+  test('copy', function() {
+    context.step(() => instance.$present([
+      {op: Operation.copy, from: '/0', path: '/1'} as any
+    ]))
+    expect(players[0].name).toBe(players[1].name)
+  })
+  // Methods which change length
+  test.todo('splice')
+  test.todo('push')
+  test.todo('pop')
+  test.todo('shift')
+  test.todo('unshift')
+  // Methods which do not change length
+  test.todo('filter')
+  test.todo('sort')
+  test.todo('toString')
+  test.todo('toLocaleString')
+  test.todo('concat')
+  test.todo('join')
+  test.todo('reverse')
+  test.todo('slice')
+  test.todo('sort')
+  test.todo('indexOf')
+  test.todo('lastIndexOf')
+  test.todo('every')
+  test.todo('some')
+  test.todo('forEach')
+  test.todo('map')
+  test.todo('filter')
+  test.todo('reduce')
+  test.todo('reduceRight')
+
 })
 
+describe('mutation', function() {
+  test('replace leaf child', function() {
+    const Players = array(string())
+    const players = Players.create(['Fraktar', 'Dreadbond', 'Elwein'])
+    getContext(toInstance(players)).step(() => players[0] = "Fraktos")
+    expect(players[0]).toBe('Fraktos')
+  })
+  
+  test('replace node child', function() {
+    const players = array(
+      object({
+        name: string(),
+        level: number(),
+        hp: number(),
+      })
+    ).create([
+      {
+        name: 'Fraktar',
+        level: 1,
+        hp: 10,
+      }
+    ])
+    getContext(toInstance(players)).step(() => players[0] = {
+      name: 'Fraktos',
+      level: 2,
+      hp: 100
+    })
+    expect(isInstance(players[0])).toBeTruthy()
+    expect(toInstance(players[0]).$value).toEqual({
+      name: 'Fraktos',
+      level: 2,
+      hp: 100
+    })
+  })
+  test('replace whole array', function() {
+    const players = array(
+      object({
+        name: string(),
+        level: number(),
+        hp: number(),
+      })
+    ).create([
+      {
+        name: 'Fraktar',
+        level: 1,
+        hp: 10,
+      },
+      {
+        name: 'Elwëïn',
+        level: 1,
+        hp: 10,
+      }
+    ])
+    getContext(toInstance(players)).step(() => setValue(toInstance(players), [{
+      name: 'Troll',
+      level: 1,
+      hp: 1
+    }]))
+    expect(players.length).toBe(1)
+    expect(toInstance(players).$value).toEqual([{
+      name: 'Troll',
+      level: 1,
+      hp: 1
+    }])
+  })
+})
 
+describe('reactiviy', function() {
+  test('rerun iteration only when observed value changed', function(){
+    const model = array(object({
+      isAlive: boolean(),
+      name: string()
+    })).create([{
+      isAlive: true,
+      name: "Fraktar"
+    }, {
+      isAlive: false,
+      name: "Elwëïn"
+    }, {
+      isAlive: true,
+      name: "Charlize"
+    }])
+    
+    let runs = 0
+    const dispose = autorun(function(){
+      model.filter(({isAlive}) => isAlive)
+      runs++
+    })
+    expect(runs).toBe(1)
+    getContext(toInstance(model)).step(() => model[1].isAlive = true)
+    expect(runs).toBe(2)
+    getContext(toInstance(model)).step(() => model[0].name = 'Fraktos')
+    expect(runs).toBe(2)
+    dispose()
+  })
+})
+
+/* 
 test('set value', function() {
   const model = object({ arr: array(string()) })
   const instance = model.create()
@@ -2278,3 +2451,4 @@ describe('Array methods', function() {
     expect(a.filter(c => c > 1)).toEqual([2, 3])
   })
 })
+ */

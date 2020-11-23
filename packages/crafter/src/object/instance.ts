@@ -64,7 +64,7 @@ export class ObjectInstance<
   public $type: ObjectType<TYPE, PROPS, OUTPUT, INPUT>
   //public $data: DataObject<OUTPUT> = {} as DataObject<OUTPUT>
   public $data: any = {}
-  private identifierKey?: string
+  private $identifierKey?: string
 
   constructor({
     type,
@@ -435,10 +435,10 @@ export class ObjectInstance<
         (r.isNodeOp && !!r.result.migration?.forward.length)
     )
 
-    this.next(isStale)
+    this.$next(isStale)
   }
 
-  private next(isStale: boolean) {
+  private $next(isStale: boolean) {
     // The proposal has updated the shape of the model
     if (isStale) {
     //  le node est déjà inclus. Pb de nettoyage ?
