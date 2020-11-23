@@ -3,7 +3,7 @@ import { array } from '../../src/array'
 import { string, number, boolean } from '../../src/Primitive'
 import { isInstance } from '../../src/lib/Instance'
 import { isNode } from "../../src/lib/isNode"
-import { toNode, getContext, clone, toInstance, getSnapshot, setValue } from '../../src/helpers'
+import { toNode, getContext, clone, toInstance, getSnapshot, setValue, getValue } from '../../src/helpers'
 import { object } from '../../src/object'
 import { INodeInstance } from '../../src/lib/INodeInstance'
 import { autorun } from '../../src/observer'
@@ -94,7 +94,68 @@ describe('JSON commands', function(){
     expect(players[0].name).toBe(players[1].name)
   })
   // Methods which change length
-  test.todo('splice')
+  
+  test('splice: empty array', function() {
+    context.step(() => instance.$present([{
+      op: Operation.splice,
+      path: '/',
+      start: 0,
+      deleteCount: players.length
+    }]))
+  })
+  expect(players.length).toBe(0)
+  test('splice: insert data', function() {
+    context.step(() => instance.$present([{
+      op: Operation.splice,
+      path: '/',
+      start: 2,
+      value: [{
+        name: "Troll",
+        level: 0
+      }, {
+        name: "Troll",
+        level: 0
+      }]
+    }]))
+    expect(players.length).toBe(5)
+    expect(players[2]).toEqual({
+      name: "Troll",
+      level: 0
+    })
+    expect(players[3]).toEqual({
+      name: "Troll",
+      level: 0
+    })
+  })
+  test("splice: replace data", function() {
+    context.step(() => instance.$present([{
+      op: Operation.splice,
+      path: '/',
+      start: 1,
+      deleteCount: 2,
+      value: [{
+        name: "Troll",
+        level: 0
+      }, {
+        name: "Troll",
+        level: 0
+      }]
+    }]))
+    expect(players.length).toBe(3)
+    expect(getValue(players)).toEqual([
+      {
+        name: 'Fraktar',
+        level: 100
+      },
+      {
+        name: "Troll",
+        level: 0
+      }, {
+        name: "Troll",
+        level: 0
+      }
+    ])
+  })
   test.todo('push')
   test.todo('pop')
   test.todo('shift')

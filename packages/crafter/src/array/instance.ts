@@ -653,7 +653,8 @@ function applyCommand(
         }
       })
       // All values has been accepted
-      if (command.value.length === itemMigrations.length) {
+      const isCompleteReplace = command.value.length === itemMigrations.length
+      if (isCompleteReplace) {
        proposalMigration = mergeMigrations(
           createReplaceMigration(
             command,
@@ -671,8 +672,9 @@ function applyCommand(
       // New value has less items
       if (prevLength > command.value.length) {
         // Remove excendent nodes
-        for (let j = command.value.length; j < prevLength; j++) {
-          applyCommand(model, {op: Operation.remove, path: makePath(model.$path, j.toString())})
+        const migration = applyCommand(model, {op: Operation.setLength, path: model.$path, value: command.value.length})
+        if (!isCompleteReplace) {
+          proposalMigration = mergeMigrations(migration, proposalMigration)
         }
       }
     } 
