@@ -10,7 +10,6 @@ export enum Operation {
   splice = 'splice',
   push = 'push',
   unshift = 'unshift',
-  setLength = 'setLength',
   copyWithin = 'copyWithin',
   fill = 'fill',
   reverse = 'reverse',
@@ -19,8 +18,8 @@ export enum Operation {
   sort = 'sort',
 
   // Map
-  clear = 'clear',
-  delete = 'delete'
+  clear = 'clear'
+  // delete operation is a remove operation
 }
 export type SortCommands = {
   // Id of the item
@@ -74,12 +73,6 @@ export type UnshiftCommand<T = any> = {
   op: Operation.unshift
   path: string
   value: T[]
-}
-
-export type SetLengthCommand = {
-  op: Operation.setLength
-  path: string
-  value: number
 }
 
 export type CopyWithinCommand = {
@@ -140,7 +133,6 @@ export type BasicCommand<T = any> =
 export type ArrayCommand<T = any> =
   | BasicCommand<T>
   | PushCommand<T>
-  | SetLengthCommand
   | SpliceCommand<T>
   | CopyWithinCommand
   | FillCommand<T>

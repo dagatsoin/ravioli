@@ -717,7 +717,7 @@ function didUpdateShape(
 ) {
   return (
     accepted &&
-    isShapeMutationOperation(command.op) &&
+    isShapeMutationOperation(command) &&
     command.path === nodePath
   )
 }

@@ -162,6 +162,15 @@ export function getLastPart(path: string): string {
 }
 
 /**
+ * Return the parent of the target
+ * "root/parent/child" return "parent"
+ */
+export function getParentPath(path: string) {
+  const parts = path.split('/')
+  return parts.slice(0, parts.length-1).join('/')
+}
+
+/**
  * Return the next part of a current path given a deeper path.
  * eg: for a node with the path "/player/stats" and a path "/player/stats/base/health", it will return "base"
  */
@@ -191,7 +200,7 @@ export function makePath(...segments: string[]): string {
 
 export function sync<T extends IObservable>(observable: T): T {
   const target = clone(observable)
-  toNode(observable).$$container.addStepListener(StepLifeCycle.WILL_END, ({snapshot:{migration}}) => migration.forward.forEach(c => toNode(target).$present(c)))
+  toNode(observable).$$container.addStepListener(StepLifeCycle.WILL_END, ({snapshot:{migration}}) => migration.forward.forEach(c => toNode(target).$present([c])))
   return target
 }
 

@@ -691,6 +691,7 @@ export class CrafterContainer implements IContainer {
           ...this.state.migration.forward,
           ...this.volatileState.derivationPatch
         ], [
+//          HOw to pass length modification without adding it to the migration ?
           ...this.volatileState.updatedObservables.map(o=> makePath(getRoot(o as IInstance<any>).$id, o.$path)),
           ...this.volatileState.derivationPatch.map(p => p.path),
           ...this.volatileState.derivationUpdatedObservable.map(o=> makePath(getRoot(o as IInstance<any>).$id, o.$path))

@@ -28,8 +28,8 @@ import {
   PopCommand,
   PushCommand,
   RemoveCommand,
+  ReplaceCommand,
   ReverseCommand,
-  SetLengthCommand,
   ShiftCommand,
   SortCommandWithFn,
   SpliceCommand,
@@ -100,8 +100,8 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
 
   public set length(value: number) {
     applyCommand(this as any, {
-      op: Operation.setLength,
-      path: this.$path,
+      op: Operation.replace,
+      path: makePath(this.$path, 'length'),
       value,
     })
   }
@@ -191,30 +191,24 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
         // Get the concerned child key
         toNode(childInstance).$present([command])
       } else {
-        const migration = applyCommand(this, command)
+        const {migration, didChangeLength} = applyCommand(this, command)
         const didChange = !!migration?.forward.length
-        this.$updateState(migration, didChange)
+        this.$updateState(migration, didChange, didChangeLength)
       }
     })
   }
 
-  private $updateState(migration: Migration | undefined, didChange: boolean) {
+  private $updateState(migration: Migration | undefined, didChange: boolean, isStale: boolean) {
     this.$state = {
       didChange,
       migration: migration || { forward: [], backward: []}
     }
-    // The node is stale only when :
-    // - its shape has been modified
-    // - a command targeted its value and made some changes
-    const isStale = migration?.forward.some(command => command.op === Operation.setLength) ?? false
-
     this.$next(isStale)
   }
 
   private $next(isStale: boolean) {
     // The proposal has updated the shape of the model
     if (isStale) {
-    //  le node est déjà inclus. Pb de nettoyage ?
       this.$$container.addUpdatedObservable(this)
       this.$invalidate()
     }
@@ -612,23 +606,44 @@ function replace(
 function applyCommand(
   model: ArrayInstance<any>,
   command: ArrayCommand
-): Migration<any, any> {
+): {
+  migration: Migration<any, any>
+  didChangeLength: boolean
+} {
   // No direct manipulation. Mutations must occure only during a step.
   if (!model.$$container.isWrittable) {
     throw new Error(
       `Crafter Array. Tried to mutate an array while model is locked. Hint: if you want sort an observable array, you must copy it first eg: [...observableArray].sort()`
     )
   }
+  const prevLength = model.$data.length
   let proposalMigration: Migration<any, any> = {
     forward: [],
     backward: []
   }
 
   if (command.op === 'replace') {
-    if(command.path === model.$path) {
+    // Update length
+    if(command.path === makePath(model.$path, 'length')) {
+      const changes = setLength(model, command.value)
+      if (changes) {
+        proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
+      }
+    }
+    // Replace whole array
+    else if(command.path === model.$path) {
       const itemMigrations: Migration[] = [];
       const oldValue = model.$snapshot;
       const prevLength = oldValue.length;
+
+      // New value has more items
+      if (prevLength < command.value.length) {
+        // Add excedent slots
+        const {migration} = applyCommand(model, {op: Operation.replace, path: makePath(model.$path, 'length'), value: command.value.length})
+        proposalMigration = mergeMigrations(migration, proposalMigration)        
+      }
+
+      // For each item, replace or add it
       (command.value as any[]).forEach((value, i) => {
         // Item is not defined, maybe deleted by a previous command
         if (model.$data[i] === undefined) {
@@ -671,8 +686,8 @@ function applyCommand(
       }
       // New value has less items
       if (prevLength > command.value.length) {
-        // Remove excendent nodes
-        const migration = applyCommand(model, {op: Operation.setLength, path: model.$path, value: command.value.length})
+        // Remove excedent nodes
+        const {migration} = applyCommand(model, {op: Operation.replace, path: makePath(model.$path, 'length'), value: command.value.length})
         if (!isCompleteReplace) {
           proposalMigration = mergeMigrations(migration, proposalMigration)
         }
@@ -714,7 +729,6 @@ function applyCommand(
         ),
         proposalMigration
       )
-     proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
     }
   } else if (command.op === 'add') {
     try {
@@ -722,7 +736,6 @@ function applyCommand(
       const index = getArrayIndex(model, command)
       add(model, command.value, index)
      proposalMigration = mergeMigrations(createAddMigration(command), proposalMigration)
-     proposalMigration = mergeMigrations(createSetLengthPatch(model, {prevLength: model.$data.length - 1 }), proposalMigration)
     } catch (e) {
       // Is an alias of replace
       applyCommand(model, { ...command, op: Operation.replace })
@@ -741,9 +754,6 @@ function applyCommand(
     const changes = splice(model, command.start, command.deleteCount, command.value)
     if (changes) {
      proposalMigration = mergeMigrations(createSplicePatch(command, changes), proposalMigration)
-      if (changes?.prevLength && changes?.prevLength !== model.$data.length) {
-       proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
-      }
     }
   } else if (command.op === 'copyWithin') {
     const changes = copyWithin(model, command)
@@ -770,31 +780,22 @@ function applyCommand(
     const changes = shift(model)
     if (changes) {
      proposalMigration = mergeMigrations(createShiftPatch(command, changes), proposalMigration)
-     proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
     }
   } else if (command.op === 'pop') {
     const changes = pop(model)
     if (changes) {
      proposalMigration = mergeMigrations(createPopPatch(command, changes), proposalMigration)
-     proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
     }
   } else if (command.op === 'push') {
     model.refineTypeIfNeeded(command.value)
     const changes = push(model, command)
     if (changes) {
      proposalMigration = mergeMigrations(createPushPatch(model, command), proposalMigration)
-     proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
     }
   } else if (command.op === 'unshift') {
     const changes = unshift(model, command)
     if (changes) {
      proposalMigration = mergeMigrations(createUnshiftPatch(command), proposalMigration)
-     proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
-    }
-  } else if (command.op === 'setLength') {
-    const changes = setLength(model, command)
-    if (changes) {
-     proposalMigration = mergeMigrations(createSetLengthPatch(model, changes), proposalMigration)
     }
   } else {
     throw new Error(`Crafter Array.$present: ${
@@ -803,7 +804,10 @@ function applyCommand(
       during a migration command. The step is cancelled and the model is reset to its previous value.`)
   }
   
-  return proposalMigration
+  return {
+    migration: proposalMigration,
+    didChangeLength: model.$data.length !== prevLength
+  }
 }
 
 function generateSnapshot<T>(data: DataArray<T>, context: IContainer): T[] {
@@ -892,8 +896,7 @@ function push<T>(
     attach(model.$data[i], i, model)
   }
   return {
-    prevLength: model.length - items.length,
-    added: command.value,
+    added: command.value
   }
 }
 
@@ -919,9 +922,8 @@ function createPushPatch<T>(model: ArrayInstance<T>, proposal: PushCommand<T>): 
 
 function setLength<T>(
   model: ArrayInstance<T>,
-  command: SetLengthCommand
+  length: number
 ): SetLengthChanges | undefined {
-  const length = command.value
   const prevLength = model.length
   
   if (length === prevLength) {
@@ -934,8 +936,8 @@ function setLength<T>(
   // Detach and remove excedent items
   if (length < prevLength) {
     for (let i = prevLength - 1; i > length - 1; i--) {
-      const excendentItem = model.$data[i]
-      kill(excendentItem, model)
+      const excedentItem = model.$data[i]
+      kill(excedentItem, model)
       delete model[i]
     }
   }
@@ -952,11 +954,11 @@ function setLength<T>(
 function createSetLengthPatch<T>(
   model: ArrayInstance<T>,
   changes: SetLengthChanges
-): Migration<SetLengthCommand, SpliceCommand> {
+): Migration<ReplaceCommand, SpliceCommand> {
   return {
     forward: [{
-      op: Operation.setLength,
-      path: model.$path,
+      op: Operation.replace,
+      path: makePath(model.$path, 'length'),
       value: model.$data.length
     }], 
     backward: [
@@ -965,7 +967,7 @@ function createSetLengthPatch<T>(
         path: model.$path,
         start:
           model.length > changes.prevLength ? changes.prevLength : model.length,
-        deleteCount: changes.removed !== undefined ? 0 : changes.prevLength,
+        deleteCount: changes.removed !== undefined ? 0 : Math.abs(model.length - changes.prevLength),
         value: changes.removed,
       },
     ],
@@ -1028,8 +1030,7 @@ function splice<T>(
   return {
     removed: removedItems.length
       ? ((removedItems.map(getSnapshot) as unknown) as Snapshot<T>[])
-      : undefined,
-    prevLength: arrayLengthBeforeSplice,
+      : undefined
   }
 }
 
@@ -1217,8 +1218,7 @@ function shift<T>(model: ArrayInstance<T>): ShiftChanges | undefined {
     delete model[model.length]
 
     return {
-      removed: removedSnapshot,
-      prevLength: model.length,
+      removed: removedSnapshot
     }
   }
 }
@@ -1245,12 +1245,14 @@ function pop(model: ArrayInstance<any>): PopChanges | undefined {
     kill(item, model)
     const removed = [getSnapshot(item)]
     return {
-      removed,
-      prevLength: model.length + 1,
+      removed
     }
   }
 }
 
+/**
+ * 
+ */
 function sort(model: ArrayInstance<any>, compareFn: SortCommandWithFn['compareFn']): SortCommands | undefined{
   // As sort can use a function in this parameters. We will convert
   // the sort function into a succession of move commands to log the changes.
@@ -1372,8 +1374,7 @@ function unshift<T>(model: ArrayInstance<T>, proposal: UnshiftCommand<T>): Unshi
   }
 
   return {
-    added: proposal.value,
-    prevLength
+    added: proposal.value
   }
 }
 
@@ -1395,7 +1396,6 @@ function createUnshiftPatch(
 
 export type PushChanges<T> = {
   added: T | T[]
-  prevLength: number
 }
 
 export type SetLengthChanges = {
@@ -1403,7 +1403,6 @@ export type SetLengthChanges = {
   removed?: Snapshot<any>[]
 }
 export type SpliceChanges = {
-  prevLength: number
   removed?: Snapshot<any>[]
   added?: Snapshot<any>[]
 }
@@ -1414,16 +1413,13 @@ export type FillChanges = {
   replaced: Snapshot<any>[]
 }
 export type ShiftChanges = {
-  prevLength: number
   removed: Snapshot<any>
 }
 export type PopChanges = {
-  prevLength: number
   removed: Snapshot<any>
 }
 export type UnshiftChanges = {
   added: Snapshot<any> | Snapshot<any>[]
-  prevLength: number
 }
 
 // A tupple of id which has been moved
@@ -1458,7 +1454,7 @@ function isValidArrayIndex(
 }
 
 function addObservedLength(arrayInstance: ArrayInstance<any>): void {
-  arrayInstance.$$container.notifyRead(makePath(getRoot(arrayInstance).$id, arrayInstance.$path, 'length'))
+  arrayInstance.$$container.notifyRead(makePath(getRoot(arrayInstance).$id, arrayInstance.$path))
 }
 
 /**

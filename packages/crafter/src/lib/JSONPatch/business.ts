@@ -1,6 +1,6 @@
 import { Command, Operation } from "./type"
 import { IObserver } from "../../observer/IObserver"
-import { makePath } from '../../helpers'
+import { getLastPart, getParentPath, makePath } from '../../helpers'
 
 export function isBasicCommand<C extends Command>(proposal: C): boolean {
   return (
@@ -12,30 +12,27 @@ export function isBasicCommand<C extends Command>(proposal: C): boolean {
   )
 }
 
-function isExpendSizeOperation(op: Operation): boolean {
+function isExpendSizeOperation(command: Command): boolean {
   return (
     // Basic
-    op === Operation.add ||
+    command.op === Operation.add ||
     // Array
-    op === Operation.push ||
-    op === Operation.unshift ||
-    op === Operation.splice ||
-    op === Operation.setLength
+    command.op === Operation.push ||
+    command.op === Operation.unshift ||
+    command.op === Operation.splice && ((command.deleteCount ?? 0) < (command.value?.length ?? 0))
   )
 }
 
-function isShrinkSizeOperation(op: Operation): boolean {
+function isShrinkSizeOperation(command: Command): boolean {
   return (
     // Basic
-    op === Operation.remove ||
+    command.op === Operation.remove ||
     // Array
-    op === Operation.splice ||
-    op === Operation.shift ||
-    op === Operation.pop ||
-    op === Operation.setLength ||
+    command.op === Operation.splice && ((command.deleteCount ?? 0) > (command.value?.length ?? 0)) ||
+    command.op === Operation.shift ||
+    command.op === Operation.pop ||
     // Map
-    op === Operation.delete ||
-    op === Operation.clear
+    command.op === Operation.clear
   )
 }
 
@@ -134,10 +131,11 @@ function getObjectPaths(object: {}, root: string = '/'): string[] {
  *        - the matched updated observables path matches one of the path of the observer dependencies 
  *       ]
  *       - AND [
- *        - one of the updated observable is the lenght of the array
+ *        - one of the updated observable is the length of the array
  *        - some of the observer dependencies is the length of the array
  *       ] 
- *    ] *  ]
+ *    ]
+ *  ]
  *  5. AND [
  *    - it targets a leaf 
  *    - an updated observable path matches one of the path of the observer dependencies
@@ -146,30 +144,39 @@ function getObjectPaths(object: {}, root: string = '/'): string[] {
  * @param observer 
  * @param param1 
  */
+// export function isDependent(observer: IObserver, {path, op, value}: Command & {value?: any}, updatedObservablePaths: string[]) {
+//   return (
+//     /* 1 */
+//     (
+//       (typeof value === 'object' || value instanceof Map) &&
+//       isNodeUpdateOperation(op) &&    
+//       hasPath(observer, [
+//         ...getObjectPaths(value).map(p => makePath(path, p)),
+//         path
+//       ])
+//     ) ||
+//     /* 2 */
+//     (
+//       (typeof value !== 'object' && !(value instanceof Map)) &&
+//       isLeafUpdateOperation(op) &&
+//       hasPath(observer, updatedObservablePaths)
+//     ) ||
+//     /* 3 */
+//     (
+//       (Array.isArray(value) || value instanceof Map) &&
+//       isShapeMutationOperation({path, op, value} as Command) &&
+//       hasPath(observer, updatedObservablePaths)
+//     )
+//   )
+// }
+
 export function isDependent(observer: IObserver, {path, op, value}: Command & {value?: any}, updatedObservablePaths: string[]) {
-  return (
-    /* 1 */
-    (
-      (typeof value === 'object' || value instanceof Map) &&
-      isNodeUpdateOperation(op) &&    
-      hasPath(observer, [
-        ...getObjectPaths(value).map(p => makePath(path, p)),
-        path
-      ])
-    ) ||
-    /* 2 */
-    (
-      (typeof value !== 'object' && !(value instanceof Map)) &&
-      isLeafUpdateOperation(op) &&
-      hasPath(observer, updatedObservablePaths)
-    ) ||
-    /* 3 */
-    (
-      (Array.isArray(value) || value instanceof Map) &&
-      isShapeMutationOperation(op) &&
-      hasPath(observer, updatedObservablePaths)
-    )
-  )
+  switch (op) {
+    case Operation.add:
+      // Add is only applied on node
+      // Return true if the observer observes the node
+      return observer.dependencies.includes(getParentPath(path))
+  }
 }
 
 /**
@@ -182,8 +189,9 @@ export function hasPath(node: IObserver, paths: string[]): boolean {
 }
 
 /**
- * Return true if the operation has an incidence on the lenght/size of the array/map
+ * Return true if the operation has an incidence on the lenght/size
+ *  of an array/map or the nb of an object fields.
  */
-export function isShapeMutationOperation(op: Operation): boolean {
-  return isShrinkSizeOperation(op) || isExpendSizeOperation(op)
+export function isShapeMutationOperation(command: Command): boolean {
+  return isShrinkSizeOperation(command) || isExpendSizeOperation(command)
 }
