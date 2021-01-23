@@ -31,6 +31,7 @@ import {
   ReplaceCommand,
   ReverseCommand,
   ShiftCommand,
+  SortCommands,
   SortCommandWithFn,
   SpliceCommand,
   UnshiftCommand,
@@ -1421,16 +1422,6 @@ export type PopChanges = {
 export type UnshiftChanges = {
   added: Snapshot<any> | Snapshot<any>[]
 }
-
-// A tupple of id which has been moved
-export type SortCommands = {
-  // Id of the item
-  id: string
-  // Where is was
-  from: number
-  // Where it is now
-  to: number
-}[]
 
 function getArrayIndex(model: ArrayInstance<any>, command: ArrayCommand): number {
   return Number(getNextPart(model.$path, command.path))

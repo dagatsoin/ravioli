@@ -15,7 +15,7 @@ if (!g.$$crafterContext) {
     g.$$crafterContext = new CrafterContainer()
 }
 
-//export * from './array'
+export * from './array'
 export * from './container'
 export * from './enum'
 //export * from './identifier'
