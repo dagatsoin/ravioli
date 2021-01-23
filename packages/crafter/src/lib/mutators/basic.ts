@@ -3,7 +3,6 @@ import {
   CopyChanges,
   INodeInstance,
   MoveChanges,
-  RemoveChanges,
   ReplaceChanges,
 } from '../INodeInstance'
 import {
@@ -46,24 +45,9 @@ export function createAddMigration<T>(
   }
 }
 
-export function remove(
-  model: INodeInstance<any>,
-  index: string | number
-): RemoveChanges | undefined {
-  const removed = getSnapshot(model.$data[index])
-  const isDeleted = delete model.$data[index]
-  if (isDeleted) {
-    return
-  }
-  delete model[index]
-  return {
-    removed,
-  }
-}
-
 export function createRemoveMigration(
   command: RemoveCommand,
-  changes: RemoveChanges
+  changes: { removed: any }
 ): Migration<RemoveCommand, AddCommand> {
   return {
     forward: [command],

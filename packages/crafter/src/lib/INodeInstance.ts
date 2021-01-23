@@ -7,9 +7,6 @@ export type DataMap<T> = Map<string, IInstance<T>>
 
 export type DataNode = DataArray<any> | DataObject<any> | DataMap<any>
 
-export type RemoveChanges = {
-  removed: Snapshot<any>
-}
 export type CopyChanges = {
   replaced: Snapshot<any>
 }

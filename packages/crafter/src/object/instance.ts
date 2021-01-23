@@ -23,6 +23,7 @@ import {
   Command,
   Migration,
   ReplaceCommand,
+  RemoveCommand,
 } from '../lib/JSONPatch'
 import {
   createCopyMigration,
@@ -31,7 +32,6 @@ import {
   createReplaceMigration,
   copy,
   move,
-  remove,
   createAddMigration,
 } from '../lib/mutators'
 import { NodeInstance } from '../lib/NodeInstance'
@@ -185,6 +185,13 @@ export class ObjectInstance<
  */
 
         if (isThisNodeReplacement) {
+          // In case of reshaping, some properties may not exists anymore. Delete them.
+          const keys = Object.keys(this.$data)
+          keys.forEach(key => {
+            if (!(key in command.value)) {
+              remove(this, {op: Operation.remove, path: this.$data[key].$path})
+            }
+          })
           const snapshot = this.$createNewSnapshot()
 
           // Split down the big command in sub commands, one by child.
@@ -306,14 +313,7 @@ export class ObjectInstance<
           }
         }
       } else if (command.op === Operation.remove) {
-        let accepted = false
-        const key = getObjectKey(this, command)
-        const isNodeOp = isNode(this.$data[key])
-        const removed = this.$data[key]?.$snapshot
-        if (key in this.$data) {
-          remove(this, key)
-          accepted = true
-        }
+        const { accepted, removed, isNodeOp } = remove(this, command)
         const result = {
           accepted,
           migration: accepted && this.$$container.willReact
@@ -328,7 +328,7 @@ export class ObjectInstance<
         })
       } else if (command.op === Operation.add) {
         let accepted = false
-        const key = getObjectKey(this, command)
+        const key = getChildKey(this, command)
         // Is an alias of replace
         if (!(key in this.$data)) {
           add(this, command.value, key)
@@ -431,7 +431,7 @@ export class ObjectInstance<
     // - a command targeted its value and made some changes
     const isStale = proposalResult.some(
       r =>
-        (isAccepted(r) && didUpdateShape(r, this.$path)) ||
+        (isAccepted(r) && didUpdateShape(r)) ||
         (r.isNodeOp && !!r.result.migration?.forward.length)
     )
 
@@ -514,6 +514,22 @@ export class ObjectInstance<
     for (const key of keys) {
       toInstance(this.$data[key]).$attach(this, key)
     }
+  }
+}
+
+function checkKey(model: ObjectInstance<any, any, any, any>, key: string, op: Operation) {
+  const isValid = (
+    key[0] !== '$' &&
+    // other command than add must lead to an existing index
+    (op !== Operation.add
+      ? key in model // check if the key exists, not if there is a value (undefined is a valid value)
+      : true
+    )
+  )
+  if (!isValid) {
+    throw new Error(
+      `Crafter ${key} is not a property of the object instance.`
+    )
   }
 }
 
@@ -645,32 +661,8 @@ export function splitUpdateOperation(value: any, opPath: string): Proposal<Repla
       ]
 }
 
-function getObjectKey(model: INodeInstance<any>, op: BasicCommand): string {
-  const index = String(getNextPart(model.$path, op.path))
-  if (!isValidObjectIndex(model, index, op)) {
-    throw new Error(
-      `Crafter ${index} is not a property of the object instance.`
-    )
-  }
-  return index
-}
-
-/**
- * Return true if the string is a valid Object or Map index.
- */
-function isValidObjectIndex(
-  model: INodeInstance<any>,
-  index: string,
-  proposal: BasicCommand
-): boolean {
-  // property starting with $ is reserved for internal used
-  return (
-    index[0] !== '$' &&
-    // other command than add must lead to an existing index
-    (proposal.op !== 'add'
-      ? index in model // check if the key exists, not if there is a value (undefined is a valid value)
-      : true)
-  )
+function getChildKey(model: INodeInstance<any>, op: BasicCommand): string {
+  return String(getNextPart(model.$path, op.path))
 }
 
 function getIdentfierKey(
@@ -712,14 +704,12 @@ function didUpdateShape(
   {
     command,
     result: { accepted },
-  }: { command: Command; result: CommandResult },
-  nodePath: string
+  }: {
+    command: Command
+    result: CommandResult
+  }
 ) {
-  return (
-    accepted &&
-    isShapeMutationOperation(command) &&
-    command.path === nodePath
-  )
+  return accepted && isShapeMutationOperation(command)
 }
 
 /**
@@ -739,6 +729,24 @@ function add(
   model.$data[index] = instance
   addInterceptor(model, index)
   instance.$attach(model, index)
+}
+
+
+function remove(model: ObjectInstance<any, any, any, any>, command: RemoveCommand): {
+  removed?: INodeInstance<any>
+  accepted: boolean
+  isNodeOp: boolean
+} {
+  let accepted = false
+  const key = getChildKey(model, command)
+  const isNodeOp = isNode(model.$data[key])
+  const removed = model.$data[key]?.$snapshot
+  if (key in model.$data) {
+    accepted = delete model.$data[key]
+    delete model[key]
+    accepted = true
+  }
+  return { accepted, removed, isNodeOp }
 }
 
 function toMigration(proposalResult: ProposalResult): Migration<any, any> {

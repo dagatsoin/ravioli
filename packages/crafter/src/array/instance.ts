@@ -15,7 +15,7 @@ import {
   warn,
 } from '../helpers'
 import { IInstance } from '../lib/IInstance'
-import { AddChanges, DataArray, INodeInstance, RemoveChanges, ReplaceChanges } from '../lib/INodeInstance'
+import { DataArray, INodeInstance, ReplaceChanges } from '../lib/INodeInstance'
 import { isInstance } from '../lib/Instance'
 import {
   ArrayCommand,
