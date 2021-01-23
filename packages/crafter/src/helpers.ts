@@ -171,12 +171,12 @@ export function getParentPath(path: string) {
 }
 
 /**
- * Return the next part of a current path given a deeper path.
- * eg: for a node with the path "/player/stats" and a path "/player/stats/base/health", it will return "base"
+ * Given a full path, return the next part of a path.
+ * eg: for a full path "/player/stats/base/health" and a current path "/player/stats", it will return "base"
  */
-export function getNextPart<T = any>(currentPath: string, deeperPath: string): keyof T | undefined{
+export function getNextPart<T = any>(currentPath: string, fullPath: string): keyof T | undefined{
   const nodePathDepth = currentPath.split('/').filter(s => !!s.length).length
-  return deeperPath.split('/').filter(s => !!s.length)[nodePathDepth] as keyof T
+  return fullPath.split('/').filter(s => !!s.length)[nodePathDepth] as keyof T
 }
 
 /**
