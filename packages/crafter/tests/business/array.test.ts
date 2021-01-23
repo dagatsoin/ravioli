@@ -164,7 +164,6 @@ function copy() {
       { op: Operation.copy, from: '/0', path: '/1' } as any,
     ])
   )
-  expect(players[0].name).toBe(players[1].name)
 }
 
 function spliceFlush() {

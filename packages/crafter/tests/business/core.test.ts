@@ -92,6 +92,44 @@ describe('Migration generation', function() {
     })
   })
 })
+
+describe('reactivity', function() {
+  const player = object({
+    name: string('Fraktar'),
+    level: number(1),
+    stats: object({
+      health: number(1),
+      force: number(1)
+    })
+  }).create()
+
+  test('react on leaf change', function() {
+    const dispose = autorun(function({isFirstRun}){
+      player.stats.health
+      if(!isFirstRun) expect(player.stats.health).toBe(2)
+    })
+
+    getContext(toInstance(player)).step(() => player.stats.health++)
+    dispose()
+  })
+
+  test('react on node change, not on leaf change', function() {
+    let run = 0
+    const context = getContext(toInstance(player))
+    const dispose = autorun(function(){
+      player.stats
+      run++
+    })
+
+    context.step(() => player.stats = {
+      health: 10,
+      force: 1
+    })
+    // Autorun ran twice, one for initialization, one when the node has changed. Not when the lead has changed.
+    expect(run).toBe(2)
+    dispose()
+  })
+})
 /*
 describe("create an updated observables graph", function() {
   const context = getGlobal().$$crafterContext
