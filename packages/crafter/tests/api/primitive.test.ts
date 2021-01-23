@@ -1,4 +1,4 @@
-import { string, number, boolean } from "../../src/Primitive"
+import { string, number, boolean, undefinedType } from "../../src/Primitive"
 import { unbox, toInstance, getContext } from "../../src/helpers"
 import { autorun, Operation } from "../../src"
 
@@ -9,6 +9,8 @@ test("factory", function() {
   expect(unbox(toInstance(nb))).toBe(1)
   const bool = boolean().create()
   expect(unbox(toInstance(bool))).toBeFalsy()
+  const undef = undefinedType().create()
+  expect(unbox(toInstance(undef))).toBeUndefined()
 })
 
 test("mutation", function() {
