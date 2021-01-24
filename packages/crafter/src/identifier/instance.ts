@@ -8,7 +8,6 @@ import { fail, warn } from '../helpers'
 
 export class IdentifierInstance<T extends string> extends Instance<T, T> {
   public $data: any
-  public $type: IType<T>
   constructor({
     type,
     value,
@@ -18,10 +17,9 @@ export class IdentifierInstance<T extends string> extends Instance<T, T> {
     value: T
     context?: IContainer
   }) {
-    super((data) => data, context)
+    super({ type, snapshotComputation: (data) => data, context })
     // Counter intuitively we do not validate the uniqness of the id, as it is already
     // used by the parent caller.
-    this.$type = type
     this.$$id = this.$$container.getUID('Instance#')
     this.$$container.useUID(this.$$id)
     this.$data = value

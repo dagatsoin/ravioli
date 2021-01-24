@@ -6,6 +6,7 @@ import {
 import { Instance } from './Instance'
 import { Command } from './JSONPatch'
 import { IContainer } from '../IContainer'
+import { IType } from './IType'
 
 /**
  * An observable is an object/array/map whose properties are watched.
@@ -36,16 +37,23 @@ export abstract class NodeInstance<TYPE, SNAPSHOT = TYPE>
   private $$nativeTypeKeys: string[]
   private $valueComputation: (data: DataNode, context: IContainer) => TYPE
   private $prevValue: TYPE = (undefined as unknown) as TYPE
-  constructor(
-    snapshotComputation: (data: any, context: IContainer) => SNAPSHOT,
-    valueComputation: (data: any, context: IContainer) => TYPE,
-    methodKeys: string[] = [],
+  constructor({
+    type,
+    snapshotComputation,
+    valueComputation,
+    methodKeys = [],
+    options
+  }: {
+    type: IType<any>,
+    snapshotComputation: (data: any, context: IContainer) => SNAPSHOT;
+    valueComputation: (data: any, context: IContainer) => TYPE;
+    methodKeys?: string[];
     options?: {
-      id?: string,
+      id?: string
       context?: IContainer
     }
-  ) {
-    super(snapshotComputation, options?.context)
+  }) {
+    super({ type, snapshotComputation, context: options?.context })
     this.$$nativeTypeKeys = methodKeys
     this.$valueComputation = valueComputation
 

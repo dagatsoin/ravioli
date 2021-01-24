@@ -92,14 +92,17 @@ export class ObjectInstance<
     //
     // Also note that the IdentifierInstance $$id is not the same as its value.
     // $$id being an UID, the value being the $$id of the parent object.
-    super(generateSnapshot, generateValue, ['$identifierKey'], {
-      context: options?.context,
-      id: getId({
-        value,
-        id: options?.id,
-        identifierKey: getIdentfierKey(type),
-      }),
-    })
+    super({
+        type,
+        snapshotComputation: generateSnapshot, valueComputation: generateValue, methodKeys: ['$identifierKey'], options: {
+          context: options?.context,
+          id: getId({
+            value,
+            id: options?.id,
+            identifierKey: getIdentfierKey(type),
+          }),
+        }
+      })
     this.$type = type
     this.$identifierKey = getIdentfierKey(this.$type)
     Object.keys(this).forEach(key => setNonEnumerable(this, key))

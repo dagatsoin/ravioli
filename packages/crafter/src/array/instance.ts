@@ -121,9 +121,9 @@ export class ArrayInstance<SUBTYPE, INPUT extends SUBTYPE[] = SUBTYPE[]>
     }
   ) {
     // Initialize the array
-    super(generateSnapshot, generateValue, methodKeys, options)
-    this.$type = type
+    super({ type, snapshotComputation: generateSnapshot, valueComputation: generateValue, methodKeys, options })
     // The item type is known. If not, those commands will be done in refineTypeIfNeeded
+    this.$type = type
     if (!isUnknownType(type.itemType)) {
       this.$refFactory = (isNodeType(type.itemType) ? reference(type.itemType) : undefined) as any
       this.$isPrimitiveArray = !isNodeType(type.itemType)

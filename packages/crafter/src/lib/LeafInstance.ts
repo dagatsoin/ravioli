@@ -19,7 +19,6 @@ export type Options = {
 export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> {
   public $data: T
   public $isLeaf: true = true
-  public $type: ILeafType<T>
 
   private setter: (v: T) => void
 
@@ -33,11 +32,8 @@ export class LeafInstance<T> extends Instance<T, T> implements ILeafInstance<T> 
     options?: Options
   }) {
     super(
-      (data) => data,
-      options?.context
-    )
+      { type, snapshotComputation: (data) => data, context: options?.context }    )
     this.$data = value
-    this.$type = type
     this.$$id = options?.id || this.$$container.getUID('LeafInstance#')
 
     // Rather having unused condition in the setter, the constructor

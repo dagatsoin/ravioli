@@ -7,15 +7,15 @@ import { Command, Operation } from './JSONPatch'
 import { DataNode } from './INodeInstance'
 
 export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT> {
-  
+
   abstract get $value(): T
   abstract get $id(): string
-  
+
   public $state: State = {
     didChange: false,
-    migration: { forward: [], backward: []}
+    migration: { forward: [], backward: [] }
   }
-  
+
   public $isInstance: true = true
   public $isObservable: true = true
   public $$container: IContainer
@@ -23,24 +23,31 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
   public $parent: IInstance<any, any> | undefined
   public $hasStaleSnapshot = true
   public $hasStaleValue = true
+  public $type: IType<T, SNAPSHOT>
 
   protected $$id!: string
 
   private $snapshotComputation: (data: T, context: IContainer) => SNAPSHOT
   private $prevSnapshot: SNAPSHOT = (undefined as unknown) as SNAPSHOT
 
-  public abstract $type: IType<T, SNAPSHOT>
   public abstract $data: DataNode | T
-  public get $path(){
+  public get $path() {
     // TODO cache this
     return this.$parent ? makePath(this.$parent.$path, this.$parentKey?.toString() ?? '') : '/'
   }
 
-  
+
   constructor(
-    snapshotComputation: (data: any, context: IContainer) => SNAPSHOT,
-    context?: IContainer
-  ) {
+    {
+      type,
+      snapshotComputation,
+      context
+    }: {
+      type: IType<T, SNAPSHOT>,
+      snapshotComputation: (data: any, context: IContainer) => SNAPSHOT;
+      context?: IContainer
+    }) {
+    this.$type = type
     this.$$container = context || getGlobal().$$crafterContext
     this.$snapshotComputation = snapshotComputation
   }
@@ -56,14 +63,14 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
     this.$parentKey = key
   }
 
-  public $detach(){
+  public $detach() {
     this.$parent = undefined
     this.$parentKey = ''
   }
 
   public $applySnapshot(snapshot: SNAPSHOT): void {
     if (this.$type.isValidSnapshot(snapshot)) {
-      this.$present([{op: Operation.replace, value: snapshot, path: this.$path}])
+      this.$present([{ op: Operation.replace, value: snapshot, path: this.$path }])
     }
   }
 
@@ -75,7 +82,7 @@ export abstract class Instance<T, SNAPSHOT = T> implements IInstance<T, SNAPSHOT
       this.$parent.$invalidate()
     }
   }
-  
+
   public get $snapshot(): SNAPSHOT {
     if (this.$hasStaleSnapshot) {
       this.$computeSnapshot()
