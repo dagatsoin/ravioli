@@ -6,7 +6,7 @@ import { makePath, toInstance, toLeaf, setValue, toNode, getRoot } from '../help
 import { IContainer } from '../IContainer'
 import { isInstance } from '../lib/Instance'
 import { isNode } from '../lib/isNode'
-import { Migration, Patch } from '../lib/JSONPatch'
+import { Migration, Operation, Patch } from '../lib/JSONPatch'
 import { IDerivation } from './IDerivation'
 
 /**
@@ -157,7 +157,7 @@ export class Derivation<T> extends Observer implements IDerivation<T> {
         this.valueContext.doNotTrack(() => setValue(instance, value))
       } else {
         this.value = value
-        this._migration.forward = [{op: "replace", path: makePath(this.id), value}]
+        this._migration.forward = [{op: Operation.replace, path: makePath(this.id), value}]
       }
     }
     this.valueContext.resumeSpies()
