@@ -176,7 +176,34 @@ describe('life cycle', function() {
 })
 
 describe('Active graph registration', function() {
-  test.todo("Store only last element of a dot notation")
+  const model = object({
+    stats: object({
+      force: object({
+        base: number(1)
+      })
+    })
+  }).create()
+
+  const context = getContext(toInstance(model))
+
+  test("Store only last element of a dot notation", function() {
+    const deps: string[] = []
+    const dispose = autorun(() => {
+      model.stats.force.base
+      deps.push(
+        ...Array.from(
+          ((context as any)
+            .volatileState
+            .spiedObserversDependencies as Map<any, string[]>
+          )
+          .values()
+        )[0]
+      )
+    })
+    expect(deps.length).toBe(1)
+    expect(deps[0].endsWith("stats/force/base")).toBeTruthy()
+    dispose()
+  })
 })
 
 describe('Atomicity', function() {})
