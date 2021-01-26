@@ -10,8 +10,12 @@ beforeEach(function() {
 })
 
 describe('Migration generation', function() {
-  describe('- All children value are replaced', function() {
-    test('parent node writes the global mutation in the context', function() {
+  describe('- A node has been replaced', function() {
+    /**
+     * When a node is replaced, the command will be accepted
+     * only if at least one of the sub value is different.
+     */
+    test('some value changed', function() {
       const player = object({
         name: string('Fraktar'),
         level: number(1),
@@ -29,8 +33,8 @@ describe('Migration generation', function() {
             {
               op: 'replace',
               value: {
-                force: 2,
-                health: 10
+                health: 10,
+                force: 1
               },
               path: '/player/stats'
             }
@@ -50,12 +54,11 @@ describe('Migration generation', function() {
       context.addStepListener(StepLifeCycle.WILL_END, cb)
       context.step(() => player.stats = {
         health: 10,
-        force: 2
+        force: 1
       })
     })
-  })
-  describe('- Some children did not changed', function() {
-    test('parent node writes the details of the mutation in the context', function() {
+  
+    test('no value changed', function() {
       const player = object({
         stats: object({
           health: number(1),
@@ -66,27 +69,15 @@ describe('Migration generation', function() {
       const cb = () => {
         context.removeStepListener(StepLifeCycle.WILL_END, cb)
         expect(toInstance(toInstance(player.stats).$data.force).$state.didChange).toBeFalsy()
-        expect(toInstance(toInstance(player.stats).$data.health).$state.didChange).toBeTruthy()
+        expect(toInstance(toInstance(player.stats).$data.health).$state.didChange).toBeFalsy()
         expect(toInstance(player).$$container.snapshot.migration).toEqual({
-          forward: [
-            {
-              op: 'replace',
-              value: 10,
-              path: '/player2/stats/health'
-            }
-          ],
-          backward: [
-            {
-              op: 'replace',
-              value: 1,
-              path: '/player2/stats/health'
-            }
-          ]
+          forward: [],
+          backward: []
         })
       }
       context.addStepListener(StepLifeCycle.WILL_END, cb)
       context.step(() => player.stats = {
-        health: 10,
+        health: 1,
         force: 1
       })
     })

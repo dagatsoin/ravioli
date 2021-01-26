@@ -24,3 +24,12 @@ executed when the model has thrown during mutations. Just after the roll back.
 
 ### onStepWillEnd()
 executed at the end of the SAM cycle. Before container cleaning.
+
+## Dev documentation
+
+## How an observer becomes stale
+1. During the acceptatance phase of a step, each updated observable is marked as updated
+
+2. During the state computation of a step, the system will send to all the active
+observers a list of updated observables paths.
+It one of the path match a dependendy of the observer, it will become stale.

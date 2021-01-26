@@ -44,7 +44,8 @@ export abstract class Observer implements IObserver {
   }
 
   public notifyChanges(patch: Patch<any>, updatedObservablePaths: string[]) {
-    this._isStale = patch.some(command => isDependent(this, command, updatedObservablePaths))
+    this._isStale = updatedObservablePaths.some(p => this.dependencies.includes(p))
+//    this._isStale = patch.some(command => isDependent(this, command, updatedObservablePaths))
   }
 
   public abstract dispose(): void

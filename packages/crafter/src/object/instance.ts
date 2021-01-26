@@ -261,8 +261,16 @@ export class ObjectInstance<
           // Merge the child migration if needed
           let migration: Migration = {forward: [], backward: []}
 
+          // At least on of the children did change.
+          // The command is assumed as accepted.
+          if (didChange) {
+            migration = createReplaceMigration(command, {
+              replaced: snapshot,
+            })
+          }
+
           // All children has changed, resume the operation with the initial command
-          if (didAllChildrenChange) {
+          /* if (didAllChildrenChange) {
             migration = createReplaceMigration(command, {
               replaced: snapshot,
             })
@@ -274,7 +282,7 @@ export class ObjectInstance<
                 migration = mergeMigrations(childMigration, migration)
               }
             }
-          }
+          } */
 
           const result = {
             accepted: didChange,
@@ -429,13 +437,16 @@ export class ObjectInstance<
       didChange,
       migration: toMigration(proposalResult)
     }
-    // The node is stale only when :
+    // The node is stale when :
     // - its shape has been modified
+    // - a command was a replace command
     // - a command targeted its value and made some changes
     const isStale = proposalResult.some(
-      r =>
-        (isAccepted(r) && didUpdateShape(r)) ||
-        (r.isNodeOp && !!r.result.migration?.forward.length)
+      r => isAccepted(r) && (
+        didUpdateShape(r) ||
+        r.command.op === Operation.replace
+      )
+        //(r.isNodeOp && !!r.result.migration?.forward.length)
     )
 
     this.$next(isStale)
