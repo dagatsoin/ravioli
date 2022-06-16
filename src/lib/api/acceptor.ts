@@ -1,0 +1,46 @@
+import { ArrayType, ToLiteral } from "./helpers.type";
+
+type Condition<P> = (payload: P) => boolean;
+
+export type Acceptor<P> = {
+  condition?: Condition<P>;
+  mutator: Mutator<P>;
+};
+
+type Payload = {
+  [key: string]: any;
+};
+
+export type Mutation<T extends string, P extends Payload> = P extends
+  | never
+  | undefined
+  ? {
+      type: ToLiteral<T>;
+      payload?: undefined; // trick to be able to write mutation without payload but
+      // prevent lint error when accessing it in generic function (eg. present function)
+    }
+  : {
+      type: ToLiteral<T>; // this transforms the passed string in a literal.
+      payload: P;
+    };
+
+export type Mutator<P> = (payload: P) => void;
+
+// Helper type. Extract all mutations names.
+export type MutationName<F extends Mutation<any, any>> = F["type"];
+
+export type AcceptorFactory<M, P> = (
+  model: M
+) => {
+  condition?: (model: M) => boolean;
+  mutator: (payload: P) => void;
+};
+
+export type MapToProposal<
+  M extends Record<string, AcceptorFactory<any, any>>
+> = {
+  [K in keyof M]: {
+    type: K;
+    payload: ArrayType<Parameters<ReturnType<M[K]>["mutator"]>>;
+  };
+};
