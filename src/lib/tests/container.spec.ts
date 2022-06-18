@@ -21,11 +21,33 @@ test("control states", function () {
   expect(container.controlStates).not.toContain("IS_DEAD");
 });
 
+it("should be instantied", function(){
+  const User = createContainer<{
+    name: string;
+  }>()
+    .addAcceptor("setName", {
+      mutator(model, { name }: { name: string }) {
+        model.name = name;
+      },
+    })
+    .addActions({
+      rename: "setName",
+    })
+  
+  const player0 = User.create({ name: "Fraktos" });
+  const player1 = User.create({ name: "Glados" });
+
+  player0.actions.rename({ name: "Fraktar" });
+  
+  expect(player0.representationRef.current.name).toBe("Fraktar")
+  expect(player1.representationRef.current.name).toBe("Glados")
+})
+
 describe("complete use case", function () {
   const container = createContainer<{ hp: number }>()
-    .addAcceptor("setHP", (model) => ({
-      mutator: ({ hp }: { hp: number }) => (model.hp += hp),
-    }))
+    .addAcceptor("setHP", {
+      mutator: (model, { hp }: { hp: number }) => (model.hp += hp),
+    })
     .addControlStatePredicate("IS_ALIVE", ({ model }) => model.hp > 0)
     .addControlStatePredicate("IS_DEAD", ({ model }) => model.hp <= 0)
     .addActions({
@@ -52,7 +74,7 @@ describe("complete use case", function () {
       },
     })
     .addStepReaction("auto heal", {
-      predicate: (args) => args.model.hp < 2,
+      predicate: (args) => args.data.hp < 2,
       effect: ({ actions }) => actions.heal(),
     })
     .addTransformation((model) => ({ health: model.hp }))

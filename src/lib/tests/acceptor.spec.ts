@@ -1,12 +1,12 @@
 import { createContainer } from "../..";
 
 const comp = createContainer<{ name: string }>()
-  .addAcceptor("setName", (model) => ({
+  .addAcceptor("setName", {
     condition: ({ name }: { name: string }) => name.length > 5,
-    mutator({ name }: { name: string }) {
+    mutator(model, { name }: { name: string }) {
       model.name = name;
-    },
-  }))
+    }
+  })
   .addActions({
     setName: "setName",
   });

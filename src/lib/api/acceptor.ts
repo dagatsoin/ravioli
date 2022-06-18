@@ -2,9 +2,9 @@ import { ArrayType, ToLiteral } from "./helpers.type";
 
 type Condition<P> = (payload: P) => boolean;
 
-export type Acceptor<P> = {
+export type Acceptor<M, P> = {
   condition?: Condition<P>;
-  mutator: Mutator<P>;
+  mutator: Mutator<M, P>;
 };
 
 type Payload = {
@@ -24,23 +24,16 @@ export type Mutation<T extends string, P extends Payload> = P extends
       payload: P;
     };
 
-export type Mutator<P> = (payload: P) => void;
+export type Mutator<M, P> = (model: M, payload: P) => void;
 
 // Helper type. Extract all mutations names.
 export type MutationName<F extends Mutation<any, any>> = F["type"];
 
-export type AcceptorFactory<M, P> = (
-  model: M
-) => {
-  condition?: (model: M) => boolean;
-  mutator: (payload: P) => void;
-};
-
 export type MapToProposal<
-  M extends Record<string, AcceptorFactory<any, any>>
+  M extends Record<string, Acceptor<any, any>>
 > = {
   [K in keyof M]: {
     type: K;
-    payload: ArrayType<Parameters<ReturnType<M[K]>["mutator"]>>;
+    payload: ArrayType<Parameters<M[K]["mutator"]>>;
   };
 };

@@ -99,39 +99,39 @@ test("Use case with a control state tree", function () {
             (model.appModel.loginStatus !== "loggedOut" &&
               !model.appModel.isSynchronised)))
     )
-    .addAcceptor("setConnected", (model) => ({
-      mutator({ connected: isConnected }: { connected: boolean }) {
+    .addAcceptor("setConnected", {
+      mutator(model, { connected: isConnected }: { connected: boolean }) {
         model.appModel.connexionStatus.connected = isConnected;
       },
-    }))
-    .addAcceptor("setLoginStatus", (model) => ({
-      mutator({
+    })
+    .addAcceptor("setLoginStatus", {
+      mutator(model, {
         loginStatus,
       }: {
         loginStatus: typeof model.appModel.loginStatus;
       }) {
         model.appModel.loginStatus = loginStatus;
       },
-    }))
-    .addAcceptor("setSynchronised", (model) => ({
-      mutator({ isSynchronised }: { isSynchronised: boolean }) {
+    })
+    .addAcceptor("setSynchronised", {
+      mutator(model, { isSynchronised }: { isSynchronised: boolean }) {
         model.appModel.isSynchronised = isSynchronised;
       },
-    }))
-    .addAcceptor("setServiceStatus", (model) => ({
-      mutator({
+    })
+    .addAcceptor("setServiceStatus", {
+      mutator(model, {
         serviceStatus,
       }: {
         serviceStatus: typeof model.appModel.servicesStatus;
       }) {
         model.appModel.servicesStatus = serviceStatus;
       },
-    }))
-    .addAcceptor("setUserId", (model) => ({
-      mutator({ id }: { id: string }) {
+    })
+    .addAcceptor("setUserId", {
+      mutator(model, { id }: { id: string }) {
         model.userModel._id = id;
       },
-    }))
+    })
     .addActions({
       setConnected: "setConnected",
       setLoginStatus: "setLoginStatus",
@@ -339,39 +339,39 @@ test("Use case with declarative control state", function () {
         },
       ],
     })
-    .addAcceptor("setConnected", (model) => ({
-      mutator({ connected: isConnected }: { connected: boolean }) {
+    .addAcceptor("setConnected", {
+      mutator(model, { connected: isConnected }: { connected: boolean }) {
         model.appModel.connexionStatus.connected = isConnected;
       },
-    }))
-    .addAcceptor("setLoginStatus", (model) => ({
-      mutator({
+    })
+    .addAcceptor("setLoginStatus", {
+      mutator(model, {
         loginStatus,
       }: {
         loginStatus: typeof model.appModel.loginStatus;
       }) {
         model.appModel.loginStatus = loginStatus;
-      },
-    }))
-    .addAcceptor("setSynchronised", (model) => ({
-      mutator({ isSynchronised }: { isSynchronised: boolean }) {
+      }
+    })
+    .addAcceptor("setSynchronised", {
+      mutator(model, { isSynchronised }: { isSynchronised: boolean }) {
         model.appModel.isSynchronised = isSynchronised;
       },
-    }))
-    .addAcceptor("setServiceStatus", (model) => ({
-      mutator({
+    })
+    .addAcceptor("setServiceStatus", {
+      mutator(model, {
         serviceStatus,
       }: {
         serviceStatus: typeof model.appModel.servicesStatus;
       }) {
         model.appModel.servicesStatus = serviceStatus;
       },
-    }))
-    .addAcceptor("setUserId", (model) => ({
-      mutator({ id }: { id: string }) {
+    })
+    .addAcceptor("setUserId", {
+      mutator(model, { id }: { id: string }) {
         model.userModel._id = id;
       },
-    }))
+    })
     .addActions({
       setConnected: "setConnected",
       setLoginStatus: "setLoginStatus",

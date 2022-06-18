@@ -2,11 +2,11 @@ import { createContainer } from "../..";
 
 it("should auto heal after a hit", function () {
   const Thrall = createContainer<{ hp: number }>()
-    .addAcceptor("setHP", (model) => ({
-      mutator({ hp }: { hp: number }) {
+    .addAcceptor("setHP", {
+      mutator(model, { hp }: { hp: number }) {
         model.hp = model.hp + hp;
       },
-    }))
+    })
     .addActions({
       hit() {
         return [

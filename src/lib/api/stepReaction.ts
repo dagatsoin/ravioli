@@ -8,11 +8,11 @@ export type StepReaction<
 > = {
   predicate?(args: {
     delta: Delta<MUTATION, CONTROL_STATES_PREDICATES>;
-    model: TYPE;
+    data: TYPE;
   }): boolean;
   effect(args: {
     delta: Delta<MUTATION, CONTROL_STATES_PREDICATES>;
-    model: TYPE;
+    data: TYPE;
     actions: ACTIONS;
   }): void;
 };

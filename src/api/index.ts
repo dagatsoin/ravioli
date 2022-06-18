@@ -1,4 +1,4 @@
-import { AcceptorFactory, Mutation } from "../lib/api/acceptor";
+import { Acceptor, Mutation } from "../lib/api/acceptor";
 import { Actions, PackagedActions } from "../lib/api/action";
 import { ActionComposer } from "../lib/api/composer";
 import { ToLiteral } from "../lib/api/helpers.type";
@@ -14,16 +14,16 @@ export interface IContainerFactory<
   ACTIONS = never,
   REPRESENTATION = TYPE
 > {
-  addAcceptor<N extends string, M extends AcceptorFactory<TYPE, any>>(
+  addAcceptor<N extends string, M extends Acceptor<TYPE, any>>(
     name: N,
-    acceptorFactory: M
+    acceptor: M
   ): IContainerFactory<
     TYPE,
     Exclude<
       | MUTATIONS
       | {
           type: N;
-          payload: Parameters<ReturnType<M>["mutator"]>[0];
+          payload: Parameters<M["mutator"]>[1];
         },
       {
         // Remove the initial parameter to have a cleaner result
@@ -70,6 +70,21 @@ export interface IContainerFactory<
   };
 }
 
-export function createContainer<T>(options?: ContainerOption): IContainerFactory<T> {
-  return new ContainerFactory<any>(options) as any;
+export function createContainer<T>(): IContainerFactory<T> {
+  return new ContainerFactory<any>() as any;
+}
+
+
+export interface IInstance<
+  TYPE,
+  MUTATIONS extends Mutation<any, any> = { type: never; payload: never },
+  CONTROL_STATES extends string = never,
+  ACTIONS = never,
+  REPRESENTATION = TYPE
+> {
+  controlStates: CONTROL_STATES[];
+  representationRef: { current: REPRESENTATION };
+  actions: ACTIONS;
+  stepId: number;
+  compose(composer: ActionComposer<ACTIONS, MUTATIONS>): void;
 }

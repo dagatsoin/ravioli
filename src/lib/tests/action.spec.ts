@@ -4,11 +4,11 @@ test("declare action by mutation name", function () {
   const user = createContainer<{
     name: string;
   }>()
-    .addAcceptor("setName", (model) => ({
-      mutator({ name }: { name: string }) {
+    .addAcceptor("setName", {
+      mutator(model, { name }: { name: string }) {
         model.name = name;
       },
-    }))
+    })
     .addActions({
       rename: "setName",
     })
@@ -21,11 +21,11 @@ test("declare action by mutation name", function () {
 
 test("synchronous action", function () {
   const Thrall = createContainer<{ hp: number }>()
-    .addAcceptor("setHP", (model) => ({
-      mutator({ hp }: { hp: number }) {
+    .addAcceptor("setHP", {
+      mutator(model, { hp }: { hp: number }) {
         model.hp = model.hp + hp;
       },
-    }))
+    })
     .addActions({
       hit() {
         return [
@@ -59,11 +59,11 @@ test("synchronous action", function () {
 
 test("asynchronous action", function (done) {
   const app = createContainer<{ isStale: boolean }>()
-    .addAcceptor("clean", (model) => ({
-      mutator() {
+    .addAcceptor("clean", {
+      mutator(model, ) {
         model.isStale = false;
       },
-    }))
+    })
     .addActions({
       save: {
         isAsync: true,
@@ -92,11 +92,11 @@ test("asynchronous action", function (done) {
 
 it("should cancel the asynchronous save action", function () {
   const app = createContainer<{ isStale: boolean }>()
-    .addAcceptor("clean", (model) => ({
-      mutator() {
+    .addAcceptor("clean", {
+      mutator(model, ) {
         model.isStale = false;
       },
-    }))
+    })
     .addActions({
       save: {
         isAsync: true,
@@ -133,11 +133,11 @@ test("compose actions", function () {
   const grunt = createContainer<{
     hp: number;
   }>()
-    .addAcceptor("setHP", (model) => ({
-      mutator({ hp }: { hp: number }) {
+    .addAcceptor("setHP", {
+      mutator(model, { hp }: { hp: number }) {
         model.hp = model.hp + hp;
       },
-    }))
+    })
     .addActions({
       hit() {
         return [

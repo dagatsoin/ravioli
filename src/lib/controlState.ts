@@ -2,14 +2,14 @@ import { CSPredicate } from "./api/predicate";
 
 export function getControlStates<T extends string>({
   controlStatePredicates,
-  model,
+  data,
   acceptedMutations,
   previousControlStates,
   keepLastControlStateIfUndefined = false
 }: {
   controlStatePredicates: Array<[T, CSPredicate<any, any, T>]>;
   previousControlStates: T[];
-  model: any;
+  data: any;
   acceptedMutations: any[];
   /**
    * @deprecated if no control state is found, return the previous.
@@ -37,7 +37,7 @@ export function getControlStates<T extends string>({
   ): boolean {
     if (typeof predicate === "function") {
       return predicate({
-        model,
+        model: data,
         acceptedMutations,
         previousControlStates,
       });
