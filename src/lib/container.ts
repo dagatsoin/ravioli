@@ -66,7 +66,7 @@ export class ContainerFactory<
   public controlStatePredicates: Array<
     [CONTROL_STATES, CSPredicate<TYPE, MUTATIONS, CONTROL_STATES>]
   > = [];
-  public transformer?: Transformation<TYPE>;
+  public transformer?: Transformation<TYPE, CONTROL_STATES>;
   public stepReactions: Array<{
     name: string;
     reaction: StepReaction<any, any, any, any>;
@@ -155,7 +155,7 @@ export class ContainerFactory<
     return this;
   }
 
-  addTransformation<C extends Transformation<TYPE>>(transformer: C): any {
+  addTransformation<C extends Transformation<TYPE, CONTROL_STATES>>(transformer: C): any {
     this.transformer = transformer;
     return this;
   }

@@ -44,7 +44,7 @@ export interface IContainerFactory<
     CONTROL_STATES,
     ACTIONS | Actions<CONTROL_STATES, MUTATIONS, P>
   >;
-  addTransformation<C extends Transformation<TYPE>>(
+  addTransformation<C extends Transformation<TYPE, CONTROL_STATES>>(
     transformer: C
   ): IContainerFactory<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
   addStepReaction<

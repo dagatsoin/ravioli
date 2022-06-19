@@ -7,7 +7,7 @@ test("Give a ref to the model in case of no representation", function () {
 
 it("should have a representation", function () {
   const container = createContainer<{ hp: number }>()
-    .addTransformation((model) => ({ health: model.hp }))
+    .addTransformation(({data}) => ({ health: data.hp }))
     .create({ hp: 3 });
   expect(container.representationRef.current).toBeDefined();
 });
@@ -77,7 +77,7 @@ describe("complete use case", function () {
       predicate: (args) => args.data.hp < 2,
       effect: ({ actions }) => actions.heal(),
     })
-    .addTransformation((model) => ({ health: model.hp }))
+    .addTransformation(({data}) => ({ health: data.hp }))
     .create({ hp: 25 });
 
   it("should be alive first", function () {
