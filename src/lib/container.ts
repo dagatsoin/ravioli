@@ -61,10 +61,7 @@ export class ContainerFactory<
       
   public acceptors: Record<
     string,
-    {
-      condition?: (model: TYPE) => boolean;
-      mutator: (model: TYPE, payload: any) => void;
-    }
+    Acceptor<TYPE, MUTATIONS>
     > = {};
   public controlStatePredicates: Array<
     [CONTROL_STATES, CSPredicate<TYPE, MUTATIONS, CONTROL_STATES>]

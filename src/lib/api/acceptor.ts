@@ -1,9 +1,9 @@
 import { ArrayType, ToLiteral } from "./helpers.type";
 
-type Condition<P> = (payload: P) => boolean;
+type Condition<M, P> = (modelData: M, payload: P) => boolean;
 
 export type Acceptor<M, P> = {
-  condition?: Condition<P>;
+  condition?: Condition<M, P>;
   mutator: Mutator<M, P>;
 };
 

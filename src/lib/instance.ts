@@ -192,7 +192,7 @@ export class Instance<
       // Acceptor exists
       const acceptor: Acceptor<any, any> | undefined = this.factory.acceptors[type];
       // Acceptor condition
-      if (acceptor.condition === undefined || acceptor.condition(payload)) {
+      if (acceptor.condition === undefined || acceptor.condition(this.data, payload)) {
         // Do the mutation
         acceptor.mutator(this.data, payload);
         return true;
