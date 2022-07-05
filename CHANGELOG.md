@@ -1,7 +1,15 @@
-# Change Log
+# Changelog
 
-All notable changes to this project will be documented in this file.
-See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+
+## [1.3.0-beta.1](https://github.com/dagatsoin/ravioli/compare/v1.2.4...v1.3.0-beta.1) (2022-07-05)
+
+
+### Features
+
+* container is now instanciable ([2bc3328](https://github.com/dagatsoin/ravioli/commit/2bc3328937c5f6d758a472797fdd56b95f376d87))
+* mutation condition receices the model data ([0f28632](https://github.com/dagatsoin/ravioli/commit/0f2863211dfa3b5bcb14def924a88165f8f1e799))
+* transformer now has access to control states ([7daf32e](https://github.com/dagatsoin/ravioli/commit/7daf32e1b9a8dc800960ba2660d920c34e01d7c0))
 
 ## [1.2.4](https://github.com/dagatsoin/ravioli/compare/v1.2.3...v1.2.4) (2020-04-06)
 
