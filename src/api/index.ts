@@ -8,10 +8,25 @@ import { Transformation } from "../lib/api/transformer";
 import { ContainerFactory, ContainerOption } from "../lib/container";
 
 export interface IContainerFactory<
+  /**
+   * The internal type of the model
+   */
   TYPE,
+  /**
+   * The mutations names used by this container
+   */
   MUTATIONS extends Mutation<any, any> = { type: never; payload: never },
+  /**
+   * The control states names used by this container
+   */
   CONTROL_STATES extends string = never,
+  /**
+   * All the actions used by this container.
+   */
   ACTIONS = never,
+  /**
+   * The representation type. By default it is the model type.
+   */
   REPRESENTATION = TYPE
 > {
   addAcceptor<N extends string, M extends Acceptor<TYPE, any>>(
@@ -62,12 +77,13 @@ export interface IContainerFactory<
   >;
   create(
     initialValue: TYPE
-  ): {
-    controlStates: CONTROL_STATES[];
-    representationRef: { current: REPRESENTATION };
-    actions: ACTIONS;
-    compose(composer: ActionComposer<ACTIONS, MUTATIONS>): void;
-  };
+  ): IInstance<
+    TYPE,
+    MUTATIONS,
+    CONTROL_STATES,
+    ACTIONS,
+    REPRESENTATION
+  >
 }
 
 export function createContainer<T>(): IContainerFactory<T> {
@@ -82,9 +98,28 @@ export interface IInstance<
   ACTIONS = never,
   REPRESENTATION = TYPE
 > {
+  /**
+   * The current control states ofr the given step. It is a Mobx reactive array.
+   */
   controlStates: CONTROL_STATES[];
+  /**
+   * The current representation synchronised with the model.
+   * It is a reactive object and you can use it in any MobX based
+   * front end.
+   */
   representationRef: { current: REPRESENTATION };
+  /**
+   * The available action for the next step.
+   */
   actions: ACTIONS;
+  /**
+   * The current step nonce.
+   */
   stepId: number;
+  /**
+   * Compose multiple actions in one proposal.
+   * The first argument of the composer callback is the current available actions.
+   * The given callback should return an array of proposal.
+   */
   compose(composer: ActionComposer<ACTIONS, MUTATIONS>): void;
 }

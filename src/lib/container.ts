@@ -171,15 +171,17 @@ export class ContainerFactory<
   create(
     initialValue: TYPE,
     options?: ContainerOption
-  ): {
-    controlStates: CONTROL_STATES[];
-    representationRef: { current: REPRESENTATION };
-    actions: ACTIONS;
-    compose(composer: ActionComposer<ACTIONS, MUTATIONS>): void;
-  } {
+  ): IInstance<
+    TYPE,
+    MUTATIONS,
+    CONTROL_STATES,
+    ACTIONS,
+    REPRESENTATION
+  > {
     const instance = new Instance(initialValue, this, options)
 
     return {
+      stepId: instance.stepId,
       actions: instance.actions,
       controlStates: instance.controlStates,
       representationRef: instance.representationRef,
