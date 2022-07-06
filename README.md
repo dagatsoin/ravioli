@@ -305,16 +305,16 @@ For example, the model can be represented as a 2D array and rendered (viewed) as
 A simpler example:
 ```ts
 // A object ready to send back on the client or inject in the UI.
-const transformerJSON = ({data}) => {({ name: model.name, loot: model.inventory })}
+const transformerJSON = ({model}) => {({ name: model.name, loot: model.inventory })}
 
 // Or directly some html markup
-const transformerHTML = ({data}) => `
+const transformerHTML = ({model}) => `
   <h2>Player inventory:</h2>
   ${
-    data.inventory.length
+    model.inventory.length
       ? `
     <ul>
-      ${data.inventory.map(({ id }) => `<li>${id}</li>`).join("")}
+      ${model.inventory.map(({ id }) => `<li>${id}</li>`).join("")}
     </ul>
     `
       : "empty :("

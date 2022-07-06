@@ -1,7 +1,6 @@
-import { IObservable, IObservableArray, observable, runInAction } from "mobx";
+import { computed, IComputedValue, IObservable, IObservableArray, observable, runInAction } from "mobx";
 import { IInstance } from "../api";
 import { Acceptor, Mutation } from "./api/acceptor";
-import { ActionContext, PackagedActions } from "./api/action";
 import { IProposalBuffer, Proposal, SAMLoop, TaggedProposal } from "./api/presentable";
 import { ContainerFactory, ContainerOption } from "./container";
 import { getControlStates } from "./controlState";
@@ -62,7 +61,7 @@ export class Instance<
 
         // Init representation
         if (this.factory.transformer) {
-            this.representationRef.current = observable(this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
+            this.representationRef.current = observable(this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
         }
         // Or assign the model as the representation one for all.
         else {
@@ -71,9 +70,9 @@ export class Instance<
     }
     private data: TYPE;
     
-    private _stepId = observable.box(0);
-    public get stepId(): number {
-        return this._stepId.get();
+    private _stepId = observable.box(0)
+    public get stepId() {
+      return this._stepId.get();
     }
     
     private currentControlStates: IObservableArray<CONTROL_STATES> = observable([]);    
@@ -95,7 +94,7 @@ export class Instance<
         (mutations, proposal) => mutations.concat(proposal),
         []
       ),
-      { stepId: this.stepId }
+      { stepId: this._stepId.get() }
     );
     this.startStep(taggedProposal);
   };
@@ -104,7 +103,7 @@ export class Instance<
     // The proposal should be tagged with the current step ID
     // If not, that means that is an old payload and the presentation is not possible.
 
-    if (proposal.stepId !== this.stepId) {
+    if (proposal.stepId !== this._stepId.get()) {
       console.info(
         "[RAVIOLI] Tried to present a proposal with a different step id.",
         proposal
@@ -131,9 +130,8 @@ export class Instance<
       if (!acceptedMutations.length) {
         return;
       }
-
       // Model is updated, the new step is validated.
-      this._stepId.set(this._stepId.get() + 1);
+      this._stepId.set(this._stepId.get() + 1)
       // Reset the NAP proposal buffer
       this.NAPproposalBuffer.clear();
       this.NAPproposalBuffer.setStepId(this._stepId.get());
@@ -154,7 +152,7 @@ export class Instance<
 
     // Defer representation update if there is some extra proposal to handle.
     if (this.factory.transformer && (!this.options?.debounceReaction ?? true)) {
-      derivate(this.representationRef.current, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
+      derivate(this.representationRef.current, this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
     }
 
     // Run the static NAP
@@ -182,13 +180,12 @@ export class Instance<
 
     // Refresh the represenation
     if (this.factory.transformer) {
-      derivate(this.representationRef.current, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
+      derivate(this.representationRef.current, this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
     }
   }
 
   private present(proposal: Proposal<MUTATIONS>): MUTATIONS[] {
     return proposal.filter(({ type, payload }) => {
-      console.log(type)
       // Acceptor exists
       const acceptor: Acceptor<any, any> | undefined = this.factory.acceptors[type];
       // Acceptor condition

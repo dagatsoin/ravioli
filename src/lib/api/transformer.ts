@@ -3,8 +3,8 @@ import { Mutation } from "./acceptor";
 import { Predicate } from "./predicate";
 
 export type Transformation<TYPE, CONTROL_STATES> = ({
-  data, controlStates
-}: {data: TYPE, controlStates: IObservableArray<CONTROL_STATES>}) => any;
+  model, controlStates
+}: {model: TYPE, controlStates: IObservableArray<CONTROL_STATES>}) => any;
 export type RepresentationPredicate<
   TYPE,
   MUTATION extends Mutation<any, any>,

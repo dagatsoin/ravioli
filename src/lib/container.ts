@@ -1,4 +1,3 @@
-import { IObservable, IObservableArray, observable, runInAction } from "mobx";
 import { IContainerFactory, IInstance } from "..";
 import {
   Acceptor,
@@ -12,11 +11,9 @@ import {
   PackagedActions,
   SyncAction
 } from "./api/action";
-import { ActionComposer } from "./api/composer";
 import { ToLiteral } from "./api/helpers.type";
 import { CSPredicate } from "./api/predicate";
 import {
-  IProposalBuffer,
   Proposal,
   SAMLoop,
   TaggedProposal
@@ -24,9 +21,6 @@ import {
 import { Instance } from "./instance"
 import { StepReaction } from "./api/stepReaction";
 import { Transformation } from "./api/transformer";
-import { getControlStates } from "./controlState";
-import { derivate } from "./derivate";
-import { createNAPProposalBuffer } from "./proposalBuffer";
 
 export interface ContainerOption {
   /**
@@ -181,7 +175,7 @@ export class ContainerFactory<
     const instance = new Instance(initialValue, this, options)
 
     return {
-      stepId: instance.stepId,
+      get stepId() { return instance.stepId },
       actions: instance.actions,
       controlStates: instance.controlStates,
       representationRef: instance.representationRef,
