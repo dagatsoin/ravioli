@@ -7,7 +7,9 @@ Ravioli are like spaghetti bolognese, but minified and well organized. Also, it 
 
 ## Installation
 
-`$npm install --save @warfog/ravioli`
+`$npm install --save mobx @warfog/ravioli`
+
+Bon appétit.
 
 ## Basic exemple: 
 
