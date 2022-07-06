@@ -1,4 +1,4 @@
-import { IObservable, IObservableArray, observable, runInAction } from "mobx";
+import { computed, IComputedValue, IObservable, IObservableArray, observable, runInAction } from "mobx";
 import { IInstance } from "../api";
 import { Acceptor, Mutation } from "./api/acceptor";
 import { IProposalBuffer, Proposal, SAMLoop, TaggedProposal } from "./api/presentable";
@@ -70,9 +70,9 @@ export class Instance<
     }
     private data: TYPE;
     
-    private _stepId = 0;
-    public get stepId(): number {
-        return this._stepId;
+    private _stepId = observable.box(0)
+    public get stepId() {
+      return this._stepId.get();
     }
     
     private currentControlStates: IObservableArray<CONTROL_STATES> = observable([]);    
@@ -94,7 +94,7 @@ export class Instance<
         (mutations, proposal) => mutations.concat(proposal),
         []
       ),
-      { stepId: this.stepId }
+      { stepId: this._stepId.get() }
     );
     this.startStep(taggedProposal);
   };
@@ -103,7 +103,7 @@ export class Instance<
     // The proposal should be tagged with the current step ID
     // If not, that means that is an old payload and the presentation is not possible.
 
-    if (proposal.stepId !== this.stepId) {
+    if (proposal.stepId !== this._stepId.get()) {
       console.info(
         "[RAVIOLI] Tried to present a proposal with a different step id.",
         proposal
@@ -131,10 +131,10 @@ export class Instance<
         return;
       }
       // Model is updated, the new step is validated.
-      this._stepId++
+      this._stepId.set(this._stepId.get() + 1)
       // Reset the NAP proposal buffer
       this.NAPproposalBuffer.clear();
-      this.NAPproposalBuffer.setStepId(this._stepId);
+      this.NAPproposalBuffer.setStepId(this._stepId.get());
 
       // After each step, trigger all control state predicates
       this.currentControlStates.replace(
