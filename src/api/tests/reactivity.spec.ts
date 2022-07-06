@@ -31,11 +31,12 @@ describe("reactivity", function() {
     test("control states", function() {
         let isRan = false
         expect(user.controlStates).toEqual(["IS_ALIVE"])
-        reaction(
+        const dispose = reaction(
             () => user.controlStates[0],
             cs => {
                 isRan = true
                 expect(cs).toBe("IS_DEAD")
+                dispose()
             }
         )
         user.actions.setHP({hp: 0})
