@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0-beta.2](https://github.com/dagatsoin/ravioli/compare/v1.3.0-beta.1...v1.3.0-beta.2) (2022-07-06)
+
+
+### Bug Fixes
+
+* reactivity ([b3e48a6](https://github.com/dagatsoin/ravioli/commit/b3e48a62b53d933fbb7a995c98fb3ef81592c06f))
+* step nonce is not update ([43d60f1](https://github.com/dagatsoin/ravioli/commit/43d60f1ef87bb872f5dabfe51b52200774ca8d74))
+
 ## [1.3.0-beta.1](https://github.com/dagatsoin/ravioli/compare/v1.2.4...v1.3.0-beta.1) (2022-07-05)
 
 
