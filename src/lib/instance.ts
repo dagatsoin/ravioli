@@ -1,7 +1,6 @@
 import { IObservable, IObservableArray, observable, runInAction } from "mobx";
 import { IInstance } from "../api";
 import { Acceptor, Mutation } from "./api/acceptor";
-import { ActionContext, PackagedActions } from "./api/action";
 import { IProposalBuffer, Proposal, SAMLoop, TaggedProposal } from "./api/presentable";
 import { ContainerFactory, ContainerOption } from "./container";
 import { getControlStates } from "./controlState";
@@ -71,9 +70,9 @@ export class Instance<
     }
     private data: TYPE;
     
-    private _stepId = observable.box(0);
+    private _stepId = 0;
     public get stepId(): number {
-        return this._stepId.get();
+        return this._stepId;
     }
     
     private currentControlStates: IObservableArray<CONTROL_STATES> = observable([]);    
@@ -131,12 +130,11 @@ export class Instance<
       if (!acceptedMutations.length) {
         return;
       }
-
       // Model is updated, the new step is validated.
-      this._stepId.set(this._stepId.get() + 1);
+      this._stepId++
       // Reset the NAP proposal buffer
       this.NAPproposalBuffer.clear();
-      this.NAPproposalBuffer.setStepId(this._stepId.get());
+      this.NAPproposalBuffer.setStepId(this._stepId);
 
       // After each step, trigger all control state predicates
       this.currentControlStates.replace(
@@ -188,7 +186,6 @@ export class Instance<
 
   private present(proposal: Proposal<MUTATIONS>): MUTATIONS[] {
     return proposal.filter(({ type, payload }) => {
-      console.log(type)
       // Acceptor exists
       const acceptor: Acceptor<any, any> | undefined = this.factory.acceptors[type];
       // Acceptor condition

@@ -181,7 +181,7 @@ export class ContainerFactory<
     const instance = new Instance(initialValue, this, options)
 
     return {
-      stepId: instance.stepId,
+      get stepId() { return instance.stepId },
       actions: instance.actions,
       controlStates: instance.controlStates,
       representationRef: instance.representationRef,
