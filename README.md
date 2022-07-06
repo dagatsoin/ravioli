@@ -3,33 +3,40 @@
 
 Ravioli are like spaghetti bolognese, but minified and well organized. Also, it does not spread when you are hurry.
 
-# Installation
+# TLDR;
+
+## Installation
 
 `$npm install --save @warfog/ravioli`
 
-TLDR;
+## Basic exemple: 
+
 ```ts
 const user = createContainer<{ name: string }>()
+    // How the model is mutated
     .addAcceptor("setName", {
         mutator(model, { name }: { name: string }) {
             model.name = name;
         },
     })
+    // Map an action will be trigger the mutation (with the same argument)
     .addActions({ rename: "setName" })
+    // Create an instance
     .create({ name: "Fraktos" });
 
-//mobx autorun
+// You can use it with MobX
 autorun(() => console.log(user.representationRef.current.name))
 
+// Trigger a "rename" action
 user.actions.rename({ name: "Fraktar" });
-
+// Will log:
 // Fraktos
 // Fraktar
 ```
 
 # API
 
-API documentation is available in [separate doc](doc/README.md)
+API documentation is auto generated and available in a [separate doc](https://github.com/dagatsoin/ravioli/tree/master/doc)
 
 # Deep dive
 
@@ -94,10 +101,11 @@ View and Model isolation. The view (as the compiled representation of the model)
 This allows only certains actions when the component is in specific state.
 
 For example: Player can be Alive or Dead and its actions can be mapped as:
-- ALive: hit, move
-- Dead: revive, spawn in cimetery
-Those states being isolated, there is no chance that a Dead Player shots an Alive Player. Out of the box, without additional code.
 
+- Alive: hit, move
+- Dead: revive, spawn in cimetery
+
+Those states being isolated, there is no chance that a Dead Player shots an Alive Player.
 
 ## Ravioli is based on temporal logic.
 Each component has its own logic clock. Each step is like the tick of a clock. A step starts with the trigger of an action and ends with a new representation.
@@ -338,23 +346,3 @@ Each component is instantiated with a default representation which is an exact s
 const container = createContainer<{ hp: number }>().create({ hp: 3 });
 console.log(container.representationRef.current.hp) // 3
 ```
-
-# Licence
-
-For now Ravioli has no licence and is not free to use commercialy. That means you can experience with it or do non commercial open source with it but not use it for commercial purpose.
-As I need to to eat, I am thinking about paid service to support the development. I will update this section when my plans will be ready.
-
-# Performance
-
-Ravioli is not written with performance in mind but developper experience in mind. Treat a 100k+ array of complexe objects in no time is out of scope here.
-However, the performance it provides is quite descent from the majority of the app.
-And a lot of performance improvements should be still possible (use proxy instead of getter/setter to minimize memory heap, lazy props evaluation, cache some node values, ...)   
-
-## Dev
-
-### VSCode remote friendly.
-
-This project is compatible with VS Code remote.
-
-1. Install and launch Docker
-2. Open the project in VS Code, click "Open in a container" on the lower right pop up.
