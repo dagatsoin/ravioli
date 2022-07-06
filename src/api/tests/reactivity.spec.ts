@@ -11,36 +11,48 @@ describe("reactivity", function() {
         rename: "setName",
         setHP: "setHP",
     })
-    .addTransformation((model) => ({...model}))
+    .addTransformation(({model}) => ({...model}))
     .create({name: "Fraktos", hp: 1})
 
     test("stepId", function() {
-        let isRun = false
+        let isRan = false
         const dispose = reaction(
             () => user.stepId,
             stepId => {
-                isRun = true
-                console.log("RUN1")
+                isRan = true
                 expect(stepId).toBe(1)
                 dispose()
             }
         )
         user.actions.rename({name: "Fraktar"})
-        expect(isRun).toBeTruthy()
+        expect(isRan).toBeTruthy()
     })
 
     test("control states", function() {
-        let isRun = false
+        let isRan = false
         expect(user.controlStates).toEqual(["IS_ALIVE"])
         reaction(
             () => user.controlStates[0],
             cs => {
-                isRun = true
-                console.log("RUN2")
+                isRan = true
                 expect(cs).toBe("IS_DEAD")
             }
         )
         user.actions.setHP({hp: 0})
-        expect(isRun).toBeTruthy()
+        expect(isRan).toBeTruthy()
+    })
+
+    test("representation", function() {
+        let isRan = false
+        expect(user.representationRef.current.hp).toEqual(0)
+        reaction(
+            () => user.representationRef.current.hp,
+            hp => {
+                isRan = true
+                expect(hp).toBe(1)
+            }
+        )
+        user.actions.setHP({hp: 1})
+        expect(isRan).toBeTruthy()
     })
 })

@@ -8,7 +8,7 @@ describe("representation", function () {
 
     it("should set a custom transformation", function() {
         const container = createContainer<{ hp: number }>()
-            .addTransformation(({data}) => ({ health: data.hp }))
+            .addTransformation(({model}) => ({ health: model.hp }))
             .create({ hp: 3 });
         expect(container.representationRef.current).toBeDefined();
     });

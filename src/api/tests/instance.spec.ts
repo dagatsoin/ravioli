@@ -34,7 +34,7 @@ describe("complete use case", function () {
       predicate: (args) => args.data.hp < 3,
       effect: ({ actions }) => actions.heal(),
     })
-    .addTransformation(({data}) => ({ health: data.hp }))
+    .addTransformation(({model: data}) => ({ health: data.hp }))
     .create({ hp: 5 });
 
   it("should be alive first", function () {
