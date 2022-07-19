@@ -5,7 +5,7 @@ import { ToLiteral } from "../lib/api/helpers.type";
 import { CSPredicate } from "../lib/api/predicate";
 import { StepReaction } from "../lib/api/stepReaction";
 import { Transformation } from "../lib/api/transformer";
-import { ContainerFactory } from "../lib/container";
+import { ContainerFactory, ContainerOption } from "../lib/container";
 
 export interface IContainerFactory<
   /**
@@ -76,7 +76,8 @@ export interface IContainerFactory<
     REPRESENTATION
   >;
   create(
-    initialValue: TYPE
+    initialValue: TYPE,
+    options?: ContainerOption
   ): IInstance<
     TYPE,
     MUTATIONS,
