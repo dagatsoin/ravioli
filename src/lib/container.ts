@@ -72,6 +72,10 @@ export class ContainerFactory<
 
   constructor() {}
 
+  get Mutations(): MUTATIONS {
+    throw new Error("Mutations property is for typing purpose only. Don't use it.")
+  }
+
   addAcceptor<N extends string, M extends Acceptor<TYPE, any>>(
     name: N,
     acceptor: M

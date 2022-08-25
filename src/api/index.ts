@@ -85,6 +85,11 @@ export interface IContainerFactory<
     ACTIONS,
     REPRESENTATION
   >
+  /**
+   * For typing only.
+   * @throws Don't try to access this property.
+   */
+  Mutations: MUTATIONS
 }
 
 export function createContainer<T>(): IContainerFactory<T> {

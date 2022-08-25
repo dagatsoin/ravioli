@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0-beta.7](https://github.com/dagatsoin/ravioli/compare/v1.3.0-beta.6...v1.3.0-beta.7) (2022-08-25)
+
+
+### Features
+
+* add Mutations type for typing purpose ([58a3454](https://github.com/dagatsoin/ravioli/commit/58a3454bdc46eb62a2ae7a9342a55615a5ada759))
+
 ## [1.3.0-beta.6](https://github.com/dagatsoin/ravioli/compare/v1.3.0-beta.5...v1.3.0-beta.6) (2022-07-19)
 
 
