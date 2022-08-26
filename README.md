@@ -345,10 +345,12 @@ Here is how to solve this:
 const container = createContainer<{ hp: number }>()
   .addAcceptor("setHealth", { mutator: (model, hp: number) => model.hp = hp})
   .addActions({setHealth: "setHealth"})
-  .addStaticTransformation(({model}) => {
+  .addStaticTransformation(({model, actions}) => {
       nbOfComputation++
       return {
           useHealth: () => model.hp
+          // you have also access to actions
+          setHealth: actions.setHealth
       }
   })
   .create({ hp: 3 });

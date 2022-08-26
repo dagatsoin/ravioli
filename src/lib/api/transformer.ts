@@ -9,11 +9,10 @@ export type Transformation<TYPE, CONTROL_STATES> = ({
 /**
  * A static representation is only computed once at the container creation.
  * During the computation, the model is injected and is bound to the returned value.
- * Its purposes is too enable model abstraction with a set of accessors. For example
- * some React hooks.
- * It performs way better than classic transformation as it is only computed once.
+ * Its purposes is to enable model abstraction with a set of accessors. For example some React hooks.
+ * It performs way better than classic transformation as it is only computed once. Plus it has access to the instance actions.
  */
-export type StaticTransformation<TYPE> = ({ model }: {model: TYPE }) => any;
+export type StaticTransformation<TYPE, ACTIONS> = ({ model }: {model: TYPE, actions: ACTIONS }) => any;
 
 export type RepresentationPredicate<
   TYPE,
