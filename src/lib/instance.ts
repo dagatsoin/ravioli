@@ -36,7 +36,6 @@ export class Instance<
             ACTIONS,
             REPRESENTATION
         >,
-        private hasStaticTransformation: boolean,
         private options?: ContainerOption,
     ){
         // The data is now observable
@@ -61,11 +60,11 @@ export class Instance<
         );
 
         // Init representation
-        if (this.factory.transformer) {
+        if (!!this.factory.staticTransformer || !!this.factory.transformer) {
           // The instance has a static tranformation, only computed once.
-          if (this.hasStaticTransformation) {
-            this.representationRef.current = this.factory.transformer({model: this.data, controlStates: observable([])}) // pass empty array observable to honor typing.
-          } else {
+          if (this.factory.staticTransformer) {
+            this.representationRef.current = this.factory.staticTransformer({model: this.data, actions: this.actions })
+          } else if (this.factory.transformer){
             this.representationRef.current = observable(this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
           }
         }
@@ -157,7 +156,7 @@ export class Instance<
     this.isRunningNAP = true;
 
     // Defer representation update if there is some extra proposal to handle.
-    if (this.factory.transformer && (!this.options?.debounceReaction ?? true) && !this.hasStaticTransformation) {
+    if (this.factory.transformer && (!this.options?.debounceReaction ?? true)) {
       derivate(this.representationRef.current, this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
     }
 
@@ -185,7 +184,7 @@ export class Instance<
     }
 
     // Refresh the represenation
-    if (this.factory.transformer && !this.hasStaticTransformation) {
+    if (this.factory.transformer) {
       derivate(this.representationRef.current, this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
     }
   }

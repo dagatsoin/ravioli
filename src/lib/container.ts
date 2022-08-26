@@ -61,6 +61,7 @@ export class ContainerFactory<
     [CONTROL_STATES, CSPredicate<TYPE, MUTATIONS, CONTROL_STATES>]
   > = [];
   public transformer?: Transformation<TYPE, CONTROL_STATES>;
+  public staticTransformer?: StaticTransformation<TYPE, ACTIONS>;
   public stepReactions: Array<{
     name: string;
     reaction: StepReaction<any, any, any, any>;
@@ -69,8 +70,6 @@ export class ContainerFactory<
   public originalActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
 
   private packagedActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
-  // Flag to pass to the instance for correct computation strategy
-  private hasStaticTransformation = false;
 
   constructor() {}
 
@@ -160,9 +159,8 @@ export class ContainerFactory<
     return this;
   }
 
-  addStaticTransformation<C extends StaticTransformation<TYPE>>(transformer: C): any {
-    this.transformer = transformer;
-    this.hasStaticTransformation = true;
+  addStaticTransformation<C extends StaticTransformation<TYPE, ACTIONS>>(transformer: C): any {
+    this.staticTransformer = transformer;
     return this  
   }
 
@@ -184,7 +182,7 @@ export class ContainerFactory<
     ACTIONS,
     REPRESENTATION
   > {
-    const instance = new Instance(initialValue, this, this.hasStaticTransformation, options)
+    const instance = new Instance(initialValue, this, options)
 
     return {
       get stepId() { return instance.stepId },

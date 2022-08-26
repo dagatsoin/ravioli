@@ -18,17 +18,18 @@ describe("representation", function () {
         const container = createContainer<{ hp: number }>()
             .addAcceptor("setHealth", { mutator: (model, hp: number) => model.hp = hp})
             .addActions({setHealth: "setHealth"})
-            .addStaticTransformation(({model}) => {
+            .addStaticTransformation(({model, actions}) => {
                 nbOfComputation++
                 return {
-                    useHealth: () => model.hp
+                    useHealth: () => model.hp,
+                    setHealth: actions.setHealth
                 }
             })
             .create({ hp: 3 });
         expect(nbOfComputation).toBe(1)
         expect(container.representationRef.current.useHealth()).toBe(3);
         // change hp
-        container.actions.setHealth(4)
+        container.representationRef.current.setHealth(4)
         expect(nbOfComputation).toBe(1)
         expect(container.representationRef.current.useHealth()).toBe(4);
     })
