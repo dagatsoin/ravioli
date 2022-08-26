@@ -4,7 +4,7 @@ import { ActionComposer } from "../lib/api/composer";
 import { ToLiteral } from "../lib/api/helpers.type";
 import { CSPredicate } from "../lib/api/predicate";
 import { StepReaction } from "../lib/api/stepReaction";
-import { Transformation } from "../lib/api/transformer";
+import { StaticTransformation, Transformation } from "../lib/api/transformer";
 import { ContainerFactory, ContainerOption } from "../lib/container";
 
 export interface IContainerFactory<
@@ -60,6 +60,9 @@ export interface IContainerFactory<
     ACTIONS | Actions<CONTROL_STATES, MUTATIONS, P>
   >;
   addTransformation<C extends Transformation<TYPE, CONTROL_STATES>>(
+    transformer: C
+  ): IContainerFactory<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
+  addStaticTransformation<C extends StaticTransformation<TYPE>>(
     transformer: C
   ): IContainerFactory<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
   addStepReaction<
