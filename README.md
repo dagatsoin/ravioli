@@ -332,6 +332,28 @@ const transformerHTML = ({model}) => `
   `;
 ```
 
+### Static representation
+Representation is computed at each step. It could be expensive in some case. Plus, transformation does not support function as a result.
+
+Use case:
+you want to abstract the model with a bunch of React hooks. For example your model has a `healthPoint` field and you want to expose a hook
+like `useHP()`.
+
+Here is how to solve this:
+
+```ts
+const container = createContainer<{ hp: number }>()
+  .addAcceptor("setHealth", { mutator: (model, hp: number) => model.hp = hp})
+  .addActions({setHealth: "setHealth"})
+  .addStaticTransformation(({model}) => {
+      nbOfComputation++
+      return {
+          useHealth: () => model.hp
+      }
+  })
+  .create({ hp: 3 });
+```
+
 ### Reactivity
 Ravioli use Mobx under the hood to make the representation reactive.
 

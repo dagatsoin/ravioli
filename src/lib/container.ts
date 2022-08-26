@@ -20,7 +20,7 @@ import {
 } from "./api/presentable";
 import { Instance } from "./instance"
 import { StepReaction } from "./api/stepReaction";
-import { Transformation } from "./api/transformer";
+import { StaticTransformation, Transformation } from "./api/transformer";
 
 export interface ContainerOption {
   /**
@@ -69,6 +69,8 @@ export class ContainerFactory<
   public originalActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
 
   private packagedActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
+  // Flag to pass to the instance for correct computation strategy
+  private hasStaticTransformation = false;
 
   constructor() {}
 
@@ -158,6 +160,12 @@ export class ContainerFactory<
     return this;
   }
 
+  addStaticTransformation<C extends StaticTransformation<TYPE>>(transformer: C): any {
+    this.transformer = transformer;
+    this.hasStaticTransformation = true;
+    return this  
+  }
+
   addStepReaction(
     name: string,
     reaction: StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
@@ -176,7 +184,7 @@ export class ContainerFactory<
     ACTIONS,
     REPRESENTATION
   > {
-    const instance = new Instance(initialValue, this, options)
+    const instance = new Instance(initialValue, this, this.hasStaticTransformation, options)
 
     return {
       get stepId() { return instance.stepId },
