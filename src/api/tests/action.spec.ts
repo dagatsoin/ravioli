@@ -79,8 +79,9 @@ test("asynchronous action", function (done) {
         },
       },
     })
-    .addStepReaction("stop", {
-      effect() {
+    .addStepReaction({
+      debugName: "stop",
+      do() {
         expect(app.representationRef.current.isStale).toBeFalsy();
         done();
       },
@@ -116,10 +117,10 @@ it("should cancel the asynchronous save action", function () {
         return [];
       },
     })
-    .addStepReaction("", {
-      predicate: ({ delta: { acceptedMutations } }) =>
+    .addStepReaction({
+      when: ({ delta: { acceptedMutations } }) =>
         !acceptedMutations.length,
-      effect: () => {
+      do: () => {
         expect(app.representationRef.current.isStale).toBeTruthy();
       },
     })

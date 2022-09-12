@@ -68,10 +68,10 @@ export interface IContainerFactory<
   addStepReaction<
     I extends string,
     R extends StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
-  >(
-    name: I,
-    reaction: R
-  ): IContainerFactory<
+  >(args: StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS> & {
+    debugName?: string,
+    once?: boolean,
+  }): IContainerFactory<
     TYPE,
     MUTATIONS,
     CONTROL_STATES,

@@ -1,6 +1,6 @@
-warfog.ravioli
+@warfog/ravioli
 
-# warfog.ravioli
+# @warfog/ravioli
 
 ## Table of contents
 

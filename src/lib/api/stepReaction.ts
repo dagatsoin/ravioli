@@ -6,11 +6,11 @@ export type StepReaction<
   CONTROL_STATES_PREDICATES extends string,
   ACTIONS
 > = {
-  predicate?(args: {
+  when?(args: {
     delta: Delta<MUTATION, CONTROL_STATES_PREDICATES>;
     data: TYPE;
   }): boolean;
-  effect(args: {
+  do(args: {
     delta: Delta<MUTATION, CONTROL_STATES_PREDICATES>;
     data: TYPE;
     actions: ACTIONS;

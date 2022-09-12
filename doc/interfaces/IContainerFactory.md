@@ -1,4 +1,4 @@
-[warfog.ravioli](../README.md) / IContainerFactory
+[@warfog/ravioli](../README.md) / IContainerFactory
 
 # Interface: IContainerFactory<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION\>
 
@@ -14,14 +14,35 @@
 
 ## Table of contents
 
+### Properties
+
+- [Mutations](IContainerFactory.md#mutations)
+
 ### Methods
 
 - [addAcceptor](IContainerFactory.md#addacceptor)
 - [addActions](IContainerFactory.md#addactions)
 - [addControlStatePredicate](IContainerFactory.md#addcontrolstatepredicate)
+- [addStaticTransformation](IContainerFactory.md#addstatictransformation)
 - [addStepReaction](IContainerFactory.md#addstepreaction)
 - [addTransformation](IContainerFactory.md#addtransformation)
 - [create](IContainerFactory.md#create)
+
+## Properties
+
+### Mutations
+
+• **Mutations**: `MUTATIONS`
+
+For typing only.
+
+**`Throws`**
+
+Don't try to access this property.
+
+#### Defined in
+
+[index.ts:95](https://github.com/dagatsoin/ravioli/blob/9362e0d/src/api/index.ts#L95)
 
 ## Methods
 
@@ -94,9 +115,31 @@ ___
 
 ___
 
+### addStaticTransformation
+
+▸ **addStaticTransformation**<`C`\>(`transformer`): [`IContainerFactory`](IContainerFactory.md)<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS`, `ReturnType`<`C`\>\>
+
+#### Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `C` | extends `StaticTransformation`<`TYPE`, `ACTIONS`\> |
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `transformer` | `C` |
+
+#### Returns
+
+[`IContainerFactory`](IContainerFactory.md)<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS`, `ReturnType`<`C`\>\>
+
+___
+
 ### addStepReaction
 
-▸ **addStepReaction**<`I`, `R`\>(`name`, `reaction`): [`IContainerFactory`](IContainerFactory.md)<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS`, `REPRESENTATION`\>
+▸ **addStepReaction**<`I`, `R`\>(`args`): [`IContainerFactory`](IContainerFactory.md)<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS`, `REPRESENTATION`\>
 
 #### Type parameters
 
@@ -109,8 +152,7 @@ ___
 
 | Name | Type |
 | :------ | :------ |
-| `name` | `I` |
-| `reaction` | `R` |
+| `args` | `StepReaction`<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS`\> & { `debugName?`: `string` ; `once?`: `boolean`  } |
 
 #### Returns
 
@@ -142,13 +184,14 @@ ___
 
 ### create
 
-▸ **create**(`initialValue`): [`IInstance`](IInstance.md)<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS`, `REPRESENTATION`\>
+▸ **create**(`initialValue`, `options?`): [`IInstance`](IInstance.md)<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS`, `REPRESENTATION`\>
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
 | `initialValue` | `TYPE` |
+| `options?` | `ContainerOption` |
 
 #### Returns
 

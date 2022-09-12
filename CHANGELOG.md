@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0-beta.11](https://github.com/dagatsoin/ravioli/compare/v1.3.0-beta.6...v1.3.0-beta.11) (2022-09-12)
+
+
+### Features
+
+* add Mutations type for typing purpose ([58a3454](https://github.com/dagatsoin/ravioli/commit/58a3454bdc46eb62a2ae7a9342a55615a5ada759))
+* add static transformation ([776ad67](https://github.com/dagatsoin/ravioli/commit/776ad6770079df7b5b3c2cde8a0aed006cdc8c3a))
+* inject actions in static transformer ([630223f](https://github.com/dagatsoin/ravioli/commit/630223f48e241c1a89c695cf0c55b73bfadbd3bd))
+
 ## [1.3.0-beta.10](https://github.com/dagatsoin/ravioli/compare/v1.3.0-beta.6...v1.3.0-beta.10) (2022-08-26)
 
 
