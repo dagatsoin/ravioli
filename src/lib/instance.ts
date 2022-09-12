@@ -2,6 +2,7 @@ import { computed, IComputedValue, IObservable, IObservableArray, observable, ru
 import { IInstance } from "../api";
 import { Acceptor, Mutation } from "./api/acceptor";
 import { IProposalBuffer, Proposal, SAMLoop, TaggedProposal } from "./api/presentable";
+import { StepReaction } from "./api/stepReaction";
 import { ContainerFactory, ContainerOption } from "./container";
 import { getControlStates } from "./controlState";
 import { derivate } from "./derivate";
@@ -29,6 +30,10 @@ export class Instance<
 
     constructor(
         data: TYPE,
+        reactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS> & {
+          debugName?: string,
+          once?: boolean,
+        }>,
         private factory: ContainerFactory<
             TYPE,
             MUTATIONS,
@@ -41,6 +46,8 @@ export class Instance<
         // The data is now observable
         // ISSUE: do we need make it observable?
         this.data  = (observable(data as Record<string, unknown>) as unknown) as TYPE;
+
+        this.stepReactions = [...reactions]
 
         // Bind action to instance
         Object.keys(factory.wrapedActions).map((k) => {
@@ -74,7 +81,16 @@ export class Instance<
         }
     }
     private data: TYPE;
-    
+    public stepReactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS> & {
+      debugName?: string,
+      once?: boolean,
+    }> = [];
+    private disposeReaction(effect: StepReaction<any, any, any, any>["do"]) {
+      const index = this.stepReactions.findIndex((r) => r.do === effect)
+      if (index > -1 ) {
+        this.stepReactions.splice(index, 1)
+      }
+    }
     private _stepId = observable.box(0)
     public get stepId() {
       return this._stepId.get();
@@ -170,10 +186,19 @@ export class Instance<
         previousControlStates,
       },
     };
-    this.factory.stepReactions.forEach(({ reaction }) => {
+    this.stepReactions.forEach(({ when: predicate, do: effect, once, debugName }) => {
       // Filter nap which have already ran on the instance
-      if (!reaction.predicate || reaction.predicate(args)) {
-        reaction.effect({ ...args, actions: this.actions });
+      if (!predicate || predicate(args)) {
+          // Run the reaction
+          if (debugName) {
+            console.info("[SAM] reaction:", debugName)
+          }
+          effect({ ...args, actions: this.actions });
+          // If it is a one shot reaction, dispose
+          if (once) {
+            this.disposeReaction(effect)
+          }
+
       }
     });
 

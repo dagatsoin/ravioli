@@ -1,4 +1,4 @@
-[warfog.ravioli](../README.md) / IInstance
+[@warfog/ravioli](../README.md) / IInstance
 
 # Interface: IInstance<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION\>
 
@@ -35,7 +35,7 @@ The available action for the next step.
 
 #### Defined in
 
-[index.ts:114](https://github.com/dagatsoin/ravioli/blob/7daf32e/src/api/index.ts#L114)
+[index.ts:123](https://github.com/dagatsoin/ravioli/blob/9362e0d/src/api/index.ts#L123)
 
 ___
 
@@ -47,7 +47,7 @@ The current control states ofr the given step. It is a Mobx reactive array.
 
 #### Defined in
 
-[index.ts:104](https://github.com/dagatsoin/ravioli/blob/7daf32e/src/api/index.ts#L104)
+[index.ts:113](https://github.com/dagatsoin/ravioli/blob/9362e0d/src/api/index.ts#L113)
 
 ___
 
@@ -67,7 +67,7 @@ front end.
 
 #### Defined in
 
-[index.ts:110](https://github.com/dagatsoin/ravioli/blob/7daf32e/src/api/index.ts#L110)
+[index.ts:119](https://github.com/dagatsoin/ravioli/blob/9362e0d/src/api/index.ts#L119)
 
 ___
 
@@ -79,7 +79,7 @@ The current step nonce.
 
 #### Defined in
 
-[index.ts:118](https://github.com/dagatsoin/ravioli/blob/7daf32e/src/api/index.ts#L118)
+[index.ts:127](https://github.com/dagatsoin/ravioli/blob/9362e0d/src/api/index.ts#L127)
 
 ## Methods
 

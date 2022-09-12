@@ -62,15 +62,15 @@ export class ContainerFactory<
   > = [];
   public transformer?: Transformation<TYPE, CONTROL_STATES>;
   public staticTransformer?: StaticTransformation<TYPE, ACTIONS>;
-  public stepReactions: Array<{
-    name: string;
-    reaction: StepReaction<any, any, any, any>;
-  }> = [];
   public wrapedActions: Record<keyof PackagedActions<CONTROL_STATES, MUTATIONS>, (instance: IInstance<any, any, any, any, any> & SAMLoop) => ActionPackage<ActionContext<CONTROL_STATES>, MUTATIONS>> = {};
   public originalActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
 
   private packagedActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
-
+  private stepReactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS> & {
+    debugName?: string,
+    once?: boolean,
+  }> = [];
+  
   constructor() {}
 
   get Mutations(): MUTATIONS {
@@ -164,11 +164,11 @@ export class ContainerFactory<
     return this  
   }
 
-  addStepReaction(
-    name: string,
-    reaction: StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
-  ): any {
-    this.stepReactions.push({ name, reaction });
+  addStepReaction(reaction: StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS> & {
+    debugName?: string,
+    once?: boolean,
+  }): any {
+    this.stepReactions.push(reaction);
     return this;
   }
 
@@ -182,7 +182,7 @@ export class ContainerFactory<
     ACTIONS,
     REPRESENTATION
   > {
-    const instance = new Instance(initialValue, this, options)
+    const instance = new Instance(initialValue, this.stepReactions, this, options)
 
     return {
       get stepId() { return instance.stepId },

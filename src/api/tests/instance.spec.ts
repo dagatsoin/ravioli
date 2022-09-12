@@ -30,9 +30,10 @@ describe("complete use case", function () {
         ],
       },
     })
-    .addStepReaction("auto heal", {
-      predicate: (args) => args.data.hp < 3,
-      effect: ({ actions }) => actions.heal(),
+    .addStepReaction({
+      debugName: "auto heal",
+      when: (args) => args.data.hp < 3,
+      do: ({ actions }) => actions.heal(),
     })
     .addTransformation(({model: data}) => ({ health: data.hp }))
     .create({ hp: 5 });
