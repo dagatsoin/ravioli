@@ -10,7 +10,7 @@
     "allowSyntheticDefaultImports": true,
     "incremental": true,
     "resolveJsonModule":true,
-    "module": "es2020",
+    "module": "CommonJS",
     "moduleResolution": "node",
     "sourceMap": true,
     "declaration": true,
