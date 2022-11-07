@@ -96,3 +96,19 @@ it("should restore deflect the first shot", function() {
   expect(Fraktar.representationRef.current.hp).toBe(4)
   expect(Dreadbond.representationRef.current.hp).toBe(10)
 })
+
+it("should not rerun reaction when step has not been increased", function() {
+  let ranReactionsNb = 0;
+  const container = createContainer<{ hp: number }>()
+    .addAcceptor("setHP", {
+      condition: (model) => model.hp > 0,
+      mutator: (model, hp) => model.hp === hp
+    })
+    .addActions({setHP: "setHP"})
+    .addStepReaction({ do: () => ranReactionsNb++})
+    .create({ hp: 0 });
+  expect(container.stepId).toBe(0)
+  container.actions.setHP(3) // will be rejected
+  expect(container.stepId).toBe(0)
+  expect(ranReactionsNb).toBe(0)
+})

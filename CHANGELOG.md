@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0-beta.13](https://github.com/dagatsoin/ravioli/compare/v1.3.0-beta.11...v1.3.0-beta.13) (2022-11-07)
+
+
+### Bug Fixes
+
+* reactions are reran on same step ([65e1f7a](https://github.com/dagatsoin/ravioli/commit/65e1f7af0fe306e583395adabb35b21d523b4018))
+
 ## [1.3.0-beta.11](https://github.com/dagatsoin/ravioli/compare/v1.3.0-beta.6...v1.3.0-beta.11) (2022-09-12)
 
 
