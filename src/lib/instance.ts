@@ -144,6 +144,7 @@ export class Instance<
     // The view won't react until the transaction is finished.
     const previousControlStates = this.controlStates.slice();
     const acceptedMutations: MUTATIONS[] = [];
+    let didUpdate = false
     runInAction(() => {
       acceptedMutations.push(...this.present(proposal));
 
@@ -167,50 +168,53 @@ export class Instance<
           keepLastControlStateIfUndefined: this.options?.keepLastControlStateIfUndefined,
         })
       );
+      didUpdate = true
     });
 
-    this.isRunningNAP = true;
+    if (didUpdate) {
+      this.isRunningNAP = true;
 
-    // Defer representation update if there is some extra proposal to handle.
-    if (this.factory.transformer && (!this.options?.debounceReaction ?? true)) {
-      derivate(this.representationRef.current, this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
-    }
-
-    // Run the static NAP
-    const args = {
-      data: this.data,
-      delta: {
-        acceptedMutations,
-        proposal,
-        controlStates: this.currentControlStates,
-        previousControlStates,
-      },
-    };
-    this.stepReactions.forEach(({ when: predicate, do: effect, once, debugName }) => {
-      // Filter nap which have already ran on the instance
-      if (!predicate || predicate(args)) {
-          // Run the reaction
-          if (debugName) {
-            console.info("[SAM] reaction:", debugName)
-          }
-          effect({ ...args, actions: this.actions });
-          // If it is a one shot reaction, dispose
-          if (once) {
-            this.disposeReaction(effect)
-          }
-
+      // Defer representation update if there is some extra proposal to handle.
+      if (this.factory.transformer && (!this.options?.debounceReaction ?? true)) {
+        derivate(this.representationRef.current, this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
       }
-    });
 
-    this.isRunningNAP = false;
+      // Run the static NAP
+      const args = {
+        data: this.data,
+        delta: {
+          acceptedMutations,
+          proposal,
+          controlStates: this.currentControlStates,
+          previousControlStates,
+        },
+      };
+      this.stepReactions.forEach(({ when: predicate, do: effect, once, debugName }) => {
+        // Filter nap which have already ran on the instance
+        if (!predicate || predicate(args)) {
+            // Run the reaction
+            if (debugName) {
+              console.info("[SAM] reaction:", debugName)
+            }
+            effect({ ...args, actions: this.actions });
+            // If it is a one shot reaction, dispose
+            if (once) {
+              this.disposeReaction(effect)
+            }
 
-    if (this.NAPproposalBuffer.length) {
-      this.startStep(this.NAPproposalBuffer.getTaggedProposal());
-    }
+        }
+      });
 
-    // Refresh the represenation
-    if (this.factory.transformer) {
-      derivate(this.representationRef.current, this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
+      this.isRunningNAP = false;
+
+      if (this.NAPproposalBuffer.length) {
+        this.startStep(this.NAPproposalBuffer.getTaggedProposal());
+      }
+
+      // Refresh the represenation
+      if (this.factory.transformer) {
+        derivate(this.representationRef.current, this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
+      }
     }
   }
 
