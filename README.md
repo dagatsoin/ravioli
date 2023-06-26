@@ -17,8 +17,8 @@ Bon appétit.
 const user = createContainer<{ name: string }>()
     // How the model is mutated
     .addAcceptor("setName", {
-        mutator(model, { name }: { name: string }) {
-            model.name = name;
+        mutator(data, { name }: { name: string }) {
+            data.name = name;
         },
     })
     // Map an action will be trigger the mutation (with the same argument)
@@ -183,8 +183,8 @@ The role of the condition is to status is a mutation is acceptable or not. It is
 
 ```ts
 // Rules for health points mutations.
-const checkHP = (model => payload => (
-  model.health > 0 && // the player is alive
+const checkHP = (data => payload => (
+  data.health > 0 && // the player is alive
   payload.hp < MAX_POINT // the health points is legit
 )
 ```
@@ -195,8 +195,8 @@ If the mutation passes the condition, it will be marked as accepted and passed d
 This is where the mutation happens. A mutator is a simple *unpure* function. It returns nothing and mutates the model data.
 
 ```ts
-const setHpMutator = model => payload => (
-  model.health += payload.hp
+const setHpMutator = data => payload => (
+  data.health += payload.hp
 ) 
 ```
 
@@ -211,7 +211,7 @@ Also, Ravioli does not enforce the concept of a FINITE state machine. You can ha
 
 A control state predicate is a pure function of the model.
 ```ts
-const isAlive = model => model.health > 0
+const isAlive = data => data.health > 0
 ```
 The component state exposes the current control states of the model in an array. `myApp.state.controlStates // ['STARTED', 'RUNNING_ONLINE', 'FETCHING']`
 
@@ -315,16 +315,16 @@ For example, the model can be represented as a 2D array and rendered (viewed) as
 A simpler example:
 ```ts
 // A object ready to send back on the client or inject in the UI.
-const transformerJSON = ({model}) => {({ name: model.name, loot: model.inventory })}
+const transformerJSON = ({data}) => {({ name: data.name, loot: data.inventory })}
 
 // Or directly some html markup
-const transformerHTML = ({model}) => `
+const transformerHTML = ({data}) => `
   <h2>Player inventory:</h2>
   ${
-    model.inventory.length
+    data.inventory.length
       ? `
     <ul>
-      ${model.inventory.map(({ id }) => `<li>${id}</li>`).join("")}
+      ${data.inventory.map(({ id }) => `<li>${id}</li>`).join("")}
     </ul>
     `
       : "empty :("
@@ -343,12 +343,12 @@ Here is how to solve this:
 
 ```ts
 const container = createContainer<{ hp: number }>()
-  .addAcceptor("setHealth", { mutator: (model, hp: number) => model.hp = hp})
+  .addAcceptor("setHealth", { mutator: (data, hp: number) => data.hp = hp})
   .addActions({setHealth: "setHealth"})
-  .addStaticTransformation(({model, actions}) => {
+  .addStaticTransformation(({data, actions}) => {
       nbOfComputation++
       return {
-          useHealth: () => model.hp
+          useHealth: () => data.hp
           // you have also access to actions
           setHealth: actions.setHealth
       }

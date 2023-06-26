@@ -23,7 +23,7 @@ type PredicateFunction<
   MUTATION extends Mutation<any, any>,
   CONTROL_STATES = string
 > = (args: {
-  model: T;
+  data: T;
   previousControlStates: CONTROL_STATES[];
   acceptedMutations: MUTATION[];
 }) => boolean;

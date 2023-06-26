@@ -70,9 +70,9 @@ export class Instance<
         if (!!this.factory.staticTransformer || !!this.factory.transformer) {
           // The instance has a static tranformation, only computed once.
           if (this.factory.staticTransformer) {
-            this.representationRef.current = this.factory.staticTransformer({model: this.data, actions: this.actions })
+            this.representationRef.current = this.factory.staticTransformer({data: this.data, actions: this.actions })
           } else if (this.factory.transformer){
-            this.representationRef.current = observable(this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
+            this.representationRef.current = observable(this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
           }
         }
         // Or assign the model as the representation one for all.
@@ -89,7 +89,9 @@ export class Instance<
       const index = this.stepReactions.findIndex((r) => r.do === effect)
       if (index > -1 ) {
         this.stepReactions.splice(index, 1)
+        return true
       }
+      return false
     }
     private _stepId = observable.box(0)
     public get stepId() {
@@ -176,7 +178,7 @@ export class Instance<
 
       // Defer representation update if there is some extra proposal to handle.
       if (this.factory.transformer && (!this.options?.debounceReaction ?? true)) {
-        derivate(this.representationRef.current, this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
+        derivate(this.representationRef.current, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
       }
 
       // Run the static NAP
@@ -189,7 +191,8 @@ export class Instance<
           previousControlStates,
         },
       };
-      this.stepReactions.forEach(({ when: predicate, do: effect, once, debugName }) => {
+      for(let i = 0; i < this.stepReactions.length; i++) {
+        const { when: predicate, do: effect, once, debugName } = this.stepReactions[i]
         // Filter nap which have already ran on the instance
         if (!predicate || predicate(args)) {
             // Run the reaction
@@ -199,11 +202,14 @@ export class Instance<
             effect({ ...args, actions: this.actions });
             // If it is a one shot reaction, dispose
             if (once) {
-              this.disposeReaction(effect)
+              const didDelete = this.disposeReaction(effect)
+              if (didDelete) {
+                i-- // Step back the cursor to compensate the last deleted item.
+              }
             }
 
         }
-      });
+      }
 
       this.isRunningNAP = false;
 
@@ -213,7 +219,7 @@ export class Instance<
 
       // Refresh the represenation
       if (this.factory.transformer) {
-        derivate(this.representationRef.current, this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
+        derivate(this.representationRef.current, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
       }
     }
   }

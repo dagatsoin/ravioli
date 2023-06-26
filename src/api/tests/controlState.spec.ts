@@ -19,7 +19,7 @@ interface Model {
 
 test("Use case with a control state tree", function () {
   const app = createContainer<Model>(/* { keepLastControlStateIfUndefined: true } */)
-    .addControlStatePredicate("OFF", ({ model }) =>
+    .addControlStatePredicate("OFF", ({ data }) =>
       [
         "dataService",
         "accountService",
@@ -31,15 +31,15 @@ test("Use case with a control state tree", function () {
         "chatService",
       ].some(
         (id) =>
-          model.appModel.servicesStatus.every((s) => s.serviceId !== id) ||
-          model.appModel.servicesStatus.some(
+          data.appModel.servicesStatus.every((s) => s.serviceId !== id) ||
+          data.appModel.servicesStatus.some(
             (s) => s.serviceId === id && !s.isRunning
           )
       )
     )
     .addControlStatePredicate(
       "ON",
-      ({ model }) => [
+      ({ data }) => [
         "dataService",
         "accountService",
         "gameMasterService",
@@ -49,87 +49,87 @@ test("Use case with a control state tree", function () {
         "questService",
         "chatService",
       ].every((id) =>
-        model.appModel.servicesStatus.some(
+        data.appModel.servicesStatus.some(
           (s) => s.serviceId === id && s.isRunning
         )
       )
     )
     .addControlStatePredicate(
       "LOGGED_OUT",
-      ({ model }) => model.appModel.loginStatus === "loggedOut"
+      ({ data }) => data.appModel.loginStatus === "loggedOut"
     )
     .addControlStatePredicate(
       "LOGGED_ONLINE",
-      ({ model }) => model.appModel.loginStatus === "loggedOnline"
+      ({ data }) => data.appModel.loginStatus === "loggedOnline"
     )
     .addControlStatePredicate(
       "LOGGED_OFFLINE",
-      ({ model }) => model.appModel.loginStatus === "loggedOffline"
+      ({ data }) => data.appModel.loginStatus === "loggedOffline"
     )
     .addControlStatePredicate(
       "RUNNING_ONLINE",
-      ({ model, previousControlStates }) =>
+      ({ data, previousControlStates }) =>
         (previousControlStates.includes("LOGGED_OUT") &&
-          model.appModel.isSynchronised &&
-          model.appModel.loginStatus === "loggedOnline") ||
+          data.appModel.isSynchronised &&
+          data.appModel.loginStatus === "loggedOnline") ||
         (previousControlStates.includes("LOGGED_ONLINE") &&
-          model.appModel.isSynchronised &&
-          model.appModel.loginStatus === "loggedOnline") ||
+          data.appModel.isSynchronised &&
+          data.appModel.loginStatus === "loggedOnline") ||
         (previousControlStates.includes("RUNNING_OFFLINE" as any) &&
-          model.appModel.isSynchronised &&
-          model.appModel.loginStatus === "loggedOnline") ||
+          data.appModel.isSynchronised &&
+          data.appModel.loginStatus === "loggedOnline") ||
         (previousControlStates.includes("RUNNING_ONLINE") &&
-          model.appModel.isSynchronised &&
-          model.appModel.loginStatus === "loggedOnline")
+          data.appModel.isSynchronised &&
+          data.appModel.loginStatus === "loggedOnline")
     )
     .addControlStatePredicate(
       "RUNNING_OFFLINE",
-      ({ model, previousControlStates }) =>
+      ({ data, previousControlStates }) =>
         (previousControlStates.includes("LOGGED_OUT") &&
-          !!model.userModel._id &&
-          model.appModel.loginStatus === "loggedOffline") ||
+          !!data.userModel._id &&
+          data.appModel.loginStatus === "loggedOffline") ||
         (previousControlStates.includes("LOGGED_OFFLINE") &&
-          !!model.userModel._id.length) ||
+          !!data.userModel._id.length) ||
         (previousControlStates.includes("RUNNING_ONLINE") &&
-          model.appModel.loginStatus !== "loggedOut" &&
-          !model.appModel.isSynchronised) ||
+          data.appModel.loginStatus !== "loggedOut" &&
+          !data.appModel.isSynchronised) ||
         (previousControlStates.includes("RUNNING_OFFLINE") &&
-          ((!!model.userModel._id &&
-            model.appModel.loginStatus === "loggedOffline") ||
-            (model.appModel.loginStatus !== "loggedOut" &&
-              !model.appModel.isSynchronised)))
+          ((!!data.userModel._id &&
+            data.appModel.loginStatus === "loggedOffline") ||
+            (data.appModel.loginStatus !== "loggedOut" &&
+              !data.appModel.isSynchronised)))
     )
     .addAcceptor("setConnected", {
-      mutator(model, { connected: isConnected }: { connected: boolean }) {
-        model.appModel.connexionStatus.connected = isConnected;
+      mutator(data, { connected: isConnected }: { connected: boolean }) {
+        data.appModel.connexionStatus.connected = isConnected;
       },
     })
     .addAcceptor("setLoginStatus", {
-      mutator(model, {
+      mutator(data, {
         loginStatus,
       }: {
-        loginStatus: typeof model.appModel.loginStatus;
+        loginStatus: typeof data.appModel.loginStatus;
       }) {
-        model.appModel.loginStatus = loginStatus;
+        data.appModel.loginStatus = loginStatus;
       },
     })
     .addAcceptor("setSynchronised", {
-      mutator(model, { isSynchronised }: { isSynchronised: boolean }) {
-        model.appModel.isSynchronised = isSynchronised;
+      mutator(data, { isSynchronised }: { isSynchronised: boolean }) {
+        data.appModel.isSynchronised = isSynchronised;
       },
     })
     .addAcceptor("setServiceStatus", {
-      mutator(model, {
+      mutator(data, {
         serviceStatus,
       }: {
-        serviceStatus: typeof model.appModel.servicesStatus;
+        serviceStatus: typeof data.appModel.servicesStatus;
       }) {
-        model.appModel.servicesStatus = serviceStatus;
+        data.appModel.servicesStatus = serviceStatus;
       },
     })
     .addAcceptor("setUserId", {
-      mutator(model, { id }: { id: string }) {
-        model.userModel._id = id;
+      mutator(data, { id }: { id: string }) {
+        data.userModel._id = id;
       },
     })
     .addActions({
@@ -340,36 +340,36 @@ test("Use case with declarative control state", function () {
       ],
     })
     .addAcceptor("setConnected", {
-      mutator(model, { connected: isConnected }: { connected: boolean }) {
-        model.appModel.connexionStatus.connected = isConnected;
+      mutator(data, { connected: isConnected }: { connected: boolean }) {
+        data.appModel.connexionStatus.connected = isConnected;
       },
     })
     .addAcceptor("setLoginStatus", {
-      mutator(model, {
+      mutator(data, {
         loginStatus,
       }: {
-        loginStatus: typeof model.appModel.loginStatus;
+        loginStatus: typeof data.appModel.loginStatus;
       }) {
-        model.appModel.loginStatus = loginStatus;
+        data.appModel.loginStatus = loginStatus;
       }
     })
     .addAcceptor("setSynchronised", {
-      mutator(model, { isSynchronised }: { isSynchronised: boolean }) {
-        model.appModel.isSynchronised = isSynchronised;
+      mutator(data, { isSynchronised }: { isSynchronised: boolean }) {
+        data.appModel.isSynchronised = isSynchronised;
       },
     })
     .addAcceptor("setServiceStatus", {
-      mutator(model, {
+      mutator(data, {
         serviceStatus,
       }: {
-        serviceStatus: typeof model.appModel.servicesStatus;
+        serviceStatus: typeof data.appModel.servicesStatus;
       }) {
-        model.appModel.servicesStatus = serviceStatus;
+        data.appModel.servicesStatus = serviceStatus;
       },
     })
     .addAcceptor("setUserId", {
-      mutator(model, { id }: { id: string }) {
-        model.userModel._id = id;
+      mutator(data, { id }: { id: string }) {
+        data.userModel._id = id;
       },
     })
     .addActions({
@@ -563,7 +563,7 @@ test("Use case with declarative control state", function () {
     ["ON", "RESTORED", "SYNCHRONISED", "LOGGED_ONLINE"].sort()
   );
 
-  function areServicesUp({ model }: { model: Model }) {
+  function areServicesUp({ data }: { data: Model }) {
     return [
       "dataService",
       "accountService",
@@ -574,33 +574,33 @@ test("Use case with declarative control state", function () {
       "questService",
       "chatService",
     ].every((id) =>
-      model.appModel.servicesStatus.some(
+      data.appModel.servicesStatus.some(
         (s) => s.serviceId === id && s.isRunning
       )
     );
   }
 
-  function areServicesDown({ model }: { model: Model }) {
-    return !areServicesUp({ model });
+  function areServicesDown({ data }: { data: Model }) {
+    return !areServicesUp({ data });
   }
 
-  function isLoginStatusOffline({ model }: { model: Model }) {
-    return model.appModel.loginStatus === "loggedOffline";
+  function isLoginStatusOffline({ data }: { data: Model }) {
+    return data.appModel.loginStatus === "loggedOffline";
   }
 
-  function isLoginStatusOnline({ model }: { model: Model }) {
-    return model.appModel.loginStatus === "loggedOnline";
+  function isLoginStatusOnline({ data }: { data: Model }) {
+    return data.appModel.loginStatus === "loggedOnline";
   }
 
-  function isLoginStatusLoggedOut({ model }: { model: Model }) {
-    return model.appModel.loginStatus === "loggedOut";
+  function isLoginStatusLoggedOut({ data }: { data: Model }) {
+    return data.appModel.loginStatus === "loggedOut";
   }
 
-  function isRestored({ model }: { model: Model }) {
-    return !!model.userModel._id;
+  function isRestored({ data }: { data: Model }) {
+    return !!data.userModel._id;
   }
 
-  function isSynchronised({ model }: { model: Model }) {
-    return model.appModel.isSynchronised;
+  function isSynchronised({ data }: { data: Model }) {
+    return data.appModel.isSynchronised;
   }
 });

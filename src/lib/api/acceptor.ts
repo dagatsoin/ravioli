@@ -24,7 +24,7 @@ export type Mutation<T extends string, P extends Payload> = P extends
       payload: P;
     };
 
-export type Mutator<M, P> = (model: M, payload: P) => void;
+export type Mutator<M, P> = (data: M, payload: P) => void;
 
 // Helper type. Extract all mutations names.
 export type MutationName<F extends Mutation<any, any>> = F["type"];

@@ -3,8 +3,8 @@ import { createContainer } from "../..";
 const comp = createContainer<{ name: string }>()
   .addAcceptor("setName", {
     condition: (_, { name }: { name: string }) => name.length > 5,
-    mutator(model, { name }: { name: string }) {
-      model.name = name;
+    mutator(data, { name }: { name: string }) {
+      data.name = name;
     }
   })
   .addActions({

@@ -37,7 +37,7 @@ export function getControlStates<T extends string>({
   ): boolean {
     if (typeof predicate === "function") {
       return predicate({
-        model: data,
+        data: data,
         acceptedMutations,
         previousControlStates,
       });

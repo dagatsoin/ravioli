@@ -42,7 +42,7 @@ Don't try to access this property.
 
 #### Defined in
 
-[index.ts:95](https://github.com/dagatsoin/ravioli/blob/9362e0d/src/api/index.ts#L95)
+[index.ts:95](https://github.com/dagatsoin/ravioli/blob/5882dc3/src/api/index.ts#L95)
 
 ## Methods
 

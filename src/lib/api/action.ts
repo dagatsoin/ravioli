@@ -40,7 +40,7 @@ export type StepContext<
   MUTATION = unknown,
   CONTROL_STATES = unknown
 > = {
-  model: MODEL;
+  data: MODEL;
   acceptedMutations: MUTATION;
   controlState: CONTROL_STATES;
   previousControlState: CONTROL_STATES;
