@@ -112,3 +112,30 @@ it("should not rerun reaction when step has not been increased", function() {
   expect(container.stepId).toBe(0)
   expect(ranReactionsNb).toBe(0)
 })
+
+test.only("rerun all reactions", function() {
+  let ranReactionsNb = 0;
+  const container = createContainer<{ hp: number }>()
+    .addAcceptor("incHP", {
+      mutator: (model) => model.hp++
+    })
+    .addControlStatePredicate("isSafe", ({data}) => data.hp > 1)
+    .addActions({incHP: "incHP"})
+    .addStepReaction({ 
+      when: ({ delta: { controlStates } }) => controlStates.includes('isSafe'),
+      once: true,
+      do: () => ranReactionsNb++})
+    .addStepReaction({ 
+      when: ({ delta: { controlStates } }) => controlStates.includes('isSafe'),
+      once: true,
+      do: () => ranReactionsNb++})
+    .addStepReaction({ 
+      when: ({ delta: { controlStates } }) => controlStates.includes('isSafe'),
+      once: true,
+      do: () => ranReactionsNb++})
+    .create({ hp: 1 });
+
+  container.actions.incHP()
+  expect(ranReactionsNb).toBe(3)
+})
+

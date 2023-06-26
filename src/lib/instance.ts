@@ -89,7 +89,9 @@ export class Instance<
       const index = this.stepReactions.findIndex((r) => r.do === effect)
       if (index > -1 ) {
         this.stepReactions.splice(index, 1)
+        return true
       }
+      return false
     }
     private _stepId = observable.box(0)
     public get stepId() {
@@ -189,7 +191,8 @@ export class Instance<
           previousControlStates,
         },
       };
-      this.stepReactions.forEach(({ when: predicate, do: effect, once, debugName }) => {
+      for(let i = 0; i < this.stepReactions.length; i++) {
+        const { when: predicate, do: effect, once, debugName } = this.stepReactions[i]
         // Filter nap which have already ran on the instance
         if (!predicate || predicate(args)) {
             // Run the reaction
@@ -199,11 +202,14 @@ export class Instance<
             effect({ ...args, actions: this.actions });
             // If it is a one shot reaction, dispose
             if (once) {
-              this.disposeReaction(effect)
+              const didDelete = this.disposeReaction(effect)
+              if (didDelete) {
+                i-- // Step back the cursor to compensate the last deleted item.
+              }
             }
 
         }
-      });
+      }
 
       this.isRunningNAP = false;
 
