@@ -70,9 +70,9 @@ export class Instance<
         if (!!this.factory.staticTransformer || !!this.factory.transformer) {
           // The instance has a static tranformation, only computed once.
           if (this.factory.staticTransformer) {
-            this.representationRef.current = this.factory.staticTransformer({model: this.data, actions: this.actions })
+            this.representationRef.current = this.factory.staticTransformer({data: this.data, actions: this.actions })
           } else if (this.factory.transformer){
-            this.representationRef.current = observable(this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
+            this.representationRef.current = observable(this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
           }
         }
         // Or assign the model as the representation one for all.
@@ -176,7 +176,7 @@ export class Instance<
 
       // Defer representation update if there is some extra proposal to handle.
       if (this.factory.transformer && (!this.options?.debounceReaction ?? true)) {
-        derivate(this.representationRef.current, this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
+        derivate(this.representationRef.current, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
       }
 
       // Run the static NAP
@@ -213,7 +213,7 @@ export class Instance<
 
       // Refresh the represenation
       if (this.factory.transformer) {
-        derivate(this.representationRef.current, this.factory.transformer({model: this.data, controlStates: this.currentControlStates}));
+        derivate(this.representationRef.current, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
       }
     }
   }

@@ -8,7 +8,7 @@ describe("representation", function () {
 
     it("should set a custom transformation", function() {
         const container = createContainer<{ hp: number }>()
-            .addTransformation(({model}) => ({ health: model.hp }))
+            .addTransformation(({data}) => ({ health: data.hp }))
             .create({ hp: 3 });
         expect(container.representationRef.current).toBeDefined();
     });
@@ -16,12 +16,12 @@ describe("representation", function () {
     it("should bind the model to a static representation", function() {
         let nbOfComputation = 0
         const container = createContainer<{ hp: number }>()
-            .addAcceptor("setHealth", { mutator: (model, hp: number) => model.hp = hp})
+            .addAcceptor("setHealth", { mutator: (data, hp: number) => data.hp = hp})
             .addActions({setHealth: "setHealth"})
-            .addStaticTransformation(({model, actions}) => {
+            .addStaticTransformation(({data, actions}) => {
                 nbOfComputation++
                 return {
-                    useHealth: () => model.hp,
+                    useHealth: () => data.hp,
                     setHealth: actions.setHealth
                 }
             })

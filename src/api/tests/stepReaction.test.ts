@@ -3,8 +3,8 @@ import { createContainer, IInstance } from "../..";
 it("should auto heal after a hit", function () {
   const Thrall = createContainer<{ hp: number }>()
     .addAcceptor("setHP", {
-      mutator(model, { hp }: { hp: number }) {
-        model.hp = model.hp + hp;
+      mutator(data, { hp }: { hp: number }) {
+        data.hp = data.hp + hp;
       },
     })
     .addActions({
@@ -61,7 +61,7 @@ it("should auto heal after a hit", function () {
 
 it("should restore deflect the first shot", function() {
   const Player = createContainer<{ hp: number, name: string }>()
-    .addAcceptor("updateHP", {mutator: (model, hp: number) => model.hp += hp})
+    .addAcceptor("updateHP", {mutator: (data, hp: number) => data.hp += hp})
     .addActions({
       hit: (points: number) => [{type: "updateHP", payload: -points}],
       heal: (points: number) => [{type: "updateHP", payload: points}]
@@ -101,8 +101,8 @@ it("should not rerun reaction when step has not been increased", function() {
   let ranReactionsNb = 0;
   const container = createContainer<{ hp: number }>()
     .addAcceptor("setHP", {
-      condition: (model) => model.hp > 0,
-      mutator: (model, hp) => model.hp === hp
+      condition: (data) => data.hp > 0,
+      mutator: (data, hp) => data.hp == hp
     })
     .addActions({setHP: "setHP"})
     .addStepReaction({ do: () => ranReactionsNb++})

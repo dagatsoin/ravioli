@@ -5,8 +5,8 @@ test("declare action by mutation name", function () {
     name: string;
   }>()
     .addAcceptor("setName", {
-      mutator(model, { name }: { name: string }) {
-        model.name = name;
+      mutator(data, { name }: { name: string }) {
+        data.name = name;
       },
     })
     .addActions({
@@ -22,8 +22,8 @@ test("declare action by mutation name", function () {
 test("synchronous action", function () {
   const Thrall = createContainer<{ hp: number }>()
     .addAcceptor("setHP", {
-      mutator(model, { hp }: { hp: number }) {
-        model.hp = model.hp + hp;
+      mutator(data, { hp }: { hp: number }) {
+        data.hp = data.hp + hp;
       },
     })
     .addActions({
@@ -60,8 +60,8 @@ test("synchronous action", function () {
 test("asynchronous action", function (done) {
   const app = createContainer<{ isStale: boolean }>()
     .addAcceptor("clean", {
-      mutator(model, ) {
-        model.isStale = false;
+      mutator(data, ) {
+        data.isStale = false;
       },
     })
     .addActions({
@@ -94,8 +94,8 @@ test("asynchronous action", function (done) {
 it("should cancel the asynchronous save action", function () {
   const app = createContainer<{ isStale: boolean }>()
     .addAcceptor("clean", {
-      mutator(model, ) {
-        model.isStale = false;
+      mutator(data, ) {
+        data.isStale = false;
       },
     })
     .addActions({
@@ -135,8 +135,8 @@ test("compose actions", function () {
     hp: number;
   }>()
     .addAcceptor("setHP", {
-      mutator(model, { hp }: { hp: number }) {
-        model.hp = model.hp + hp;
+      mutator(data, { hp }: { hp: number }) {
+        data.hp = data.hp + hp;
       },
     })
     .addActions({

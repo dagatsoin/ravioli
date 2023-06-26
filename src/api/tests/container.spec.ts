@@ -3,8 +3,8 @@ import { createContainer } from "../..";
 
 test("control states", function () {
   const container = createContainer<{ hp: number }>()
-    .addControlStatePredicate("IS_ALIVE", ({ model }) => model.hp > 0)
-    .addControlStatePredicate("IS_DEAD", ({ model }) => model.hp <= 0)
+    .addControlStatePredicate("IS_ALIVE", ({ data }) => data.hp > 0)
+    .addControlStatePredicate("IS_DEAD", ({ data }) => data.hp <= 0)
     .create({ hp: 3 });
   expect(container.controlStates).toContain("IS_ALIVE");
   expect(container.controlStates).not.toContain("IS_DEAD");
@@ -15,8 +15,8 @@ test("instance isolation", function(){
     name: string;
   }>()
     .addAcceptor("setName", {
-      mutator(model, { name }: { name: string }) {
-        model.name = name;
+      mutator(data, { name }: { name: string }) {
+        data.name = name;
       },
     })
     .addActions({

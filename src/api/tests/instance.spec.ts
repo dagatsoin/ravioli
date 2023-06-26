@@ -3,10 +3,10 @@ import { createContainer } from "..";
 describe("complete use case", function () {
   const container = createContainer<{ hp: number }>()
     .addAcceptor("addHP", {
-      mutator: (model, { hp }: { hp: number }) => (model.hp += hp),
+      mutator: (data, { hp }: { hp: number }) => (data.hp += hp),
     })
-    .addControlStatePredicate("IS_ALIVE", ({ model }) => model.hp > 0)
-    .addControlStatePredicate("IS_DEAD", ({ model }) => model.hp <= 0)
+    .addControlStatePredicate("IS_ALIVE", ({ data }) => data.hp > 0)
+    .addControlStatePredicate("IS_DEAD", ({ data }) => data.hp <= 0)
     .addActions({
       hit() {
         return [
@@ -35,7 +35,7 @@ describe("complete use case", function () {
       when: (args) => args.data.hp < 3,
       do: ({ actions }) => actions.heal(),
     })
-    .addTransformation(({model: data}) => ({ health: data.hp }))
+    .addTransformation(({ data }) => ({ health: data.hp }))
     .create({ hp: 5 });
 
   it("should be alive first", function () {

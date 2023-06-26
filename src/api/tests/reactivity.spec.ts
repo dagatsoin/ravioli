@@ -3,15 +3,15 @@ import { createContainer } from "../.."
 
 describe("reactivity", function() {
     const user = createContainer<{name: string, hp: number}>()
-    .addAcceptor("setName", { mutator: (model, { name }: { name: string }) => (model.name = name) })
-    .addAcceptor("setHP", { mutator: (model, { hp }: { hp: number }) => (model.hp = hp) })
-    .addControlStatePredicate("IS_ALIVE", ({ model }) => model.hp > 0)
-    .addControlStatePredicate("IS_DEAD", ({ model }) => model.hp <= 0)
+    .addAcceptor("setName", { mutator: (data, { name }: { name: string }) => (data.name = name) })
+    .addAcceptor("setHP", { mutator: (data, { hp }: { hp: number }) => (data.hp = hp) })
+    .addControlStatePredicate("IS_ALIVE", ({ data }) => data.hp > 0)
+    .addControlStatePredicate("IS_DEAD", ({ data }) => data.hp <= 0)
     .addActions({
         rename: "setName",
         setHP: "setHP",
     })
-    .addTransformation(({model}) => ({...model}))
+    .addTransformation(({data}) => ({...data}))
     .create({name: "Fraktos", hp: 1})
 
     test("stepId", function() {
