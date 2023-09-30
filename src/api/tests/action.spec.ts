@@ -91,6 +91,48 @@ test("asynchronous action", function (done) {
   app.actions.save();
 });
 
+test("saga", async function () {
+  const app = createContainer<{ hp: number }>()
+    .addAcceptor("decHP", {
+      mutator(data) {
+        data.hp--;
+      },
+    })
+    .addActions({
+      hit: {
+        isAsync: true,
+        action() {
+          return new Promise((resolve) => {
+            console.log("casting fireball")
+            setTimeout(() => resolve([
+              {
+                type: "decHP",
+                payload: undefined,
+              },
+            ]), 1000)
+          });
+        },
+      },
+    })
+    .addStepReaction({
+      debugName: "is dead",
+      when: (model) => model.data.hp === 0,
+      do() {
+        expect(app.representationRef.current.hp).toBe(0);
+      },
+    })
+    .create({ hp: 2 });
+
+  // Saga
+  const startAt = Date.now()
+  console.log((Date.now() - startAt)/1000)
+  for(let i of [0,1]) {
+    console.log((Date.now() - startAt)/1000)
+    await app.actions.hit()
+    console.log((Date.now() - startAt)/1000)
+  }
+});
+
 it("should cancel the asynchronous save action", function () {
   const app = createContainer<{ isStale: boolean }>()
     .addAcceptor("clean", {
