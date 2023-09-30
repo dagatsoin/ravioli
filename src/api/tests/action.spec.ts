@@ -91,7 +91,7 @@ test("asynchronous action", function (done) {
   app.actions.save();
 });
 
-test("saga", async function () {
+test("chained actions", async function () {
   const app = createContainer<{ hp: number }>()
     .addAcceptor("decHP", {
       mutator(data) {
