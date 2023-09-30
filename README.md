@@ -99,7 +99,7 @@ View and Model isolation. The view (as the compiled representation of the model)
 
 - The View is what the final user perceives of the container. It is out of the scope of a Ravioli component. It is like a piece of Art, depending of the observer, you won't see the same thing. For example, a battle field could be represented as a JSON and the View could be a First Person Shooter or a Real Time Strategy game.
 
-## Each component has own state machine (either finite or not) 
+## Each component has its own state machine (either finite or not) 
 This allows only certains actions when the component is in specific state.
 
 For example: Player can be Alive or Dead and its actions can be mapped as:
