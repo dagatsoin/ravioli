@@ -71,11 +71,8 @@ export interface IContainerFactory<
   ): IContainerFactory<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
   addStepReaction<
     I extends string,
-    R extends StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
-  >(args: StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS> & {
-    debugName?: string,
-    once?: boolean,
-  }): IContainerFactory<
+    R extends StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>
+  >(args: StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>): IContainerFactory<
     TYPE,
     MUTATIONS,
     CONTROL_STATES,

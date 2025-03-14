@@ -1,7 +1,7 @@
 # Ravioli
 ## Stop doing spaghetti code.
 
-Ravioli are like spaghetti bolognese, but minified and well organized. Also, it does not spread when you are hurry.
+Ravioli are modular spaghetti bolognese. Also, it does not spread when you are hurry.
 
 # TLDR;
 
