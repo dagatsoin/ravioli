@@ -1,7 +1,7 @@
 # Ravioli
 ## Stop doing spaghetti code.
 
-Ravioli are like spaghetti bolognese, but minified and well organized. Also, it does not spread when you are hurry.
+Ravioli are modular spaghetti bolognese. Also, it does not spread when you are hurry.
 
 # TLDR;
 
@@ -99,7 +99,7 @@ View and Model isolation. The view (as the compiled representation of the model)
 
 - The View is what the final user perceives of the container. It is out of the scope of a Ravioli component. It is like a piece of Art, depending of the observer, you won't see the same thing. For example, a battle field could be represented as a JSON and the View could be a First Person Shooter or a Real Time Strategy game.
 
-## Each component has own state machine (either finite or not) 
+## Each component has its own state machine (either finite or not) 
 This allows only certains actions when the component is in specific state.
 
 For example: Player can be Alive or Dead and its actions can be mapped as:
@@ -179,7 +179,7 @@ An acceptor has two roles:
 2. Do the mutation (with a mutator)
 
 #### Condition
-The role of the condition is to status is a mutation is acceptable or not. It is a simple pure function of the model and the payload which returns a `boolean`.
+The role of the condition is to status is a mutation is acceptable or not. It is a simple pure function which takes the model and the payload and returns a `boolean`.
 
 ```ts
 // Rules for health points mutations.
@@ -207,7 +207,7 @@ This notion directly comes for the State Machine pattern. A Control State is a s
 For example a Todo of a todo list can be Complete or UnComplete.
 A character of a video game can be Alive, Dead or Fighting.
 
-Also, Ravioli does not enforce the concept of a FINITE state machine. You can have multiple control states in a row. Eg a app state can be `['STARTED', 'RUNNING_ONLINE', 'FETCHING']`
+Also, SAM and Ravioli do not enforce the concept of a FINITE state machine. You can have multiple control states in a row. Eg a app state can be `['STARTED', 'RUNNING_ONLINE', 'FETCHING']`
 
 A control state predicate is a pure function of the model.
 ```ts
@@ -220,9 +220,12 @@ An action is a high level interface for the external world of a component. It is
 
 Its role is to abstract the low level API of the model by composing mutations in a declarative way.
 
-Keep in mind that an action is just a fire and forget interface and does not guarantee a result. **An action is decoupled from the model** and does not know its actual state neither its internal shape or methods. It only barely knows how to form a proposal which maybe will accepted in part or in whole by the model.
+Keep in mind that an action is just a fire and forget interface and does not guarantee a result.
 
-An action is a pure function which return a proposal.
+**An action is decoupled from the model** and does not know its actual state neither its internal shape or methods. It only barely knows how to form a proposal which maybe will be accepted in part or in whole or will be rejected by the model.
+
+An action is a pure function which must return a proposal. Important notes the the returned value is just used internaly and the action caller just gets `undefined`
+
 
 ```ts
 function hit() {
@@ -242,6 +245,16 @@ function drinkHealthPotion() {
   }]
 }
 ```
+
+### Chained actions
+Actions can be chained as you will chained any code instructions, no need for plugins to make a saga. For example:
+
+```js
+player.actions.shotGun()
+await player.actions.rocketShot()
+player.actions.shotGun()
+```
+The three shot will be done in order, waiting for the rocket to reach its target.
 
 >### Action are "fire and forget".
 >

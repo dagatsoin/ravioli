@@ -30,10 +30,7 @@ export class Instance<
 
     constructor(
         data: TYPE,
-        reactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS> & {
-          debugName?: string,
-          once?: boolean,
-        }>,
+        reactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>>,
         private factory: ContainerFactory<
             TYPE,
             MUTATIONS,
@@ -79,13 +76,21 @@ export class Instance<
         else {
             this.representationRef.current = (this.data as any) as REPRESENTATION & IObservable
         }
+
+        // Run the reactions
+        this.react( {
+          data: this.data,
+          delta: {
+            acceptedMutations: [],
+            proposal: [],
+            controlStates: this.currentControlStates,
+            previousControlStates: [],
+          },
+        }, true)
     }
     private data: TYPE;
-    public stepReactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS> & {
-      debugName?: string,
-      once?: boolean,
-    }> = [];
-    private disposeReaction(effect: StepReaction<any, any, any, any>["do"]) {
+    public stepReactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>> = [];
+    private disposeReaction(effect: StepReaction<any, any, any, any, any>["do"]) {
       const index = this.stepReactions.findIndex((r) => r.do === effect)
       if (index > -1 ) {
         this.stepReactions.splice(index, 1)
@@ -191,36 +196,53 @@ export class Instance<
           previousControlStates,
         },
       };
-      for(let i = 0; i < this.stepReactions.length; i++) {
-        const { when: predicate, do: effect, once, debugName } = this.stepReactions[i]
-        // Filter nap which have already ran on the instance
-        if (!predicate || predicate(args)) {
-            // Run the reaction
-            if (debugName) {
-              console.info("[SAM] reaction:", debugName)
-            }
-            effect({ ...args, actions: this.actions });
-            // If it is a one shot reaction, dispose
-            if (once) {
-              const didDelete = this.disposeReaction(effect)
-              if (didDelete) {
-                i-- // Step back the cursor to compensate the last deleted item.
-              }
-            }
+      this.react(args);
+    }
+  }
 
+  private react(
+    args: {
+      data: TYPE; delta: {
+        acceptedMutations: MUTATIONS[];
+        proposal: TaggedProposal;
+        controlStates: IObservableArray<CONTROL_STATES>;
+        previousControlStates: CONTROL_STATES[];
+      }
+    },
+    isInit: boolean = false
+  ) {
+    for (let i = 0; i < this.stepReactions.length; i++) {
+      const { runOnInit = true, when: predicate, do: effect, once, debugName } = this.stepReactions[i];
+      if (isInit && !runOnInit) {
+        continue
+      }
+      // Filter nap which have already ran on the instance
+      if (!predicate || predicate(args)) {
+        // Run the reaction
+        if (debugName) {
+          console.info("[SAM] reaction:", debugName);
         }
-      }
+        effect({ ...args, actions: this.actions, representation: this.representationRef.current });
+        // If it is a one shot reaction, dispose
+        if (once) {
+          const didDelete = this.disposeReaction(effect);
+          if (didDelete) {
+            i--; // Step back the cursor to compensate the last deleted item.
+          }
+        }
 
-      this.isRunningNAP = false;
-
-      if (this.NAPproposalBuffer.length) {
-        this.startStep(this.NAPproposalBuffer.getTaggedProposal());
       }
+    }
 
-      // Refresh the represenation
-      if (this.factory.transformer) {
-        derivate(this.representationRef.current, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
-      }
+    this.isRunningNAP = false;
+
+    if (this.NAPproposalBuffer.length) {
+      this.startStep(this.NAPproposalBuffer.getTaggedProposal());
+    }
+
+    // Refresh the represenation
+    if (this.factory.transformer) {
+      derivate(this.representationRef.current, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
     }
   }
 

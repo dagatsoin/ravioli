@@ -105,7 +105,10 @@ it("should not rerun reaction when step has not been increased", function() {
       mutator: (data, hp) => data.hp == hp
     })
     .addActions({setHP: "setHP"})
-    .addStepReaction({ do: () => ranReactionsNb++})
+    .addStepReaction({
+      runOnInit: false,
+      do: () => ranReactionsNb++ }
+    )
     .create({ hp: 0 });
   expect(container.stepId).toBe(0)
   container.actions.setHP(3) // will be rejected
@@ -113,7 +116,7 @@ it("should not rerun reaction when step has not been increased", function() {
   expect(ranReactionsNb).toBe(0)
 })
 
-test.only("rerun all reactions", function() {
+test("rerun all reactions", function() {
   let ranReactionsNb = 0;
   const container = createContainer<{ hp: number }>()
     .addAcceptor("incHP", {
@@ -139,3 +142,23 @@ test.only("rerun all reactions", function() {
   expect(ranReactionsNb).toBe(3)
 })
 
+
+test("autorun on instance creation", function() {
+  const container = createContainer<{ hp: number }>()
+    .addAcceptor("setHP", {
+      mutator: (model, hp) => model.hp = hp
+    })
+    .addControlStatePredicate("isAlive", ({ data }) => data.hp > 0)
+    .addControlStatePredicate("isDead", ({ data }) => data.hp <= 0)
+    .addActions({
+      setHP: "setHP"
+    })
+    .addStepReaction({
+      debugName: "Res", 
+      when: ({ delta: { controlStates}}) => controlStates.includes('isDead'),
+      do: ({ actions }) => actions.setHP(10),
+    })
+    .create({ hp: 0 })
+
+    expect(container.representationRef.current.hp).toBe(10)
+})

@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0-beta.15](https://github.com/dagatsoin/ravioli/compare/v1.3.0-beta.13...v1.3.0-beta.15) (2025-03-14)
+
+
+### Bug Fixes
+
+* all reactions are not run ([5882dc3](https://github.com/dagatsoin/ravioli/commit/5882dc3f7bca3537ad647b6a9f15b47afa44c537))
+* control state types are lost after adding a mutation or action ([91c6d3e](https://github.com/dagatsoin/ravioli/commit/91c6d3ea75d24929be93794ce9f3710b62478c7c))
+* reaction does not run at instance creation ([78c8769](https://github.com/dagatsoin/ravioli/commit/78c8769588b24891d6a0ad1ed521e3832d3f7ab5))
+
 ## [1.3.0-beta.14](https://github.com/dagatsoin/ravioli/compare/v1.3.0-beta.13...v1.3.0-beta.14) (2023-06-26)
 
 

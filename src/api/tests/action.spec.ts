@@ -81,14 +81,57 @@ test("asynchronous action", function (done) {
     })
     .addStepReaction({
       debugName: "stop",
-      do() {
-        expect(app.representationRef.current.isStale).toBeFalsy();
+      runOnInit: false,
+      do({ representation }) {
+        expect(representation.isStale).toBeFalsy();
         done();
       },
     })
     .create({ isStale: true });
 
   app.actions.save();
+});
+
+test("chained actions", async function () {
+  const app = createContainer<{ hp: number }>()
+    .addAcceptor("decHP", {
+      mutator(data) {
+        data.hp--;
+      },
+    })
+    .addActions({
+      hit: {
+        isAsync: true,
+        action() {
+          return new Promise((resolve) => {
+            console.log("casting fireball")
+            setTimeout(() => resolve([
+              {
+                type: "decHP",
+                payload: undefined,
+              },
+            ]), 1000)
+          });
+        },
+      },
+    })
+    .addStepReaction({
+      debugName: "is dead",
+      when: (model) => model.data.hp === 0,
+      do() {
+        expect(app.representationRef.current.hp).toBe(0);
+      },
+    })
+    .create({ hp: 2 });
+
+  // Saga
+  const startAt = Date.now()
+  console.log((Date.now() - startAt)/1000)
+  for(let i of [0,1]) {
+    console.log((Date.now() - startAt)/1000)
+    await app.actions.hit()
+    console.log((Date.now() - startAt)/1000)
+  }
 });
 
 it("should cancel the asynchronous save action", function () {
@@ -120,8 +163,8 @@ it("should cancel the asynchronous save action", function () {
     .addStepReaction({
       when: ({ delta: { acceptedMutations } }) =>
         !acceptedMutations.length,
-      do: () => {
-        expect(app.representationRef.current.isStale).toBeTruthy();
+      do: ({ representation }) => {
+        expect(representation.isStale).toBeTruthy();
       },
     })
     .create({ isStale: true });

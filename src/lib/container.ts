@@ -66,10 +66,7 @@ export class ContainerFactory<
   public originalActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
 
   private packagedActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
-  private stepReactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS> & {
-    debugName?: string,
-    once?: boolean,
-  }> = [];
+  private stepReactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>> = [];
   
   constructor() {}
 
@@ -164,10 +161,7 @@ export class ContainerFactory<
     return this  
   }
 
-  addStepReaction(reaction: StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS> & {
-    debugName?: string,
-    once?: boolean,
-  }): any {
+  addStepReaction(reaction: StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>): any {
     this.stepReactions.push(reaction);
     return this;
   }

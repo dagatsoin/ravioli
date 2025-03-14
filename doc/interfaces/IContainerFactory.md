@@ -42,13 +42,13 @@ Don't try to access this property.
 
 #### Defined in
 
-[index.ts:95](https://github.com/dagatsoin/ravioli/blob/5882dc3/src/api/index.ts#L95)
+[index.ts:96](https://github.com/dagatsoin/ravioli/blob/ccd7938/src/api/index.ts#L96)
 
 ## Methods
 
 ### addAcceptor
 
-▸ **addAcceptor**<`N`, `M`\>(`name`, `acceptor`): [`IContainerFactory`](IContainerFactory.md)<`TYPE`, `Exclude`<`MUTATIONS`, { `payload`: `never` ; `type`: `never`  }\> \| `Exclude`<{ `payload`: `Parameters`<`M`[``"mutator"``]\>[``1``] ; `type`: `N`  }, { `payload`: `never` ; `type`: `never`  }\>, `never`, `never`, `TYPE`\>
+▸ **addAcceptor**<`N`, `M`\>(`name`, `acceptor`): [`IContainerFactory`](IContainerFactory.md)<`TYPE`, `Exclude`<`MUTATIONS`, { `payload`: `never` ; `type`: `never`  }\> \| `Exclude`<{ `payload`: `Parameters`<`M`[``"mutator"``]\>[``1``] ; `type`: `N`  }, { `payload`: `never` ; `type`: `never`  }\>, `CONTROL_STATES`, `ACTIONS`, `REPRESENTATION`\>
 
 #### Type parameters
 
@@ -66,13 +66,13 @@ Don't try to access this property.
 
 #### Returns
 
-[`IContainerFactory`](IContainerFactory.md)<`TYPE`, `Exclude`<`MUTATIONS`, { `payload`: `never` ; `type`: `never`  }\> \| `Exclude`<{ `payload`: `Parameters`<`M`[``"mutator"``]\>[``1``] ; `type`: `N`  }, { `payload`: `never` ; `type`: `never`  }\>, `never`, `never`, `TYPE`\>
+[`IContainerFactory`](IContainerFactory.md)<`TYPE`, `Exclude`<`MUTATIONS`, { `payload`: `never` ; `type`: `never`  }\> \| `Exclude`<{ `payload`: `Parameters`<`M`[``"mutator"``]\>[``1``] ; `type`: `N`  }, { `payload`: `never` ; `type`: `never`  }\>, `CONTROL_STATES`, `ACTIONS`, `REPRESENTATION`\>
 
 ___
 
 ### addActions
 
-▸ **addActions**<`P`\>(`actions`): [`IContainerFactory`](IContainerFactory.md)<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS` \| `Actions`<`CONTROL_STATES`, `MUTATIONS`, `P`\>, `TYPE`\>
+▸ **addActions**<`P`\>(`actions`): [`IContainerFactory`](IContainerFactory.md)<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS` \| `Actions`<`CONTROL_STATES`, `MUTATIONS`, `P`\>, `REPRESENTATION`\>
 
 #### Type parameters
 
@@ -88,7 +88,7 @@ ___
 
 #### Returns
 
-[`IContainerFactory`](IContainerFactory.md)<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS` \| `Actions`<`CONTROL_STATES`, `MUTATIONS`, `P`\>, `TYPE`\>
+[`IContainerFactory`](IContainerFactory.md)<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS` \| `Actions`<`CONTROL_STATES`, `MUTATIONS`, `P`\>, `REPRESENTATION`\>
 
 ___
 
@@ -146,13 +146,13 @@ ___
 | Name | Type |
 | :------ | :------ |
 | `I` | extends `string` |
-| `R` | extends `StepReaction`<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS`\> |
+| `R` | extends `StepReaction`<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS`, `REPRESENTATION`\> |
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `args` | `StepReaction`<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS`\> & { `debugName?`: `string` ; `once?`: `boolean`  } |
+| `args` | `StepReaction`<`TYPE`, `MUTATIONS`, `CONTROL_STATES`, `ACTIONS`, `REPRESENTATION`\> |
 
 #### Returns
 

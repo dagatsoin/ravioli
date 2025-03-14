@@ -45,7 +45,10 @@ export interface IContainerFactory<
         type: never;
         payload: never;
       }
-    >
+    >,
+    CONTROL_STATES,
+    ACTIONS,
+    REPRESENTATION
   >;
   addControlStatePredicate<I extends string>(
     id: I,
@@ -57,7 +60,8 @@ export interface IContainerFactory<
     TYPE,
     MUTATIONS,
     CONTROL_STATES,
-    ACTIONS | Actions<CONTROL_STATES, MUTATIONS, P>
+    ACTIONS | Actions<CONTROL_STATES, MUTATIONS, P>,
+    REPRESENTATION
   >;
   addTransformation<C extends Transformation<TYPE, CONTROL_STATES>>(
     transformer: C
@@ -67,11 +71,8 @@ export interface IContainerFactory<
   ): IContainerFactory<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
   addStepReaction<
     I extends string,
-    R extends StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS>
-  >(args: StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS> & {
-    debugName?: string,
-    once?: boolean,
-  }): IContainerFactory<
+    R extends StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>
+  >(args: StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>): IContainerFactory<
     TYPE,
     MUTATIONS,
     CONTROL_STATES,

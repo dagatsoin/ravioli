@@ -35,7 +35,7 @@ The available action for the next step.
 
 #### Defined in
 
-[index.ts:123](https://github.com/dagatsoin/ravioli/blob/5882dc3/src/api/index.ts#L123)
+[index.ts:124](https://github.com/dagatsoin/ravioli/blob/ccd7938/src/api/index.ts#L124)
 
 ___
 
@@ -47,7 +47,7 @@ The current control states ofr the given step. It is a Mobx reactive array.
 
 #### Defined in
 
-[index.ts:113](https://github.com/dagatsoin/ravioli/blob/5882dc3/src/api/index.ts#L113)
+[index.ts:114](https://github.com/dagatsoin/ravioli/blob/ccd7938/src/api/index.ts#L114)
 
 ___
 
@@ -67,7 +67,7 @@ front end.
 
 #### Defined in
 
-[index.ts:119](https://github.com/dagatsoin/ravioli/blob/5882dc3/src/api/index.ts#L119)
+[index.ts:120](https://github.com/dagatsoin/ravioli/blob/ccd7938/src/api/index.ts#L120)
 
 ___
 
@@ -79,7 +79,7 @@ The current step nonce.
 
 #### Defined in
 
-[index.ts:127](https://github.com/dagatsoin/ravioli/blob/5882dc3/src/api/index.ts#L127)
+[index.ts:128](https://github.com/dagatsoin/ravioli/blob/ccd7938/src/api/index.ts#L128)
 
 ## Methods
 
