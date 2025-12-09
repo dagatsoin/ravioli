@@ -1,0 +1,207 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "name": "RPG Character Components",
+    "description": "Building blocks for RPG character containers",
+    "author": "Ravioli Team",
+    "created": "2025-12-09"
+  },
+  "acceptors": [
+    {
+      "id": "updateHP",
+      "type": "acceptor",
+      "name": "Update HP",
+      "mutationName": "updateHP",
+      "description": "Modify character health points with validation",
+      "category": "Combat",
+      "tags": ["health", "combat", "stats"],
+      "payloadSchema": {
+        "type": "object",
+        "properties": {
+          "hp": {
+            "type": "number",
+            "description": "HP delta (positive for healing, negative for damage)"
+          }
+        },
+        "required": ["hp"]
+      },
+      "hasCondition": true
+    },
+    {
+      "id": "addItem",
+      "type": "acceptor",
+      "name": "Add Item",
+      "mutationName": "addItem",
+      "description": "Add an item to the character's inventory",
+      "category": "Inventory",
+      "tags": ["inventory", "items"],
+      "payloadSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string",
+            "description": "Item identifier"
+          }
+        },
+        "required": ["item"]
+      },
+      "hasCondition": false
+    },
+    {
+      "id": "setName",
+      "type": "acceptor",
+      "name": "Set Name",
+      "mutationName": "setName",
+      "description": "Change the character's name",
+      "category": "Character",
+      "tags": ["character", "name"],
+      "payloadSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "New character name"
+          }
+        },
+        "required": ["name"]
+      },
+      "hasCondition": false
+    }
+  ],
+  "actions": [
+    {
+      "id": "heal",
+      "type": "action",
+      "name": "Heal",
+      "description": "Restore health points to the character",
+      "category": "Combat",
+      "tags": ["health", "healing", "combat"],
+      "parameters": [
+        {
+          "name": "amount",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "produces": ["updateHP"]
+    },
+    {
+      "id": "takeDamage",
+      "type": "action",
+      "name": "Take Damage",
+      "description": "Apply damage to the character",
+      "category": "Combat",
+      "tags": ["health", "damage", "combat"],
+      "parameters": [
+        {
+          "name": "amount",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "produces": ["updateHP"]
+    },
+    {
+      "id": "pickupItem",
+      "type": "action",
+      "name": "Pickup Item",
+      "description": "Add an item to inventory when picked up",
+      "category": "Inventory",
+      "tags": ["inventory", "items"],
+      "parameters": [
+        {
+          "name": "item",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "produces": ["addItem"]
+    },
+    {
+      "id": "rename",
+      "type": "action",
+      "name": "Rename Character",
+      "description": "Change the character's name",
+      "category": "Character",
+      "tags": ["character", "name"],
+      "parameters": [
+        {
+          "name": "name",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "produces": ["setName"]
+    }
+  ],
+  "controlStatePredicates": [
+    {
+      "id": "isAlive",
+      "type": "predicate",
+      "name": "Is Alive",
+      "stateName": "IS_ALIVE",
+      "description": "Character has HP > 0",
+      "category": "State",
+      "tags": ["health", "state", "vital"]
+    },
+    {
+      "id": "isDead",
+      "type": "predicate",
+      "name": "Is Dead",
+      "stateName": "IS_DEAD",
+      "description": "Character has HP <= 0",
+      "category": "State",
+      "tags": ["health", "state", "vital"]
+    },
+    {
+      "id": "isHealthy",
+      "type": "predicate",
+      "name": "Is Healthy",
+      "stateName": "IS_HEALTHY",
+      "description": "Character has full HP",
+      "category": "State",
+      "tags": ["health", "state"]
+    },
+    {
+      "id": "isInjured",
+      "type": "predicate",
+      "name": "Is Injured",
+      "stateName": "IS_INJURED",
+      "description": "Character has reduced HP but is still alive",
+      "category": "State",
+      "tags": ["health", "state"]
+    }
+  ],
+  "stepReactions": [
+    {
+      "id": "autoHeal",
+      "type": "stepReaction",
+      "name": "Auto Heal",
+      "description": "Automatically heal when HP drops below critical threshold",
+      "category": "Effects",
+      "tags": ["healing", "automatic", "passive"],
+      "hasCondition": true,
+      "triggers": ["updateHP"]
+    },
+    {
+      "id": "onDeath",
+      "type": "stepReaction",
+      "name": "On Death",
+      "description": "Triggered when character dies",
+      "category": "Effects",
+      "tags": ["death", "event"],
+      "hasCondition": true,
+      "triggers": ["updateHP"]
+    },
+    {
+      "id": "logActions",
+      "type": "stepReaction",
+      "name": "Log Actions",
+      "description": "Log all actions for debugging",
+      "category": "Debug",
+      "tags": ["logging", "debug"],
+      "hasCondition": false,
+      "triggers": []
+    }
+  ]
+}
