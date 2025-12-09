@@ -12,7 +12,7 @@ import {
   registerAction,
   registerStepReaction,
   ContainerConfig
-} from '../../dist';
+} from '../../packages/ravioli/dist';
 
 // Define the data type
 type Player = {

@@ -1,4 +1,4 @@
-import { createContainer } from '../../dist'
+import { createContainer } from '../../packages/ravioli/dist'
 
 interface Item {
   id: string

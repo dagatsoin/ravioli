@@ -36,11 +36,11 @@ This example demonstrates how to use Ravioli's JSON-based container configuratio
 
 ### Prerequisites
 
-This example uses the local distribution build of Ravioli. Before running the example, you need to build the main package:
+This example uses the local distribution build of Ravioli from the monorepo workspace. Before running the example, you need to build the main package:
 
 ```bash
 # From the ravioli root directory
-npm run build
+yarn build
 ```
 
 ### Running

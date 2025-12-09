@@ -11,6 +11,35 @@ Ravioli are modular spaghetti bolognese. Also, it does not spread when you are h
 
 Bon appétit.
 
+## Monorepo Structure
+
+This repository is organized as a Yarn workspace:
+
+```
+ravioli/
+├── packages/
+│   └── ravioli/          # Core @warfog/ravioli package
+├── doc/                  # Documentation (outside workspace)
+├── example-rpg/          # RPG example (outside workspace)
+└── example-json-config/  # JSON config example (outside workspace)
+```
+
+## Development
+
+```bash
+# Install dependencies
+yarn install
+
+# Build the package
+yarn build
+
+# Run tests
+yarn test
+
+# Watch mode for development
+yarn build:watch
+```
+
 ## Basic exemple: 
 
 ```ts
@@ -42,10 +71,10 @@ API documentation is auto generated and available in a [separate doc](https://gi
 
 # Examples
 
-Both examples use the local distribution build. Build the main package first:
+Both examples use the local distribution build. Build the main package first from the root:
 
 ```bash
-npm run build
+yarn build
 ```
 
 Then run the examples:
@@ -59,6 +88,8 @@ Then run the examples:
   ```bash
   cd example-json-config && npm start
   ```
+
+**Note**: Examples are outside the workspace and use the compiled output from `packages/ravioli/dist/`.
 
 # Deep dive
 
