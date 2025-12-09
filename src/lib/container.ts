@@ -290,7 +290,7 @@ function toCancelableAsyncAction<A extends (...args: any[]) => any>(
       if (authPredicate) {
           if (!authPredicate({ controlStates: instance.controlStates })) {
           console.warn(
-              `Unauthorized action ${name} at step ${instance.stepId} with control states: ${instance.controlStates}`
+              `Unauthorized action ${action.name} at step ${instance.stepId} with control states: ${instance.controlStates}`
           );
           return;
           }

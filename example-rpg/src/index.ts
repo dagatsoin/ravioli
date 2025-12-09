@@ -1,4 +1,4 @@
-import { createContainer } from '../../src'
+import { createContainer } from '../../dist'
 
 interface Item {
   id: string
@@ -42,6 +42,7 @@ const kobold = createContainer<KoboldData>()
   })
   .addStepReaction({
     debugName: 'render',
+    runOnInit: false,
     do: ({data, delta}) => {
       document.getElementById("app")!.innerHTML = `
           ${delta.controlStates.includes('isAlive')

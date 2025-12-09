@@ -133,3 +133,22 @@ export interface IInstance<
    */
   compose(composer: ActionComposer<ACTIONS, MUTATIONS>): void;
 }
+
+// Registry functions for JSON-based container creation
+export {
+  registerAcceptor,
+  registerControlStatePredicate,
+  registerAction,
+  registerStepReaction,
+  clearRegistry,
+  getAcceptor,
+  getControlStatePredicate,
+  getAction,
+  getStepReaction
+} from './fromJSON/registry';
+
+// JSON factory functions
+export { createContainerFromJSON } from './fromJSON/containerFromJSON';
+
+// Configuration type for JSON-based containers
+export type { ContainerConfig } from './fromJSON/containerConfig';
