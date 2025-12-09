@@ -9,7 +9,9 @@
     "test": "yarn workspace @warfog/ravioli test",
     "build:watch": "yarn workspace @warfog/ravioli build --watch",
     "release": "yarn workspace @warfog/ravioli release",
-    "doc": "yarn workspace @warfog/ravioli doc"
+    "doc": "yarn workspace @warfog/ravioli doc",
+    "visual-builder": "yarn workspace @warfog/ravioli-visual-builder dev",
+    "build:visual": "yarn workspace @warfog/ravioli-visual-builder build"
   },
   "devDependencies": {
     "typescript": "^4.7.4"

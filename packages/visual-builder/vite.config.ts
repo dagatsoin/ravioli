@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
+      '@': path.resolve(__dirname, './src'),
+      '@warfog/ravioli': path.resolve(__dirname, '../ravioli/src/api/index.ts')
     }
   },
   server: {

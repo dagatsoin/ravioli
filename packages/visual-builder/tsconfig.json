@@ -23,7 +23,8 @@
     /* Path mapping */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@warfog/ravioli": ["../ravioli/src/api/index.ts"]
     }
   },
   "include": ["src"],

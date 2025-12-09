@@ -11,7 +11,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@warfog/ravioli": "workspace:*",
+    "@warfog/ravioli": "*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "reactflow": "^11.10.0",

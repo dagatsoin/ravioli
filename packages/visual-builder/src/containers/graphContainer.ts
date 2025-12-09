@@ -50,7 +50,9 @@ export const graphContainer = createContainer<GraphData>()
   // Acceptor: Add a node (no business rules, always allowed)
   .addAcceptor('addNode', {
     mutator(data, { node }: { node: RavioliNode }) {
+      console.log('Adding node to graph:', node);
       data.nodes.push(node);
+      console.log('Total nodes:', data.nodes.length);
     }
   })
 
@@ -193,7 +195,9 @@ export const graphContainer = createContainer<GraphData>()
   // Add composite action: Add node from asset
   .addActions({
     addNodeFromAsset: ({ asset, position }: { asset: Asset; position: { x: number; y: number } }) => {
+      console.log('addNodeFromAsset called with:', { asset, position });
       const nodeId = generateNodeId(asset.type);
+      console.log('Generated node ID:', nodeId);
 
       let nodeData: any = {
         label: asset.name,
@@ -239,9 +243,9 @@ export const graphContainer = createContainer<GraphData>()
           break;
       }
 
-      return [
+      const proposal = [
         {
-          type: 'addNode',
+          type: 'addNode' as const,
           payload: {
             node: {
               id: nodeId,
@@ -252,6 +256,9 @@ export const graphContainer = createContainer<GraphData>()
           }
         }
       ];
+
+      console.log('Returning proposal:', proposal);
+      return proposal;
     }
   })
 
@@ -279,9 +286,10 @@ export const graphContainer = createContainer<GraphData>()
       ? data.nodes.find(n => n.id === data.selectedNodeId) || null
       : null;
 
+    // Return new array instances to trigger ReactFlow updates
     return {
-      nodes: data.nodes,
-      edges: data.edges,
+      nodes: [...data.nodes],
+      edges: [...data.edges],
       selectedNode,
       canExport: data.nodes.some(n => n.data.type === 'container'),
       connectionCount: data.edges.length
