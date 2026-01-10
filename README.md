@@ -19,9 +19,13 @@ This repository is organized as a Yarn workspace:
 ravioli/
 ├── packages/
 │   └── ravioli/          # Core @warfog/ravioli package
-├── doc/                  # Documentation (outside workspace)
-├── example-rpg/          # RPG example (outside workspace)
-└── example-json-config/  # JSON config example (outside workspace)
+├── exemples/             # Example projects (outside workspace)
+│   ├── example-rpg/
+│   ├── example-json-config/
+│   ├── counter-client-server/
+│   ├── counter-graphql/
+│   └── counter-request-scoped/
+└── doc/                  # Documentation (outside workspace)
 ```
 
 ## Development
@@ -71,7 +75,7 @@ API documentation is auto generated and available in a [separate doc](https://gi
 
 # Examples
 
-Both examples use the local distribution build. Build the main package first from the root:
+All examples use the local distribution build. Build the main package first from the root:
 
 ```bash
 yarn build
@@ -79,14 +83,19 @@ yarn build
 
 Then run the examples:
 
-- [example-rpg](./example-rpg) - RPG game example with turn-based combat
+- [example-rpg](./exemples/example-rpg) - RPG game example with turn-based combat
   ```bash
-  cd example-rpg && npm start
+  cd exemples/example-rpg && npm start
   ```
 
-- [example-json-config](./example-json-config) - JSON-based container configuration example
+- [example-json-config](./exemples/example-json-config) - JSON-based container configuration example
   ```bash
-  cd example-json-config && npm start
+  cd exemples/example-json-config && npm start
+  ```
+
+- [counter-request-scoped](./exemples/counter-request-scoped) - Singleton container with NAP persistence
+  ```bash
+  cd exemples/counter-request-scoped && npm run dev
   ```
 
 **Note**: Examples are outside the workspace and use the compiled output from `packages/ravioli/dist/`.
@@ -342,10 +351,48 @@ by turn game logic, or basic AI. For exemple:
 - after each action, log what happened
 
 ```ts
-.addStepReaction("auto heal", {
-  predicate: (args) => args.data.hp < 2,
-  effect: ({ actions }) => actions.heal(),
+.addStepReaction({
+  debugName: "auto heal",
+  when: (args) => args.data.hp < 2,
+  do: ({ actions }) => actions.heal(),
 })
+```
+
+### Async Step Reactions with `awaitAsync`
+
+When step reactions perform async operations (like database persistence), they can complete out of order if latency varies. Use `awaitAsync: true` to ensure async operations complete sequentially:
+
+```ts
+.addStepReaction({
+  debugName: 'persist',
+  awaitAsync: true,  // Wait for this reaction before allowing next step
+  runOnInit: false,
+  do: async ({ data }) => {
+    await repository.save(data.id, data.count);
+  },
+})
+```
+
+**How it works:**
+- With `awaitAsync: true`, the library awaits the `do()` promise before proceeding
+- Actions called during an async NAP are buffered and processed after completion
+- Each action is still processed in its own step (stepId increments for each)
+- Saves complete in order: step 1 finishes before step 2 starts
+
+**Without `awaitAsync` (race condition):**
+```
+Action 1 → save(1) starts [SLOW: 1000ms]
+Action 2 → save(2) starts [FAST: 5ms]
+save(2) completes → DB=2 ✓
+save(1) completes → DB=1 ✗ OVERWRITES!
+```
+
+**With `awaitAsync: true` (sequential):**
+```
+Action 1 → save(1) starts, Action 2 BUFFERED
+save(1) completes → DB=1 ✓
+Action 2 processed → save(2) starts
+save(2) completes → DB=2 ✓
 ```
 
 ## Representation
