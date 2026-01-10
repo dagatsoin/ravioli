@@ -11,6 +11,39 @@ Ravioli are modular spaghetti bolognese. Also, it does not spread when you are h
 
 Bon appétit.
 
+## Monorepo Structure
+
+This repository is organized as a Yarn workspace:
+
+```
+ravioli/
+├── packages/
+│   └── ravioli/          # Core @warfog/ravioli package
+├── exemples/             # Example projects (outside workspace)
+│   ├── example-rpg/
+│   ├── example-json-config/
+│   ├── counter-client-server/
+│   ├── counter-graphql/
+│   └── counter-request-scoped/
+└── doc/                  # Documentation (outside workspace)
+```
+
+## Development
+
+```bash
+# Install dependencies
+yarn install
+
+# Build the package
+yarn build
+
+# Run tests
+yarn test
+
+# Watch mode for development
+yarn build:watch
+```
+
 ## Basic exemple: 
 
 ```ts
@@ -39,6 +72,33 @@ user.actions.rename({ name: "Fraktar" });
 # API
 
 API documentation is auto generated and available in a [separate doc](https://github.com/dagatsoin/ravioli/tree/master/doc)
+
+# Examples
+
+All examples use the local distribution build. Build the main package first from the root:
+
+```bash
+yarn build
+```
+
+Then run the examples:
+
+- [example-rpg](./exemples/example-rpg) - RPG game example with turn-based combat
+  ```bash
+  cd exemples/example-rpg && npm start
+  ```
+
+- [example-json-config](./exemples/example-json-config) - JSON-based container configuration example
+  ```bash
+  cd exemples/example-json-config && npm start
+  ```
+
+- [counter-request-scoped](./exemples/counter-request-scoped) - Singleton container with NAP persistence
+  ```bash
+  cd exemples/counter-request-scoped && npm run dev
+  ```
+
+**Note**: Examples are outside the workspace and use the compiled output from `packages/ravioli/dist/`.
 
 # Deep dive
 
@@ -291,10 +351,48 @@ by turn game logic, or basic AI. For exemple:
 - after each action, log what happened
 
 ```ts
-.addStepReaction("auto heal", {
-  predicate: (args) => args.data.hp < 2,
-  effect: ({ actions }) => actions.heal(),
+.addStepReaction({
+  debugName: "auto heal",
+  when: (args) => args.data.hp < 2,
+  do: ({ actions }) => actions.heal(),
 })
+```
+
+### Async Step Reactions with `awaitAsync`
+
+When step reactions perform async operations (like database persistence), they can complete out of order if latency varies. Use `awaitAsync: true` to ensure async operations complete sequentially:
+
+```ts
+.addStepReaction({
+  debugName: 'persist',
+  awaitAsync: true,  // Wait for this reaction before allowing next step
+  runOnInit: false,
+  do: async ({ data }) => {
+    await repository.save(data.id, data.count);
+  },
+})
+```
+
+**How it works:**
+- With `awaitAsync: true`, the library awaits the `do()` promise before proceeding
+- Actions called during an async NAP are buffered and processed after completion
+- Each action is still processed in its own step (stepId increments for each)
+- Saves complete in order: step 1 finishes before step 2 starts
+
+**Without `awaitAsync` (race condition):**
+```
+Action 1 → save(1) starts [SLOW: 1000ms]
+Action 2 → save(2) starts [FAST: 5ms]
+save(2) completes → DB=2 ✓
+save(1) completes → DB=1 ✗ OVERWRITES!
+```
+
+**With `awaitAsync: true` (sequential):**
+```
+Action 1 → save(1) starts, Action 2 BUFFERED
+save(1) completes → DB=1 ✓
+Action 2 processed → save(2) starts
+save(2) completes → DB=2 ✓
 ```
 
 ## Representation
@@ -385,3 +483,229 @@ Each component is instantiated with a default representation which is an exact s
 const container = createContainer<{ hp: number }>().create({ hp: 3 });
 console.log(container.representationRef.current.hp) // 3
 ```
+
+# JSON-Based Container Configuration
+
+Ravioli supports creating containers from JSON configuration files. This is useful for:
+- Defining reusable component templates
+- Separating configuration from code
+- Dynamic container creation based on runtime data
+- Reducing boilerplate in large applications
+
+## Quick Start
+
+### 1. Register Components
+
+First, register your reusable components (acceptors, actions, control state predicates, and step reactions) globally:
+
+```ts
+import {
+  registerAcceptor,
+  registerControlStatePredicate,
+  registerAction,
+  registerStepReaction
+} from '@warfog/ravioli';
+
+// Register an acceptor
+registerAcceptor('setHP', {
+  mutator: (data, { hp }: { hp: number }) => {
+    data.hp = hp;
+  }
+});
+
+// Register control state predicates
+registerControlStatePredicate('isAlive', ({ data }) => data.hp > 0);
+registerControlStatePredicate('isDead', ({ data }) => data.hp <= 0);
+
+// Register actions
+registerAction('heal', () => [{ type: 'setHP', payload: { hp: 100 } }]);
+registerAction('damage', ({ amount }: { amount: number }) => [
+  { type: 'setHP', payload: { hp: 0 } }
+]);
+
+// Register step reactions
+registerStepReaction('autoHeal', {
+  debugName: 'autoHeal',
+  when: ({ delta }) =>
+    delta.acceptedMutations.some(m => m.type === 'setHP' && m.payload.hp < 50),
+  do: ({ actions }) => actions.heal()
+});
+```
+
+### 2. Create JSON Configuration
+
+Define your container structure in a JSON object or file:
+
+```ts
+import { ContainerConfig } from '@warfog/ravioli';
+
+const playerConfig: ContainerConfig = {
+  acceptors: {
+    setHP: 'setHP'  // mutationName -> registryKey
+  },
+  controlStatePredicates: {
+    IS_ALIVE: 'isAlive',  // stateName -> registryKey
+    IS_DEAD: 'isDead'
+  },
+  actions: {
+    heal: 'heal',  // actionName -> registryKey
+    damage: 'damage'
+  },
+  stepReactions: [
+    'autoHeal'  // array of registryKeys
+  ]
+};
+```
+
+### 3. Create Container from JSON
+
+Use `createContainerFromJSON` to build your container:
+
+```ts
+import { createContainerFromJSON } from '@warfog/ravioli';
+
+const playerFactory = createContainerFromJSON<{ hp: number }>(playerConfig);
+
+// Create instances
+const player1 = playerFactory.create({ hp: 100 });
+const player2 = playerFactory.create({ hp: 50 });
+
+// Use them like any Ravioli container
+player1.actions.damage({ amount: 30 });
+console.log(player1.representationRef.current.hp); // 0 (damaged, then auto-healed to 100)
+```
+
+## Registry API
+
+### Registration Functions
+
+```ts
+// Register components with unique names
+registerAcceptor(name: string, acceptor: Acceptor): void
+registerControlStatePredicate(name: string, predicate: CSPredicate): void
+registerAction(name: string, action: ActionPackage): void
+registerStepReaction(name: string, reaction: StepReaction): void
+
+// Clear all registered components (useful for testing)
+clearRegistry(): void
+```
+
+### Getter Functions
+
+```ts
+// Retrieve registered components by name
+// All throw errors if component not found
+getAcceptor(name: string): Acceptor
+getControlStatePredicate(name: string): CSPredicate
+getAction(name: string): ActionPackage
+getStepReaction(name: string): StepReaction
+```
+
+## Complete Example: Game Character
+
+```ts
+import {
+  createContainerFromJSON,
+  registerAcceptor,
+  registerControlStatePredicate,
+  registerAction,
+  registerStepReaction
+} from '@warfog/ravioli';
+
+type Character = {
+  hp: number;
+  maxHP: number;
+  inventory: string[];
+};
+
+// 1. Register acceptors
+registerAcceptor('updateHP', {
+  condition: (data: Character, { hp }) => {
+    const newHP = data.hp + hp;
+    return newHP >= 0 && newHP <= data.maxHP;
+  },
+  mutator: (data: Character, { hp }) => {
+    data.hp += hp;
+  }
+});
+
+registerAcceptor('addItem', {
+  mutator: (data: Character, { item }) => {
+    data.inventory.push(item);
+  }
+});
+
+// 2. Register control state predicates
+registerControlStatePredicate('isAlive', ({ data }) => data.hp > 0);
+registerControlStatePredicate('isDead', ({ data }) => data.hp <= 0);
+registerControlStatePredicate('isHealthy', ({ data }) => data.hp === data.maxHP);
+
+// 3. Register actions
+registerAction('takeDamage', ({ amount }) => [
+  { type: 'updateHP', payload: { hp: -amount } }
+]);
+
+registerAction('heal', ({ amount }) => [
+  { type: 'updateHP', payload: { hp: amount } }
+]);
+
+registerAction('pickupItem', ({ item }) => [
+  { type: 'addItem', payload: { item } }
+]);
+
+// 4. Register step reactions
+registerStepReaction('autoHeal', {
+  debugName: 'autoHeal',
+  when: ({ delta, data }) =>
+    delta.acceptedMutations.some(m => m.type === 'updateHP' && m.payload.hp < 0) &&
+    data.hp > 0 && data.hp < data.maxHP * 0.3,
+  do: ({ actions }) => actions.heal({ amount: 10 })
+});
+
+// 5. Create container from config
+const characterConfig = {
+  acceptors: {
+    updateHP: 'updateHP',
+    addItem: 'addItem'
+  },
+  controlStatePredicates: {
+    IS_ALIVE: 'isAlive',
+    IS_DEAD: 'isDead',
+    IS_HEALTHY: 'isHealthy'
+  },
+  actions: {
+    takeDamage: 'takeDamage',
+    heal: 'heal',
+    pickupItem: 'pickupItem'
+  },
+  stepReactions: ['autoHeal']
+};
+
+const characterFactory = createContainerFromJSON<Character>(characterConfig);
+
+// 6. Create and use instances
+const hero = characterFactory.create({
+  hp: 100,
+  maxHP: 100,
+  inventory: []
+});
+
+hero.actions.takeDamage({ amount: 50 });
+console.log(hero.representationRef.current.hp); // 50
+
+hero.actions.takeDamage({ amount: 30 });
+// HP drops to 20 (< 30%), auto-heal triggers, HP becomes 30
+console.log(hero.representationRef.current.hp); // 30
+
+hero.actions.pickupItem({ item: 'sword' });
+console.log(hero.representationRef.current.inventory); // ['sword']
+```
+
+## Benefits
+
+- **Reusability**: Register components once, use them in multiple container configurations
+- **Separation of Concerns**: Keep business logic (acceptors, actions) separate from container structure (JSON config)
+- **Flexibility**: Dynamically create different container configurations based on runtime conditions
+- **Type Safety**: Full TypeScript support with `ContainerConfig` interface
+- **Testing**: Easy to test with `clearRegistry()` for isolation between tests
+- **Error Handling**: Descriptive errors when registry keys are not found
