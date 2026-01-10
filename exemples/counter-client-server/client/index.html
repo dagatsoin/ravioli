@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Counter - SAM Pattern Client/Server</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #eee;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      color: #ffd700;
+    }
+
+    .subtitle {
+      color: #888;
+      margin-bottom: 40px;
+      font-size: 14px;
+    }
+
+    .counter-container {
+      background: rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 40px 60px;
+      text-align: center;
+      border: 2px solid rgba(255,255,255,0.2);
+    }
+
+    .count-display {
+      font-size: 120px;
+      font-weight: bold;
+      color: #4fc3f7;
+      margin: 20px 0;
+      font-family: 'Courier New', monospace;
+      min-width: 200px;
+    }
+
+    .count-display.negative {
+      color: #ff6b6b;
+    }
+
+    .count-display.zero {
+      color: #888;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      margin-top: 30px;
+    }
+
+    button {
+      padding: 15px 30px;
+      font-size: 24px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: bold;
+    }
+
+    button:hover:not(:disabled) {
+      transform: scale(1.05);
+      filter: brightness(1.1);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-increment {
+      background: #4caf50;
+      color: white;
+    }
+
+    .btn-decrement {
+      background: #f44336;
+      color: white;
+    }
+
+    .btn-reset {
+      background: #9c27b0;
+      color: white;
+    }
+
+    .control-states {
+      margin-top: 30px;
+      font-size: 12px;
+    }
+
+    .control-states span {
+      display: inline-block;
+      background: #2196f3;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 15px;
+      margin: 3px;
+    }
+
+    .step-info {
+      margin-top: 20px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .error-message {
+      color: #ff6b6b;
+      margin-top: 15px;
+      font-size: 14px;
+      min-height: 20px;
+    }
+
+    .architecture-note {
+      margin-top: 40px;
+      padding: 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      font-size: 12px;
+      max-width: 500px;
+      text-align: left;
+    }
+
+    .architecture-note h3 {
+      color: #ffd700;
+      margin-bottom: 10px;
+    }
+
+    .architecture-note code {
+      background: rgba(255,255,255,0.1);
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Counter Demo</h1>
+  <p class="subtitle">SAM Pattern with Ravioli - Client/Server Architecture</p>
+
+  <div class="counter-container">
+    <div class="count-display" id="count">-</div>
+
+    <div class="buttons">
+      <button class="btn-decrement" id="btn-decrement" onclick="decrement()">−</button>
+      <button class="btn-reset" id="btn-reset" onclick="reset()">Reset</button>
+      <button class="btn-increment" id="btn-increment" onclick="increment()">+</button>
+    </div>
+
+    <div class="control-states" id="control-states"></div>
+    <div class="error-message" id="error-message"></div>
+    <div class="step-info" id="step-info"></div>
+  </div>
+
+  <div class="architecture-note">
+    <h3>SAM Architecture</h3>
+    <p>
+      <strong>Client</strong>: Pure view, no local state. Displays <code>Representation</code> from server.<br><br>
+      <strong>Server</strong>: Holds <code>Model</code> (Ravioli container). Actions propose changes.<br><br>
+      <strong>Flow</strong>: Click → HTTP Request → Action → Model → Representation → UI Update
+    </p>
+  </div>
+
+  <script type="module" src="/client.ts"></script>
+</body>
+</html>

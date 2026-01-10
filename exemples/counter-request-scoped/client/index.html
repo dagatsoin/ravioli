@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Singleton Counter (NAP Persistence)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #1a1a2e;
+      color: #eee;
+    }
+    h1 {
+      color: #00d9ff;
+      text-align: center;
+    }
+    .architecture {
+      background: #16213e;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border-left: 4px solid #00d9ff;
+    }
+    .architecture h3 {
+      color: #00d9ff;
+      margin-top: 0;
+    }
+    .architecture pre {
+      background: #0f0f23;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
+    .tenant-selector {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+    .tenant-selector label {
+      color: #00d9ff;
+    }
+    .tenant-selector input {
+      padding: 8px 12px;
+      border: 2px solid #00d9ff;
+      border-radius: 4px;
+      background: #16213e;
+      color: #fff;
+      font-size: 16px;
+    }
+    .counters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .counter {
+      background: #16213e;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .counter h2 {
+      margin-top: 0;
+      color: #00d9ff;
+    }
+    .count {
+      font-size: 64px;
+      font-weight: bold;
+      color: #fff;
+      margin: 20px 0;
+    }
+    .control-states {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 15px;
+      min-height: 20px;
+    }
+    .control-states span {
+      background: #0f3460;
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin: 2px;
+      display: inline-block;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-inc {
+      background: #00d9ff;
+      color: #000;
+    }
+    .btn-dec {
+      background: #ff6b6b;
+      color: #fff;
+    }
+    .btn-reset {
+      background: #ffa502;
+      color: #000;
+    }
+    .btn-add {
+      background: #7bed9f;
+      color: #000;
+    }
+    button:hover:not(:disabled) {
+      transform: scale(1.05);
+    }
+    .logs {
+      background: #0f0f23;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 13px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .log-entry {
+      margin: 5px 0;
+      padding: 5px 10px;
+      border-radius: 4px;
+    }
+    .log-action { background: #1e3a5f; }
+    .log-nap { background: #2d4a3e; color: #7bed9f; }
+    .log-load { background: #3d2d4a; color: #dda0dd; }
+    .log-error { background: #4a2d2d; color: #ff6b6b; }
+    .debug-panel {
+      background: #16213e;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    .debug-panel h3 {
+      color: #00d9ff;
+      margin-top: 0;
+    }
+    .db-state {
+      background: #0f0f23;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>Singleton Counter</h1>
+  <h3 style="text-align: center; color: #888; margin-top: -10px;">NAP-Based Automatic Persistence (Temporal Logic Preserved)</h3>
+
+  <div class="architecture">
+    <h3>SAM Architecture: Singleton + Hydrate/Save</h3>
+    <pre>
+┌─────────────────────────────────────────────────────────────────┐
+│            SINGLETON Container (lives for server lifetime)       │
+├─────────────────────────────────────────────────────────────────┤
+│  Server Start:                                                  │
+│    1. CounterManager created (holds Map of containers)          │
+│    2. Containers created lazily on first access                 │
+│    3. Data hydrated from DB when container created              │
+│                                                                 │
+│  Each Request:                                                  │
+│    1. Get singleton container from manager                      │
+│    2. Execute action                                            │
+│    3. NAP persists to DB (step 0 → 1 → 2 → 3 → ...)            │
+│                                                                 │
+│  TEMPORAL LOGIC PRESERVED: Step count continuous!               │
+└─────────────────────────────────────────────────────────────────┘
+
+KEY INSIGHT: Singleton + NAP = Correct SAM
+- Container lives for server lifetime (step preserved)
+- Save is a REACTION to state change via NAP
+- Can't forget to save - it's automatic!
+    </pre>
+  </div>
+
+  <div class="tenant-selector">
+    <label for="counterId">Counter ID (Multi-tenant):</label>
+    <input type="text" id="counterId" value="default" />
+    <button onclick="loadCounter()" class="btn-add">Load Counter</button>
+  </div>
+
+  <div class="counters">
+    <div class="counter">
+      <h2 id="counterLabel">Counter: default</h2>
+      <div class="count" id="countDisplay">-</div>
+      <div class="control-states" id="controlStates"></div>
+      <div class="actions">
+        <button class="btn-inc" onclick="doAction('increment')">Increment</button>
+        <button class="btn-dec" onclick="doAction('decrement')" id="btnDecrement">Decrement</button>
+        <button class="btn-reset" onclick="doAction('reset')">Reset</button>
+        <button class="btn-add" onclick="doAction('addAmount', { amount: 5 })">+5</button>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="color: #00d9ff;">Activity Log</h3>
+  <div class="logs" id="logs"></div>
+
+  <div class="debug-panel">
+    <h3>Database State (All Counters)</h3>
+    <div class="db-state" id="dbState">Loading...</div>
+    <button onclick="loadAllCounters()" style="margin-top: 10px;" class="btn-add">Refresh DB State</button>
+  </div>
+
+  <script>
+    const GRAPHQL_URL = 'http://localhost:4001/graphql';
+    let currentCounterId = 'default';
+
+    // GraphQL helper
+    async function graphql(query, variables = {}) {
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-Counter-Id': currentCounterId,
+      };
+
+      const response = await fetch(GRAPHQL_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query, variables }),
+      });
+
+      const result = await response.json();
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+      return result.data;
+    }
+
+    // Logging
+    function log(message, type = 'action') {
+      const logs = document.getElementById('logs');
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logs.insertBefore(entry, logs.firstChild);
+    }
+
+    // Load counter state
+    async function loadCounter() {
+      currentCounterId = document.getElementById('counterId').value || 'default';
+      document.getElementById('counterLabel').textContent = `Counter: ${currentCounterId}`;
+
+      log(`Loading counter "${currentCounterId}"...`, 'load');
+
+      try {
+        const data = await graphql(`
+          query {
+            counter {
+              id
+              count
+              controlStates
+              step
+            }
+          }
+        `);
+
+        updateDisplay(data.counter);
+        log(`Loaded counter "${currentCounterId}" (step ${data.counter.step})`, 'load');
+      } catch (error) {
+        log(`Error: ${error.message}`, 'error');
+      }
+    }
+
+    // Execute action
+    async function doAction(action, args = {}) {
+      log(`Executing ${action}(${JSON.stringify(args)})...`, 'action');
+
+      try {
+        let mutation;
+        let resultPath;
+        switch (action) {
+          case 'increment':
+            mutation = 'mutation { increment { id count controlStates step } }';
+            resultPath = (data) => data.increment;
+            break;
+          case 'decrement':
+            mutation = 'mutation { decrement { success error representation { id count controlStates step } } }';
+            resultPath = (data) => {
+              if (!data.decrement.success) {
+                log(`Decrement blocked: ${data.decrement.error}`, 'error');
+              }
+              return data.decrement.representation;
+            };
+            break;
+          case 'reset':
+            mutation = 'mutation { reset { id count controlStates step } }';
+            resultPath = (data) => data.reset;
+            break;
+          case 'addAmount':
+            mutation = `mutation { addAmount(amount: ${args.amount}) { id count controlStates step } }`;
+            resultPath = (data) => data.addAmount;
+            break;
+        }
+
+        const data = await graphql(mutation);
+        const result = resultPath(data);
+
+        updateDisplay(result);
+        log(`${action} completed. Count: ${result.count} (step ${result.step})`, 'action');
+        log(`NAP persisted to database automatically`, 'nap');
+
+        // Refresh DB state to show persistence
+        loadAllCounters();
+      } catch (error) {
+        log(`Error: ${error.message}`, 'error');
+      }
+    }
+
+    // Update display
+    function updateDisplay(counter) {
+      document.getElementById('countDisplay').textContent = counter.count;
+
+      const statesDiv = document.getElementById('controlStates');
+      statesDiv.innerHTML = counter.controlStates
+        .map(s => `<span>${s}</span>`)
+        .join('');
+
+      // Disable decrement if not allowed
+      const btnDec = document.getElementById('btnDecrement');
+      btnDec.disabled = !counter.controlStates.includes('CAN_DECREMENT');
+    }
+
+    // Load all counters from DB (debug)
+    async function loadAllCounters() {
+      try {
+        const data = await graphql(`
+          query {
+            debug {
+              allCounters {
+                id
+                count
+                updatedAt
+              }
+            }
+          }
+        `);
+
+        const dbState = document.getElementById('dbState');
+        if (data.debug.allCounters.length === 0) {
+          dbState.textContent = 'No counters in database yet.';
+        } else {
+          dbState.innerHTML = data.debug.allCounters
+            .map(c => `<div>${c.id}: ${c.count} (updated: ${c.updatedAt})</div>`)
+            .join('');
+        }
+      } catch (error) {
+        document.getElementById('dbState').textContent = `Error: ${error.message}`;
+      }
+    }
+
+    // Initial load
+    loadCounter();
+    loadAllCounters();
+  </script>
+</body>
+</html>

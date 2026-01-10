@@ -154,11 +154,49 @@ test("autorun on instance creation", function() {
       setHP: "setHP"
     })
     .addStepReaction({
-      debugName: "Res", 
+      debugName: "Res",
       when: ({ delta: { controlStates}}) => controlStates.includes('isDead'),
       do: ({ actions }) => actions.setHP(10),
     })
     .create({ hp: 0 })
 
     expect(container.representationRef.current.hp).toBe(10)
+})
+
+test("should await async NAP before allowing next step", async function() {
+  const saveOrder: { count: number; step: number }[] = [];
+
+  const Counter = createContainer<{ count: number }>()
+    .addAcceptor("inc", { mutator: (data) => data.count++ })
+    .addActions({ increment: () => [{ type: "inc", payload: undefined }] })
+    .addStepReaction({
+      debugName: "persist",
+      awaitAsync: true,
+      runOnInit: false,
+      do: async ({ data }) => {
+        // Simulate variable latency - first save is slow, second is fast
+        const delay = saveOrder.length === 0 ? 50 : 10;
+        await new Promise(r => setTimeout(r, delay));
+        saveOrder.push({ count: data.count, step: Counter.stepId });
+      },
+    })
+    .create({ count: 0 });
+
+  expect(Counter.stepId).toBe(0);
+
+  // Two rapid increments (called synchronously)
+  Counter.actions.increment();  // Step 0 → 1, NAP awaits
+  Counter.actions.increment();  // Buffered while NAP running, then Step 1 → 2
+
+  // Wait for both async NAPs to complete
+  await new Promise(r => setTimeout(r, 150));
+
+  // Each action processed in its own step
+  expect(Counter.stepId).toBe(2);
+
+  // Saves completed in order (step 1 before step 2) despite different latencies
+  expect(saveOrder).toEqual([
+    { count: 1, step: 1 },  // First action, first step
+    { count: 2, step: 2 },  // Second action, second step (was buffered)
+  ]);
 })

@@ -20,6 +20,12 @@ export type StepReaction<
    * Defaults to true.
    */
   runOnInit?: boolean;
+  /**
+   * Set this to true to await the do() promise before allowing the next step.
+   * This ensures async operations (like persistence) complete in order.
+   * Defaults to false.
+   */
+  awaitAsync?: boolean;
   when?(args: {
     delta: Delta<MUTATION, CONTROL_STATES_PREDICATES>;
     data: TYPE;
@@ -29,5 +35,5 @@ export type StepReaction<
     data: TYPE;
     representation: REPRESENTATION;
     actions: ACTIONS;
-  }): void;
+  }): unknown;
 };

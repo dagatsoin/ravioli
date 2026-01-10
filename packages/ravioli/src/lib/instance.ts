@@ -200,7 +200,7 @@ export class Instance<
     }
   }
 
-  private react(
+  private async react(
     args: {
       data: TYPE; delta: {
         acceptedMutations: MUTATIONS[];
@@ -212,7 +212,7 @@ export class Instance<
     isInit: boolean = false
   ) {
     for (let i = 0; i < this.stepReactions.length; i++) {
-      const { runOnInit = true, when: predicate, do: effect, once, debugName } = this.stepReactions[i];
+      const { runOnInit = true, when: predicate, do: effect, once, debugName, awaitAsync } = this.stepReactions[i];
       if (isInit && !runOnInit) {
         continue
       }
@@ -222,7 +222,11 @@ export class Instance<
         if (debugName) {
           console.info("[SAM] reaction:", debugName);
         }
-        effect({ ...args, actions: this.actions, representation: this.representationRef.current });
+        const result = effect({ ...args, actions: this.actions, representation: this.representationRef.current });
+        // Await the effect if awaitAsync is set to ensure sequential execution
+        if (awaitAsync && result instanceof Promise) {
+          await result;
+        }
         // If it is a one shot reaction, dispose
         if (once) {
           const didDelete = this.disposeReaction(effect);
