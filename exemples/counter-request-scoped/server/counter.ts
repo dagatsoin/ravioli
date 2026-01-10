@@ -1,16 +1,16 @@
 /**
  * Counter Model - Ravioli Container Definition
  *
- * SAM Pattern with Singleton + Hydrate/Save:
- * - Container lives for server lifetime (preserves step count)
- * - Data hydrated from DB on init
+ * SAM Pattern with Request-Scoped Container:
+ * - Fresh container created for each request
+ * - Data AND stepId hydrated from DB on init (via initialStepId option)
  * - NAP (Step Reaction) saves after each step
  *
- * KEY INSIGHT: Temporal logic preserved!
- * Step 0 → 1 → 2 → 3 → ... (continuous across all actions)
+ * KEY INSIGHT: Temporal logic preserved across requests!
+ * No singleton needed - stepId continues from persisted state.
  */
 
-import { createContainer } from '@warfog/ravioli';
+import { createContainer, IInstance } from '@warfog/ravioli';
 
 // ===========================================
 // Data Shape
@@ -56,14 +56,21 @@ interface HydratePayload {
  * Create a Counter container definition
  *
  * Note: onSave callback is passed to enable NAP persistence
- * without hardcoding the repository dependency
+ * without hardcoding the repository dependency.
+ *
+ * Using initialStepId option allows request-scoped containers
+ * that preserve temporal logic across requests.
  */
 export function createCounterContainer(
   id: string,
   initialCount: number,
-  onSave: (id: string, count: number) => Promise<void>
+  initialStepId: number,
+  onSave: (id: string, count: number, stepId: number) => Promise<void>
 ) {
-  return createContainer<CounterData>()
+  // Reference to capture the instance for step reaction
+  let instanceRef: IInstance<any, any, any, any, any> | null = null;
+
+  const factory = createContainer<CounterData>()
     // -----------------------------------------
     // Acceptors (Atomic Mutations)
     // -----------------------------------------
@@ -115,8 +122,8 @@ export function createCounterContainer(
     // NAP: Step Reaction for Automatic Persistence
     //
     // TEMPORAL LOGIC PRESERVED:
-    // - Container is singleton, step increments forever
-    // - Step 0 → 1 → 2 → 3 → ... across all actions
+    // - stepId initialized from DB via initialStepId option
+    // - Step continues from where it left off across requests
     //
     // awaitAsync: true ensures saves complete in order,
     // preventing stale writes when persistence latency varies
@@ -126,8 +133,9 @@ export function createCounterContainer(
       runOnInit: false,
       awaitAsync: true,
       do: async ({ data }) => {
-        await onSave(data.id, data.count);
-        console.log(`[NAP] Persisted counter "${data.id}" with count ${data.count}`);
+        const stepId = instanceRef?.stepId ?? 0;
+        await onSave(data.id, data.count, stepId);
+        console.log(`[NAP] Persisted counter "${data.id}" with count ${data.count} at step ${stepId}`);
       },
     })
 
@@ -138,10 +146,18 @@ export function createCounterContainer(
       getId: () => data.id,
       getCount: () => data.count,
       actions,
-    }))
+    }));
 
-    // Create instance with initial data
-    .create({ id, count: initialCount });
+  // Create instance with initial data AND initialStepId for hydration
+  const instance = factory.create(
+    { id, count: initialCount },
+    { initialStepId }
+  );
+
+  // Capture reference for step reaction
+  instanceRef = instance;
+
+  return instance;
 }
 
 // Type export

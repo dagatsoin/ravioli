@@ -9,12 +9,12 @@
  * Result: Saves complete in order, no stale writes!
  */
 
-import { counterManager } from '../server/counter-manager.js';
+import { getCounter, clearCache } from '../server/counter-manager.js';
 import { counterRepository, saveLog, setNextSaveLatency } from '../server/repository.js';
 
 describe('Race Condition: awaitAsync Solution', () => {
   beforeEach(async () => {
-    counterManager.clear();
+    clearCache();
     await counterRepository.clear();
   });
 
@@ -24,7 +24,7 @@ describe('Race Condition: awaitAsync Solution', () => {
     console.log('========================================\n');
 
     // Get counter at 0
-    const counter = await counterManager.getCounter('race-test');
+    const counter = await getCounter('race-test');
     const rep = counter.representationRef.current;
 
     console.log(`\n[Test] Initial state: count=${rep.getCount()}, step=${counter.stepId}`);
@@ -78,7 +78,7 @@ describe('Race Condition: awaitAsync Solution', () => {
       console.log(timeline[timeline.length - 1]);
     };
 
-    const counter = await counterManager.getCounter('timeline-test');
+    const counter = await getCounter('timeline-test');
     const rep = counter.representationRef.current;
 
     log('Start: count=0');

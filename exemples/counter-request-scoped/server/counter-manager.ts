@@ -1,124 +1,121 @@
 /**
- * Counter Manager - Singleton Container Management
+ * Counter Manager - Request-Scoped Container Factory
  *
- * Manages singleton containers per tenant (counter ID):
- * - One container per tenant, lives for server lifetime
- * - Hydrates data from DB on first access
- * - NAP automatically persists changes
+ * With initialStepId option, containers can be truly request-scoped:
+ * - No singleton cache needed
+ * - Each request creates a fresh container
+ * - stepId hydrated from DB preserves temporal logic
  *
- * TEMPORAL LOGIC PRESERVED:
- * - Each container maintains its own step count
- * - Step 0 → 1 → 2 → 3 → ... (continuous across all actions)
+ * This example shows BOTH patterns:
+ * 1. Request-scoped: getCounter() creates fresh container each time
+ * 2. Optional caching: getCachedCounter() for singleton pattern if needed
  */
 
 import { createCounterContainer, CounterInstance } from './counter.js';
 import { counterRepository } from './repository.js';
 
 // ===========================================
-// Counter Manager (Singleton per tenant)
+// Request-Scoped Counter Factory (Recommended)
 // ===========================================
 
-class CounterManager {
-  // Map of tenant ID → singleton container
-  private containers: Map<string, CounterInstance> = new Map();
+/**
+ * Create a fresh counter container for this request
+ *
+ * This is the recommended pattern with initialStepId:
+ * - No singleton management complexity
+ * - Each request gets isolated container
+ * - Temporal logic preserved via stepId hydration
+ */
+export async function getCounter(counterId: string): Promise<CounterInstance> {
+  console.log(`[Manager] Creating request-scoped container for "${counterId}"`);
 
-  // Track which containers are being initialized (prevent race conditions)
-  private initializing: Map<string, Promise<CounterInstance>> = new Map();
+  // Load existing state from DB (includes stepId!)
+  const existingRecord = await counterRepository.findById(counterId);
+  const initialCount = existingRecord?.count ?? 0;
+  const initialStepId = existingRecord?.stepId ?? 0;
 
-  /**
-   * Get or create a counter container for the given tenant ID
-   *
-   * - If container exists: return it (singleton)
-   * - If container doesn't exist: create, hydrate from DB, return
-   */
-  async getCounter(counterId: string): Promise<CounterInstance> {
-    // Return existing singleton
-    if (this.containers.has(counterId)) {
-      console.log(`[Manager] Returning existing container for "${counterId}"`);
-      return this.containers.get(counterId)!;
+  console.log(`[Manager] Hydrating "${counterId}" with count=${initialCount}, stepId=${initialStepId}`);
+
+  // Create container with hydrated data AND stepId
+  const container = createCounterContainer(
+    counterId,
+    initialCount,
+    initialStepId,
+    // onSave callback - called by NAP after each step
+    async (id, count, stepId) => {
+      await counterRepository.save(id, count, stepId);
     }
+  );
 
-    // Check if already initializing (prevent race condition)
-    if (this.initializing.has(counterId)) {
-      console.log(`[Manager] Waiting for initialization of "${counterId}"`);
-      return this.initializing.get(counterId)!;
-    }
+  console.log(`[Manager] Container "${counterId}" ready at step ${container.stepId}`);
 
-    // Create and initialize new container
-    const initPromise = this.createAndHydrate(counterId);
-    this.initializing.set(counterId, initPromise);
-
-    try {
-      const container = await initPromise;
-      this.containers.set(counterId, container);
-      return container;
-    } finally {
-      this.initializing.delete(counterId);
-    }
-  }
-
-  /**
-   * Create a new container and hydrate from DB
-   */
-  private async createAndHydrate(counterId: string): Promise<CounterInstance> {
-    console.log(`[Manager] Creating new container for "${counterId}"`);
-
-    // Load existing state from DB
-    const existingRecord = await counterRepository.findById(counterId);
-    const initialCount = existingRecord?.count ?? 0;
-
-    console.log(`[Manager] Hydrating "${counterId}" with count: ${initialCount}`);
-
-    // Create container with save callback for NAP
-    // With awaitAsync: true, the promise is awaited to ensure saves complete in order
-    const container = createCounterContainer(
-      counterId,
-      initialCount,
-      // onSave callback - called by NAP after each step
-      async (id, count) => {
-        await counterRepository.save(id, count);
-      }
-    );
-
-    console.log(`[Manager] Container "${counterId}" created at step ${container.stepId}`);
-
-    return container;
-  }
-
-  /**
-   * Get all managed containers (for debugging)
-   */
-  getAllContainers(): Map<string, CounterInstance> {
-    return new Map(this.containers);
-  }
-
-  /**
-   * Get container info for debugging
-   */
-  getContainerInfo(counterId: string): { exists: boolean; step?: number; count?: number } {
-    const container = this.containers.get(counterId);
-    if (!container) {
-      return { exists: false };
-    }
-    return {
-      exists: true,
-      step: container.stepId,
-      count: container.representationRef.current.getCount(),
-    };
-  }
-
-  /**
-   * Clear all containers (for testing)
-   */
-  clear(): void {
-    this.containers.clear();
-    this.initializing.clear();
-    console.log('[Manager] All containers cleared');
-  }
+  return container;
 }
 
 // ===========================================
-// Singleton Export
+// Optional: Singleton Cache (for comparison)
 // ===========================================
 
-export const counterManager = new CounterManager();
+// Singleton cache (optional - only if you need long-lived containers)
+const containerCache: Map<string, CounterInstance> = new Map();
+const initializing: Map<string, Promise<CounterInstance>> = new Map();
+
+/**
+ * Get or create a cached counter container (singleton per tenant)
+ *
+ * Use this pattern when:
+ * - You need containers to live across multiple requests
+ * - You want to avoid hydration overhead per request
+ *
+ * Note: With initialStepId, this pattern is optional - not required
+ * for temporal logic preservation.
+ */
+export async function getCachedCounter(counterId: string): Promise<CounterInstance> {
+  // Return existing singleton
+  if (containerCache.has(counterId)) {
+    console.log(`[Manager] Returning cached container for "${counterId}"`);
+    return containerCache.get(counterId)!;
+  }
+
+  // Check if already initializing (prevent race condition)
+  if (initializing.has(counterId)) {
+    console.log(`[Manager] Waiting for initialization of "${counterId}"`);
+    return initializing.get(counterId)!;
+  }
+
+  // Create and cache new container
+  const initPromise = getCounter(counterId);
+  initializing.set(counterId, initPromise);
+
+  try {
+    const container = await initPromise;
+    containerCache.set(counterId, container);
+    return container;
+  } finally {
+    initializing.delete(counterId);
+  }
+}
+
+/**
+ * Clear container cache (for testing)
+ */
+export function clearCache(): void {
+  containerCache.clear();
+  initializing.clear();
+  console.log('[Manager] Cache cleared');
+}
+
+/**
+ * Get cache info (for debugging)
+ */
+export function getCacheInfo(counterId: string): { cached: boolean; step?: number; count?: number } {
+  const container = containerCache.get(counterId);
+  if (!container) {
+    return { cached: false };
+  }
+  return {
+    cached: true,
+    step: container.stepId,
+    count: container.representationRef.current.getCount(),
+  };
+}

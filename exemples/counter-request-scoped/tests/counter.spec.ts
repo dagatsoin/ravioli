@@ -1,30 +1,30 @@
 /**
- * Singleton Counter Tests
+ * Request-Scoped Counter Tests
  *
  * Verifies:
- * 1. Container is singleton per tenant
- * 2. NAP automatically persists changes
- * 3. Step count preserved across actions (TEMPORAL LOGIC)
+ * 1. Container is request-scoped (fresh each time)
+ * 2. NAP automatically persists changes with stepId
+ * 3. Step count preserved across requests via initialStepId (TEMPORAL LOGIC)
  * 4. Multi-tenant support
- * 5. Data hydrated from DB on first access
+ * 5. Data AND stepId hydrated from DB
  */
 
 import { jest } from '@jest/globals';
 import { createCounterContainer, CounterInstance } from '../server/counter.js';
-import { counterManager } from '../server/counter-manager.js';
+import { getCounter, getCachedCounter, clearCache } from '../server/counter-manager.js';
 import { counterRepository, saveLog } from '../server/repository.js';
 
-describe('Singleton Counter with NAP Persistence', () => {
+describe('Request-Scoped Counter with NAP Persistence', () => {
   beforeEach(async () => {
     // Clear everything before each test
-    counterManager.clear();
+    clearCache();
     await counterRepository.clear();
   });
 
   describe('Container Creation', () => {
     it('should create container with initial state', () => {
-      const onSave = jest.fn();
-      const counter = createCounterContainer('test-1', 0, onSave);
+      const onSave = jest.fn<(id: string, count: number, stepId: number) => Promise<void>>();
+      const counter = createCounterContainer('test-1', 0, 0, onSave);
       const rep = counter.representationRef.current;
 
       expect(rep.getId()).toBe('test-1');
@@ -32,35 +32,50 @@ describe('Singleton Counter with NAP Persistence', () => {
       expect(counter.stepId).toBe(0);
     });
 
-    it('should create container with hydrated state', () => {
-      const onSave = jest.fn();
-      const counter = createCounterContainer('test-2', 42, onSave);
+    it('should create container with hydrated state and stepId', () => {
+      const onSave = jest.fn<(id: string, count: number, stepId: number) => Promise<void>>();
+      const counter = createCounterContainer('test-2', 42, 10, onSave);
       const rep = counter.representationRef.current;
 
       expect(rep.getId()).toBe('test-2');
       expect(rep.getCount()).toBe(42);
+      expect(counter.stepId).toBe(10); // Hydrated stepId
     });
   });
 
-  describe('Singleton Behavior', () => {
-    it('should return same container instance for same tenant', async () => {
-      const counter1 = await counterManager.getCounter('singleton-test');
-      const counter2 = await counterManager.getCounter('singleton-test');
+  describe('Request-Scoped Behavior', () => {
+    it('should create fresh container for each request (getCounter)', async () => {
+      const counter1 = await getCounter('request-test');
+      counter1.representationRef.current.actions.increment();
+      await new Promise((r) => setTimeout(r, 20));
 
-      expect(counter1).toBe(counter2); // Same instance
+      const counter2 = await getCounter('request-test');
+
+      // Different instances (request-scoped)
+      expect(counter1).not.toBe(counter2);
+
+      // But stepId preserved via DB hydration
+      expect(counter2.stepId).toBe(1);
+    });
+
+    it('should support cached containers if needed (getCachedCounter)', async () => {
+      const counter1 = await getCachedCounter('cached-test');
+      const counter2 = await getCachedCounter('cached-test');
+
+      expect(counter1).toBe(counter2); // Same instance when using cache
     });
 
     it('should return different containers for different tenants', async () => {
-      const counterA = await counterManager.getCounter('tenant-a');
-      const counterB = await counterManager.getCounter('tenant-b');
+      const counterA = await getCounter('tenant-a');
+      const counterB = await getCounter('tenant-b');
 
-      expect(counterA).not.toBe(counterB); // Different instances
+      expect(counterA).not.toBe(counterB);
     });
   });
 
-  describe('Temporal Logic (Step Preservation)', () => {
+  describe('Temporal Logic (Step Preservation via initialStepId)', () => {
     it('should increment step across multiple actions', async () => {
-      const counter = await counterManager.getCounter('step-test');
+      const counter = await getCounter('step-test');
       const rep = counter.representationRef.current;
 
       expect(counter.stepId).toBe(0);
@@ -77,36 +92,34 @@ describe('Singleton Counter with NAP Persistence', () => {
       await new Promise((r) => setTimeout(r, 20));
       expect(counter.stepId).toBe(3);
 
-      // Step count preserved: 0 → 1 → 2 → 3
-      expect(counter.stepId).toBe(3);
       expect(rep.getCount()).toBe(3);
     });
 
-    it('should maintain step count across multiple requests (simulated)', async () => {
-      // Simulate multiple requests accessing same counter
-      // All should see the same singleton with preserved step
-
-      // Request 1
-      const req1Counter = await counterManager.getCounter('multi-request');
+    it('should preserve step count across multiple requests via DB', async () => {
+      // Request 1: start at 0, increment
+      const req1Counter = await getCounter('multi-request');
+      expect(req1Counter.stepId).toBe(0);
       req1Counter.representationRef.current.actions.increment();
       await new Promise((r) => setTimeout(r, 20));
+      expect(req1Counter.stepId).toBe(1);
 
-      // Request 2 (same tenant)
-      const req2Counter = await counterManager.getCounter('multi-request');
-      expect(req2Counter.stepId).toBe(1); // Step preserved from req1
+      // Request 2: fresh container, but stepId hydrated from DB
+      const req2Counter = await getCounter('multi-request');
+      expect(req2Counter.stepId).toBe(1); // Hydrated from DB!
       req2Counter.representationRef.current.actions.increment();
       await new Promise((r) => setTimeout(r, 20));
+      expect(req2Counter.stepId).toBe(2);
 
-      // Request 3 (same tenant)
-      const req3Counter = await counterManager.getCounter('multi-request');
-      expect(req3Counter.stepId).toBe(2); // Step preserved from req1+req2
+      // Request 3: stepId continues
+      const req3Counter = await getCounter('multi-request');
+      expect(req3Counter.stepId).toBe(2);
       expect(req3Counter.representationRef.current.getCount()).toBe(2);
     });
   });
 
-  describe('NAP Persistence (Step Reaction)', () => {
-    it('should automatically persist after increment', async () => {
-      const counter = await counterManager.getCounter('nap-test');
+  describe('NAP Persistence (Step Reaction with stepId)', () => {
+    it('should automatically persist count AND stepId after increment', async () => {
+      const counter = await getCounter('nap-test');
       const rep = counter.representationRef.current;
 
       expect(saveLog.length).toBe(0);
@@ -117,10 +130,11 @@ describe('Singleton Counter with NAP Persistence', () => {
       expect(saveLog.length).toBe(1);
       expect(saveLog[0].id).toBe('nap-test');
       expect(saveLog[0].count).toBe(1);
+      expect(saveLog[0].stepId).toBe(1); // stepId also persisted!
     });
 
-    it('should persist after each action', async () => {
-      const counter = await counterManager.getCounter('multi-action');
+    it('should persist stepId with each action', async () => {
+      const counter = await getCounter('multi-action');
       const rep = counter.representationRef.current;
 
       rep.actions.increment();
@@ -134,11 +148,13 @@ describe('Singleton Counter with NAP Persistence', () => {
 
       // 3 saves (one per action)
       expect(saveLog.length).toBe(3);
-      expect(saveLog[2].count).toBe(3);
+      expect(saveLog[0].stepId).toBe(1);
+      expect(saveLog[1].stepId).toBe(2);
+      expect(saveLog[2].stepId).toBe(3);
     });
 
     it('should not persist if action is blocked', async () => {
-      const counter = await counterManager.getCounter('blocked');
+      const counter = await getCounter('blocked');
       const rep = counter.representationRef.current;
 
       // Try to decrement at 0 (should be blocked)
@@ -151,29 +167,28 @@ describe('Singleton Counter with NAP Persistence', () => {
     });
   });
 
-  describe('Hydration from DB', () => {
-    it('should hydrate state from DB on first access', async () => {
-      // Pre-populate DB
-      await counterRepository.save('hydrate-test', 100);
-
-      // Clear manager to force re-hydration
-      counterManager.clear();
+  describe('Hydration from DB (count AND stepId)', () => {
+    it('should hydrate both count and stepId from DB', async () => {
+      // Pre-populate DB with count AND stepId
+      await counterRepository.save('hydrate-test', 100, 42);
 
       // Access counter - should hydrate from DB
-      const counter = await counterManager.getCounter('hydrate-test');
+      const counter = await getCounter('hydrate-test');
       expect(counter.representationRef.current.getCount()).toBe(100);
+      expect(counter.stepId).toBe(42); // stepId also hydrated!
     });
 
-    it('should start at 0 if not in DB', async () => {
-      const counter = await counterManager.getCounter('new-counter');
+    it('should start at 0 for both count and stepId if not in DB', async () => {
+      const counter = await getCounter('new-counter');
       expect(counter.representationRef.current.getCount()).toBe(0);
+      expect(counter.stepId).toBe(0);
     });
   });
 
   describe('Multi-Tenant Support', () => {
     it('should handle multiple counters independently', async () => {
-      const counter1 = await counterManager.getCounter('tenant-a');
-      const counter2 = await counterManager.getCounter('tenant-b');
+      const counter1 = await getCounter('tenant-a');
+      const counter2 = await getCounter('tenant-b');
 
       const rep1 = counter1.representationRef.current;
       const rep2 = counter2.representationRef.current;
@@ -192,33 +207,37 @@ describe('Singleton Counter with NAP Persistence', () => {
     });
 
     it('should maintain separate step counts per tenant', async () => {
-      const counterA = await counterManager.getCounter('steps-a');
-      const counterB = await counterManager.getCounter('steps-b');
+      // Tenant A: 3 actions
+      let counterA = await getCounter('steps-a');
+      counterA.representationRef.current.actions.increment();
+      await new Promise((r) => setTimeout(r, 10));
+      counterA = await getCounter('steps-a');
+      counterA.representationRef.current.actions.increment();
+      await new Promise((r) => setTimeout(r, 10));
+      counterA = await getCounter('steps-a');
+      counterA.representationRef.current.actions.increment();
+      await new Promise((r) => setTimeout(r, 10));
 
-      // 3 actions on A
-      counterA.representationRef.current.actions.increment();
-      await new Promise((r) => setTimeout(r, 10));
-      counterA.representationRef.current.actions.increment();
-      await new Promise((r) => setTimeout(r, 10));
-      counterA.representationRef.current.actions.increment();
-      await new Promise((r) => setTimeout(r, 10));
-
-      // 1 action on B
+      // Tenant B: 1 action
+      const counterB = await getCounter('steps-b');
       counterB.representationRef.current.actions.increment();
       await new Promise((r) => setTimeout(r, 10));
 
-      expect(counterA.stepId).toBe(3); // 3 steps
-      expect(counterB.stepId).toBe(1); // 1 step
+      // Check final state
+      const finalA = await getCounter('steps-a');
+      const finalB = await getCounter('steps-b');
+
+      expect(finalA.stepId).toBe(3); // 3 steps
+      expect(finalB.stepId).toBe(1); // 1 step
     });
   });
 
   describe('Control States', () => {
     it('should compute control states correctly', async () => {
       // Pre-populate DB with count 5
-      await counterRepository.save('control-test', 5);
-      counterManager.clear();
+      await counterRepository.save('control-test', 5, 0);
 
-      const counter = await counterManager.getCounter('control-test');
+      const counter = await getCounter('control-test');
 
       expect(counter.controlStates).toContain('CAN_DECREMENT');
       expect(counter.controlStates).toContain('IS_POSITIVE');
@@ -227,10 +246,9 @@ describe('Singleton Counter with NAP Persistence', () => {
 
     it('should update control states after mutations', async () => {
       // Start at 1
-      await counterRepository.save('control-update', 1);
-      counterManager.clear();
+      await counterRepository.save('control-update', 1, 0);
 
-      const counter = await counterManager.getCounter('control-update');
+      const counter = await getCounter('control-update');
       const rep = counter.representationRef.current;
 
       expect(counter.controlStates).toContain('CAN_DECREMENT');
