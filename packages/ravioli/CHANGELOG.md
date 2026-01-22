@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.5.0](https://github.com/dagatsoin/ravioli/compare/v1.4.0...v1.5.0) (2026-01-22)
+
+
+### Features
+
+* add initialStepId option for container hydration ([ffb7446](https://github.com/dagatsoin/ravioli/commit/ffb7446161bb8b20a456443f8f7a4107bdb3d6f3))
+
 ## [1.3.0](https://github.com/dagatsoin/ravioli/compare/v1.3.0-beta.13...v1.3.0) (2025-12-09)
 
 
