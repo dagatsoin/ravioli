@@ -31,10 +31,16 @@ export interface ContainerOption {
   debounceReaction?: boolean;
   /**
    * @deprecated if no control state is found, return the previous.
-   * 
+   *
    * This params is deprecated and will be removed in the future.
    */
-  keepLastControlStateIfUndefined?: boolean
+  keepLastControlStateIfUndefined?: boolean;
+  /**
+   * Initial step number for the container.
+   * Useful for hydrating a container from persisted state.
+   * Defaults to 0.
+   */
+  initialStepId?: number;
 }
 
 export class ContainerFactory<

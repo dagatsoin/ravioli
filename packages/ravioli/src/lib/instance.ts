@@ -40,6 +40,11 @@ export class Instance<
         >,
         private options?: ContainerOption,
     ){
+        // Initialize stepId (can be hydrated from persisted state)
+        if (options?.initialStepId !== undefined) {
+          this._stepId.set(options.initialStepId);
+        }
+
         // The data is now observable
         // ISSUE: do we need make it observable?
         this.data  = (observable(data as Record<string, unknown>) as unknown) as TYPE;
@@ -98,8 +103,8 @@ export class Instance<
       }
       return false
     }
-    private _stepId = observable.box(0)
-    public get stepId() {
+    private _stepId = observable.box(0);
+    public get stepId(): number {
       return this._stepId.get();
     }
     

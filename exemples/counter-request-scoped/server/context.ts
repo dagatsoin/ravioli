@@ -1,19 +1,19 @@
 /**
- * GraphQL Context Factory - Singleton Access
+ * GraphQL Context Factory - Request-Scoped Container
  *
- * Gets the singleton container from CounterManager:
+ * Creates a fresh container for each request:
  * 1. Extract counter ID from request header
- * 2. Get singleton container from manager (creates if needed)
+ * 2. Create container with hydrated data AND stepId from DB
  * 3. Attach to context for resolvers
  *
- * TEMPORAL LOGIC PRESERVED:
- * - Container is singleton per tenant
- * - Step count maintains across all requests
+ * TEMPORAL LOGIC PRESERVED via initialStepId:
+ * - Each request gets a fresh container
+ * - stepId hydrated from DB ensures continuity
  * - NAP automatically persists after each action
  */
 
 import { Request } from 'express';
-import { counterManager } from './counter-manager.js';
+import { getCounter } from './counter-manager.js';
 import { CounterInstance } from './counter.js';
 
 // ===========================================
@@ -32,8 +32,8 @@ export interface GraphQLContext {
 /**
  * Create GraphQL context for each request
  *
- * Note: Container is SINGLETON, not created per request
- * This preserves temporal logic (step count)
+ * Note: Container is created fresh per request with initialStepId
+ * This preserves temporal logic via stepId hydration from DB
  */
 export async function createContext({ req }: { req: Request }): Promise<GraphQLContext> {
   // 1. Get counter ID from request header
@@ -41,11 +41,10 @@ export async function createContext({ req }: { req: Request }): Promise<GraphQLC
 
   console.log(`\n[Context] Request for counter "${counterId}"`);
 
-  // 2. Get singleton container from manager
-  //    (creates and hydrates from DB if first access)
-  const counter = await counterManager.getCounter(counterId);
+  // 2. Create fresh container with hydrated data AND stepId
+  const counter = await getCounter(counterId);
 
-  console.log(`[Context] Using container at step: ${counter.stepId}`);
+  console.log(`[Context] Container ready at step: ${counter.stepId}`);
 
   return {
     counter,

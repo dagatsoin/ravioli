@@ -93,7 +93,7 @@ Then run the examples:
   cd exemples/example-json-config && npm start
   ```
 
-- [counter-request-scoped](./exemples/counter-request-scoped) - Singleton container with NAP persistence
+- [counter-request-scoped](./exemples/counter-request-scoped) - Request-scoped container with NAP persistence and stepId hydration
   ```bash
   cd exemples/counter-request-scoped && npm run dev
   ```
@@ -394,6 +394,66 @@ save(1) completes → DB=1 ✓
 Action 2 processed → save(2) starts
 save(2) completes → DB=2 ✓
 ```
+
+### Hydrating Containers with `initialStepId`
+
+When creating containers for server-side usage (e.g., per-request containers), you can preserve temporal logic across requests by hydrating the `stepId` from your database:
+
+```ts
+// Load state from database
+const savedState = await repository.findById(counterId);
+
+// Create container with hydrated data AND stepId
+const container = factory.create(
+  { id: counterId, count: savedState?.count ?? 0 },
+  { initialStepId: savedState?.stepId ?? 0 }  // Hydrate step number!
+);
+
+// Container continues from where it left off
+console.log(container.stepId);  // e.g., 42 (from database)
+```
+
+**Why use `initialStepId`?**
+
+Without `initialStepId`, you'd need singleton containers to preserve temporal logic:
+- Singleton containers live for server lifetime (complex lifecycle management)
+- Memory usage grows with active tenants
+- Server restarts reset all step counts
+
+With `initialStepId`, you can use request-scoped containers:
+- Fresh container per request (simpler, no lifecycle management)
+- No memory growth - containers are garbage collected after request
+- Server restarts don't affect temporal logic (stepId hydrated from DB)
+- Combine with `awaitAsync` to persist stepId with each action
+
+**Example: Request-scoped server pattern:**
+
+```ts
+// Repository saves both count AND stepId
+async function save(id: string, count: number, stepId: number) {
+  await db.upsert({ id, count, stepId });
+}
+
+// Each request creates fresh container, hydrated from DB
+async function handleRequest(counterId: string) {
+  const record = await repository.findById(counterId);
+
+  const counter = createCounter(
+    counterId,
+    record?.count ?? 0,
+    record?.stepId ?? 0,  // Hydrate stepId
+    save
+  );
+
+  // Use container for this request
+  counter.actions.increment();
+  // NAP persists count AND stepId to DB
+
+  return counter.representationRef.current;
+}
+```
+
+See the [counter-request-scoped](./exemples/counter-request-scoped) example for a complete implementation.
 
 ## Representation
 It is how the world sees your component.

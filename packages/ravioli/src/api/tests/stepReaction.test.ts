@@ -200,3 +200,22 @@ test("should await async NAP before allowing next step", async function() {
     { count: 2, step: 2 },  // Second action, second step (was buffered)
   ]);
 })
+
+test("should initialize stepId from options for hydration", function() {
+  const Counter = createContainer<{ count: number }>()
+    .addAcceptor("inc", { mutator: (data) => data.count++ })
+    .addActions({ increment: () => [{ type: "inc", payload: undefined }] });
+
+  // Create instance without initialStepId (default behavior)
+  const defaultCounter = Counter.create({ count: 0 });
+  expect(defaultCounter.stepId).toBe(0);
+
+  // Create instance with initialStepId (for hydration from persisted state)
+  const hydratedCounter = Counter.create({ count: 5 }, { initialStepId: 42 });
+  expect(hydratedCounter.stepId).toBe(42);
+
+  // Verify actions still increment stepId from the initial value
+  hydratedCounter.actions.increment();
+  expect(hydratedCounter.stepId).toBe(43);
+  expect(hydratedCounter.representationRef.current.count).toBe(6);
+})

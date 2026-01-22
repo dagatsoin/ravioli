@@ -10,6 +10,7 @@
 export interface CounterRecord {
   id: string;
   count: number;
+  stepId: number;  // Track step ID for hydration
   updatedAt: Date;
 }
 
@@ -17,7 +18,7 @@ export interface CounterRecord {
 const database = new Map<string, CounterRecord>();
 
 // Track save operations for testing/logging
-export const saveLog: Array<{ id: string; count: number; timestamp: Date }> = [];
+export const saveLog: Array<{ id: string; count: number; stepId: number; timestamp: Date }> = [];
 
 // Configurable latency for testing race conditions
 let nextSaveLatency: number | null = null;
@@ -43,13 +44,14 @@ export class CounterRepository {
   /**
    * Save counter to database
    * Called by NAP (Step Reaction) after state changes
+   * Stores both count and stepId for full hydration
    */
-  async save(id: string, count: number): Promise<void> {
+  async save(id: string, count: number, stepId: number): Promise<void> {
     // Use configured latency or default
     const latency = nextSaveLatency ?? 5;
     nextSaveLatency = null; // Reset after use
 
-    console.log(`[Repository] save("${id}", ${count}) STARTED (will take ${latency}ms)`);
+    console.log(`[Repository] save("${id}", ${count}, step=${stepId}) STARTED (will take ${latency}ms)`);
 
     // Simulate async DB call
     await new Promise((resolve) => setTimeout(resolve, latency));
@@ -57,13 +59,14 @@ export class CounterRepository {
     const record: CounterRecord = {
       id,
       count,
+      stepId,
       updatedAt: new Date(),
     };
 
     database.set(id, record);
-    saveLog.push({ id, count, timestamp: new Date() });
+    saveLog.push({ id, count, stepId, timestamp: new Date() });
 
-    console.log(`[Repository] save("${id}", ${count}) COMPLETED -> DB now has count=${count}`);
+    console.log(`[Repository] save("${id}", ${count}, step=${stepId}) COMPLETED`);
   }
 
   /**
