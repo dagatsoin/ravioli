@@ -1,4 +1,4 @@
-import { computed, IComputedValue, IObservable, IObservableArray, observable, runInAction } from "mobx";
+import { computed, IComputedValue, IObservable, IObservableArray, IObservableValue, observable, runInAction } from "mobx";
 import { IInstance } from "../api";
 import { Acceptor, Mutation } from "./api/acceptor";
 import { IProposalBuffer, Proposal, SAMLoop, TaggedProposal } from "./api/presentable";
@@ -41,9 +41,7 @@ export class Instance<
         private options?: ContainerOption,
     ){
         // Initialize stepId (can be hydrated from persisted state)
-        if (options?.initialStepId !== undefined) {
-          this._stepId.set(options.initialStepId);
-        }
+        this._stepId = observable.box(options?.initialStepId ?? 0);
 
         // The data is now observable
         // ISSUE: do we need make it observable?
@@ -103,7 +101,7 @@ export class Instance<
       }
       return false
     }
-    private _stepId = observable.box(0);
+    private _stepId: IObservableValue<number>;
     public get stepId(): number {
       return this._stepId.get();
     }
