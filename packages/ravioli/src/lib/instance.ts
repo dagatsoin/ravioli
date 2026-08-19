@@ -184,11 +184,6 @@ export class Instance<
     if (didUpdate) {
       this.isRunningNAP = true;
 
-      // Defer representation update if there is some extra proposal to handle.
-      if (this.factory.transformer && (!this.options?.debounceReaction ?? true)) {
-        derivate(this.representationRef.current, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
-      }
-
       // Run the static NAP
       const args = {
         data: this.data,
