@@ -62,7 +62,6 @@ export class Instance<
             acceptedMutations: [],
             previousControlStates: [],
             controlStatePredicates: this.factory.controlStatePredicates,
-            keepLastControlStateIfUndefined: this.options?.keepLastControlStateIfUndefined,
             })
         );
 
@@ -175,7 +174,6 @@ export class Instance<
           acceptedMutations,
           previousControlStates: this.controlStates.slice(),
           controlStatePredicates: this.factory.controlStatePredicates,
-          keepLastControlStateIfUndefined: this.options?.keepLastControlStateIfUndefined,
         })
       );
       didUpdate = true

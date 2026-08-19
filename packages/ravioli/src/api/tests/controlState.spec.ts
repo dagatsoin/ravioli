@@ -18,7 +18,7 @@ interface Model {
 }
 
 test("Use case with a control state tree", function () {
-  const app = createContainer<Model>(/* { keepLastControlStateIfUndefined: true } */)
+  const app = createContainer<Model>()
     .addControlStatePredicate("OFF", ({ data }) =>
       [
         "dataService",
