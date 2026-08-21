@@ -1,6 +1,6 @@
 import { Acceptor, Mutation } from "../lib/api/acceptor";
 import { Actions, PackagedActions } from "../lib/api/action";
-import { ActionComposer } from "../lib/api/composer";
+import { Compose } from "../lib/api/composer";
 import { ToLiteral } from "../lib/api/helpers.type";
 import { CSPredicate } from "../lib/api/predicate";
 import { StepReaction } from "../lib/api/stepReaction";
@@ -131,7 +131,7 @@ export interface IInstance<
    * The first argument of the composer callback is the current available actions.
    * The given callback should return an array of proposal.
    */
-  compose(composer: ActionComposer<ACTIONS, MUTATIONS>): void;
+  compose: Compose<ACTIONS, MUTATIONS>
 }
 
 // Registry functions for JSON-based container creation
