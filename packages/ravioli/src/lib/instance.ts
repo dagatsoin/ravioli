@@ -130,6 +130,7 @@ export class Instance<
   };
 
   public startStep(proposal: TaggedProposal): void {
+    // Major guard #1
     // The proposal should be tagged with the current step ID
     // If not, that means that is an old payload and the presentation is not possible.
 
@@ -141,7 +142,8 @@ export class Instance<
       return;
     }
 
-    // When running step reaction, all the proposal emited from the reaction are buffered.
+    // Major guard #2
+    // When running step reactions, all the proposal emited from the reactions are buffered.
     // We don't start the step until all reaction are ran.
     // Once reactions are ran, we start the step with a composed proposal.
     if (this.isRunningNAP) {
