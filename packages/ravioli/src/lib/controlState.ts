@@ -5,26 +5,15 @@ export function getControlStates<T extends string>({
   data,
   acceptedMutations,
   previousControlStates,
-  keepLastControlStateIfUndefined = false
 }: {
   controlStatePredicates: Array<[T, CSPredicate<any, any, T>]>;
   previousControlStates: T[];
   data: any;
   acceptedMutations: any[];
-  /**
-   * @deprecated if no control state is found, return the previous.
-   * 
-   * This params is deprecated and will be removed in the future.
-   */
-  keepLastControlStateIfUndefined?: boolean
 }): T[] {
   const controlStates = controlStatePredicates
     .filter(([_, predicate], index) => runPredicate(predicate, index))
     .map(([name]) => name);
-  
-  if (!controlStates.length && keepLastControlStateIfUndefined) {
-    return previousControlStates
-  }
   
   return controlStates
   

@@ -36,9 +36,9 @@ it("should auto heal after a hit", function () {
         acceptedMutations.some(
           ({ type, payload }) => type === "setHP" && payload.hp < 0
         ),
-      do: ({ actions: { heal } }) => {
+      do: ({ compose }) => {
         console.log("Thrall is hit: -3");
-        heal();
+        compose(({heal}) => [heal(), heal()]);
       },
     })
     .addStepReaction({
@@ -56,7 +56,7 @@ it("should auto heal after a hit", function () {
     .create({ hp: 10000 });
 
   Thrall.actions.hit();
-  expect(Thrall.representationRef.current.hp).toBe(10003);
+  expect(Thrall.representationRef.current.hp).toBe(10009);
 });
 
 it("should restore deflect the first shot", function() {

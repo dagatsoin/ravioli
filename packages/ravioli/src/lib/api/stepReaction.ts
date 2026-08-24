@@ -1,3 +1,4 @@
+import { Compose } from "./composer";
 import { Delta } from "./presentable";
 
 export type StepReaction<
@@ -35,5 +36,6 @@ export type StepReaction<
     data: TYPE;
     representation: REPRESENTATION;
     actions: ACTIONS;
+    compose: Compose<ACTIONS, MUTATION>;
   }): unknown;
 };

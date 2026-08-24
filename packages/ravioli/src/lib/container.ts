@@ -24,18 +24,6 @@ import { StaticTransformation, Transformation } from "./api/transformer";
 
 export interface ContainerOption {
   /**
-   * Work only for custom representation.
-   * Will debounce the reaction to the representation update
-   * until all step reactions are handled.
-   */
-  debounceReaction?: boolean;
-  /**
-   * @deprecated if no control state is found, return the previous.
-   *
-   * This params is deprecated and will be removed in the future.
-   */
-  keepLastControlStateIfUndefined?: boolean;
-  /**
    * Initial step number for the container.
    * Useful for hydrating a container from persisted state.
    * Defaults to 0.

@@ -1,4 +1,4 @@
-import { computed, IComputedValue, IObservable, IObservableArray, IObservableValue, observable, runInAction } from "mobx";
+import { IObservable, IObservableArray, IObservableValue, observable, runInAction } from "mobx";
 import { IInstance } from "../api";
 import { Acceptor, Mutation } from "./api/acceptor";
 import { IProposalBuffer, Proposal, SAMLoop, TaggedProposal } from "./api/presentable";
@@ -7,6 +7,7 @@ import { ContainerFactory, ContainerOption } from "./container";
 import { getControlStates } from "./controlState";
 import { derivate } from "./derivate";
 import { createNAPProposalBuffer } from "./proposalBuffer";
+import { Compose } from "./api/composer";
 
 export class Instance<
     TYPE,
@@ -62,7 +63,6 @@ export class Instance<
             acceptedMutations: [],
             previousControlStates: [],
             controlStatePredicates: this.factory.controlStatePredicates,
-            keepLastControlStateIfUndefined: this.options?.keepLastControlStateIfUndefined,
             })
         );
 
@@ -117,20 +117,24 @@ export class Instance<
     /**
     * Agreggate proposal of multiple actions for the same step.
     */
-    compose = (
-        composer: (originalActions: ACTIONS) => Proposal<MUTATIONS>[]
-    ) => {
-    const taggedProposal: TaggedProposal = Object.assign(
-      composer(this.factory.originalActions as unknown as ACTIONS).reduce(
-        (mutations, proposal) => mutations.concat(proposal),
-        []
-      ),
-      { stepId: this._stepId.get() }
-    );
-    this.startStep(taggedProposal);
-  };
+    public compose: Compose<ACTIONS, MUTATIONS> = (composer) => {
+      const proposals = (typeof composer === 'function' 
+        ? composer(this.factory.originalActions as unknown as ACTIONS) 
+        : composer
+      )
+
+      const taggedProposal: TaggedProposal = Object.assign(
+        proposals.reduce(
+          (mutations, proposal) => mutations.concat(proposal),
+          []
+        ),
+        { stepId: this._stepId.get() }
+      );
+      this.startStep(taggedProposal);
+    };
 
   public startStep(proposal: TaggedProposal): void {
+    // Major guard #1
     // The proposal should be tagged with the current step ID
     // If not, that means that is an old payload and the presentation is not possible.
 
@@ -142,7 +146,8 @@ export class Instance<
       return;
     }
 
-    // When running step reaction, all the proposal emited from the reaction are buffered.
+    // Major guard #2
+    // When running step reactions, all the proposal emited from the reactions are buffered.
     // We don't start the step until all reaction are ran.
     // Once reactions are ran, we start the step with a composed proposal.
     if (this.isRunningNAP) {
@@ -175,7 +180,6 @@ export class Instance<
           acceptedMutations,
           previousControlStates: this.controlStates.slice(),
           controlStatePredicates: this.factory.controlStatePredicates,
-          keepLastControlStateIfUndefined: this.options?.keepLastControlStateIfUndefined,
         })
       );
       didUpdate = true
@@ -183,11 +187,6 @@ export class Instance<
 
     if (didUpdate) {
       this.isRunningNAP = true;
-
-      // Defer representation update if there is some extra proposal to handle.
-      if (this.factory.transformer && (!this.options?.debounceReaction ?? true)) {
-        derivate(this.representationRef.current, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
-      }
 
       // Run the static NAP
       const args = {
@@ -225,7 +224,7 @@ export class Instance<
         if (debugName) {
           console.info("[SAM] reaction:", debugName);
         }
-        const result = effect({ ...args, actions: this.actions, representation: this.representationRef.current });
+        const result = effect({ ...args, actions: this.actions, representation: this.representationRef.current, compose: this.compose });
         // Await the effect if awaitAsync is set to ensure sequential execution
         if (awaitAsync && result instanceof Promise) {
           await result;
