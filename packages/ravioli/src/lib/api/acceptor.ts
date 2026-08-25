@@ -1,6 +1,11 @@
 import { ArrayType, ToLiteral } from "./helpers.type";
+import { Reason } from "./rejection";
 
-type Condition<M, P> = (modelData: M, payload: P) => boolean;
+/**
+ * Return true to accept the mutation, false to refuse it,
+ * or a Reason to refuse it and explain why.
+ */
+type Condition<M, P> = (modelData: M, payload: P) => boolean | Reason;
 
 export type Acceptor<M, P> = {
   condition?: Condition<M, P>;

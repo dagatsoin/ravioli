@@ -1,13 +1,14 @@
 import { IObservable, IObservableArray, IObservableValue, observable, runInAction } from "mobx";
 import { IInstance } from "../api";
 import { Acceptor, Mutation } from "./api/acceptor";
-import { IProposalBuffer, Proposal, SAMLoop, TaggedProposal } from "./api/presentable";
+import { IProposalBuffer, Proposal, SAMLoop, Step, TaggedProposal } from "./api/presentable";
 import { StepReaction } from "./api/stepReaction";
 import { ContainerFactory, ContainerOption } from "./container";
 import { getControlStates } from "./controlState";
-import { derivate } from "./derivate";
+import { derivate, reconcile } from "./derivate";
 import { createNAPProposalBuffer } from "./proposalBuffer";
 import { Compose } from "./api/composer";
+import { Attempt, Reason, Rejection, RejectionCode, toReason } from "./api/rejection";
 
 export class Instance<
     TYPE,
@@ -105,6 +106,34 @@ export class Instance<
     public get stepId(): number {
       return this._stepId.get();
     }
+
+    /**
+     * The outcome of the last step attempt.
+     * It is written on each presented proposal, accepted or not, and is undefined
+     * until the first attempt. It is a MobX observable: use it to display why
+     * something was refused. It is NOT the error state of your app, which belongs
+     * to the model as any other data.
+     */
+    private _lastAttempt: IObservableValue<Attempt<MUTATIONS> | undefined> = observable.box(
+      undefined,
+      { deep: false }
+    );
+    public get lastAttempt(): Attempt<MUTATIONS> | undefined {
+      return this._lastAttempt.get();
+    }
+
+    /**
+     * A proposal was refused before reaching the model. No step, no reaction.
+     */
+    public discardProposal(reason: Reason): void {
+      runInAction(() => {
+        this._lastAttempt.set({
+          status: "discarded",
+          attemptedAt: this._stepId.get(),
+          reason,
+        });
+      });
+    }
     
     private currentControlStates: IObservableArray<CONTROL_STATES> = observable([]);    
     public get controlStates(): CONTROL_STATES[] {
@@ -138,11 +167,18 @@ export class Instance<
     // The proposal should be tagged with the current step ID
     // If not, that means that is an old payload and the presentation is not possible.
 
-    if (proposal.stepId !== this._stepId.get()) {
+    const attemptedAt = this._stepId.get();
+
+    if (proposal.stepId !== attemptedAt) {
       console.info(
         "[RAVIOLI] Tried to present a proposal with a different step id.",
         proposal
       );
+      this.discardProposal({
+        code: RejectionCode.staleProposal,
+        message: `The proposal was tagged with the step ${proposal.stepId} but the current step is ${attemptedAt}.`,
+        meta: { proposalStepId: proposal.stepId },
+      });
       return;
     }
 
@@ -161,7 +197,15 @@ export class Instance<
     const acceptedMutations: MUTATIONS[] = [];
     let didUpdate = false
     runInAction(() => {
-      acceptedMutations.push(...this.present(proposal));
+      const { accepted, rejected } = this.present(proposal);
+      acceptedMutations.push(...accepted);
+
+      // Whatever the model decided, the attempt is reported.
+      this._lastAttempt.set(
+        acceptedMutations.length
+          ? { status: "accepted", attemptedAt, accepted: acceptedMutations.slice(), rejected }
+          : { status: "rejected", attemptedAt, rejected }
+      );
 
       // No mutations happened, abort the step
       if (!acceptedMutations.length) {
@@ -200,6 +244,112 @@ export class Instance<
       };
       this.react(args);
     }
+  }
+
+  /**
+   * Jump to another step without rebuilding the container.
+   *
+   * The model data is reconciled in place: the representation keeps its
+   * reference and all the observers stay attached. The delta of the targeted
+   * step is reinjected, then the step reactions replay against it, so a reaction
+   * which reads the arrival behaves as it did on the container which walked the
+   * path.
+   *
+   * It does not present a proposal: no acceptor runs, no condition is checked.
+   * The given data is taken as it is.
+   */
+  public rollback(step: Step<TYPE, MUTATIONS, CONTROL_STATES>): void {
+    // Major guard
+    // A rollback while the reactions are running would move the model under them
+    // and let the abandoned timeline leak in the new one.
+    if (this.isRunningNAP) {
+      console.warn(
+        "[RAVIOLI] Tried to rollback while running the step reactions."
+      );
+      return;
+    }
+
+    const stepId = getRollbackStepId(step);
+
+    // Put in this transaction all the needed updates
+    // The view won't react until the transaction is finished.
+    runInAction(() => {
+      reconcile(this.data as unknown as object, step.data);
+      this._stepId.set(stepId);
+      this.currentControlStates.replace(step.delta.controlStates);
+      // The buffer and the last attempt belong to the abandoned timeline.
+      this.NAPproposalBuffer.clear();
+      this.NAPproposalBuffer.setStepId(stepId);
+      this._lastAttempt.set(undefined);
+    });
+
+    this.isRunningNAP = true;
+
+    // Replay the arrival at this step.
+    this.react({
+      data: this.data,
+      delta: {
+        acceptedMutations: step.delta.acceptedMutations,
+        proposal: step.delta.proposal,
+        controlStates: this.currentControlStates,
+        previousControlStates: step.delta.previousControlStates,
+      },
+    });
+  }
+
+  /**
+   * Put the container back to its creation step.
+   *
+   * The creation step is the only one which can be rebuilt from the data alone:
+   * it has no past, so its control states are computed the way the constructor
+   * does. The author gives the state back, the instance does not keep a copy.
+   */
+  public reset(state: TYPE): void {
+    // Major guard
+    // Same as a rollback: not while the reactions are running.
+    if (this.isRunningNAP) {
+      console.warn(
+        "[RAVIOLI] Tried to reset while running the step reactions."
+      );
+      return;
+    }
+
+    const stepId = this.options?.initialStepId ?? 0;
+
+    // Put in this transaction all the needed updates
+    // The view won't react until the transaction is finished.
+    runInAction(() => {
+      reconcile(this.data as unknown as object, state);
+      this._stepId.set(stepId);
+      // No past: the control states are the ones of a brand new container.
+      this.currentControlStates.replace(
+        getControlStates<CONTROL_STATES>({
+          data: this.data,
+          acceptedMutations: [],
+          previousControlStates: [],
+          controlStatePredicates: this.factory.controlStatePredicates,
+        })
+      );
+      this.NAPproposalBuffer.clear();
+      this.NAPproposalBuffer.setStepId(stepId);
+      this._lastAttempt.set(undefined);
+    });
+
+    this.isRunningNAP = true;
+
+    // Replay the creation.
+    this.react(
+      {
+        data: this.data,
+        delta: {
+          acceptedMutations: [],
+          proposal: [],
+          controlStates: this.currentControlStates,
+          previousControlStates: [],
+        },
+      },
+      true
+    );
   }
 
   private async react(
@@ -252,17 +402,57 @@ export class Instance<
     }
   }
 
-  private present(proposal: Proposal<MUTATIONS>): MUTATIONS[] {
-    return proposal.filter(({ type, payload }) => {
-      // Acceptor exists
+  private present(
+    proposal: Proposal<MUTATIONS>
+  ): { accepted: MUTATIONS[]; rejected: Rejection<MUTATIONS>[] } {
+    const accepted: MUTATIONS[] = [];
+    const rejected: Rejection<MUTATIONS>[] = [];
+
+    for (const mutation of proposal) {
+      const { type, payload } = mutation;
       const acceptor: Acceptor<any, any> | undefined = this.factory.acceptors[type];
-      // Acceptor condition
-      if (acceptor.condition === undefined || acceptor.condition(this.data, payload)) {
-        // Do the mutation
-        acceptor.mutator(this.data, payload);
-        return true;
+
+      // Acceptor exists
+      if (acceptor === undefined) {
+        rejected.push({
+          mutation,
+          reason: {
+            code: RejectionCode.unknownAcceptor,
+            message: `No acceptor is bound to "${type}".`,
+          },
+        });
+        continue;
       }
-      return false;
-    });
+
+      // Acceptor condition
+      const reason =
+        acceptor.condition === undefined
+          ? undefined
+          : toReason(acceptor.condition(this.data, payload));
+
+      if (reason !== undefined) {
+        rejected.push({ mutation, reason });
+        continue;
+      }
+
+      // Do the mutation
+      acceptor.mutator(this.data, payload);
+      accepted.push(mutation);
+    }
+
+    return { accepted, rejected };
   }
+}
+
+/**
+ * A proposal is tagged with the step it was presented against: the step it
+ * produced is the next one.
+ */
+function getRollbackStepId(step: Step<any, any, any>): number {
+  if (step.delta.proposal.stepId === undefined) {
+    throw new Error(
+      "[RAVIOLI] Can't place this step in time: its proposal has no step id. The creation step is not rolled back to, it is reset to."
+    );
+  }
+  return step.delta.proposal.stepId + 1;
 }

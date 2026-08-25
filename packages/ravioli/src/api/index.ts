@@ -5,6 +5,8 @@ import { ToLiteral } from "../lib/api/helpers.type";
 import { CSPredicate } from "../lib/api/predicate";
 import { StepReaction } from "../lib/api/stepReaction";
 import { StaticTransformation, Transformation } from "../lib/api/transformer";
+import { Attempt } from "../lib/api/rejection";
+import { Step } from "../lib/api/presentable";
 import { ContainerFactory, ContainerOption } from "../lib/container";
 
 export interface IContainerFactory<
@@ -127,6 +129,28 @@ export interface IInstance<
    */
   stepId: number;
   /**
+   * The outcome of the last presented proposal, accepted or not.
+   * Undefined until the first attempt.
+   *
+   * It is a MobX observable, so you can render a refusal reactively. A refused
+   * proposal does not start a step: no step id increment, no step reaction.
+   *
+   * This is a receipt for one attempt, not the error state of your app. An error
+   * which must stay on screen is data and belongs to the model, through an acceptor.
+   */
+  lastAttempt: Attempt<MUTATIONS> | undefined;
+  /**
+   * Jump to another step. The model data is reconciled in place, so the
+   * observers stay attached, then the step reactions replay against the
+   * reinjected delta.
+   */
+  rollback(step: Step<TYPE, MUTATIONS, CONTROL_STATES>): void;
+  /**
+   * Put the container back to its creation step. Give the state it was created
+   * with: the instance does not keep a copy of it.
+   */
+  reset(state: TYPE): void;
+  /**
    * Compose multiple actions in one proposal.
    * The first argument of the composer callback is the current available actions.
    * The given callback should return an array of proposal.
@@ -152,3 +176,10 @@ export { createContainerFromJSON } from './fromJSON/containerFromJSON';
 
 // Configuration type for JSON-based containers
 export type { ContainerConfig } from './fromJSON/containerConfig';
+
+// Step types
+export type { Delta, Proposal, Step, TaggedProposal } from '../lib/api/presentable';
+
+// Rejection types
+export type { Attempt, Reason, Rejection } from '../lib/api/rejection';
+export { RejectionCode } from '../lib/api/rejection';

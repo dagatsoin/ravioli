@@ -21,6 +21,7 @@ import {
 import { Instance } from "./instance"
 import { StepReaction } from "./api/stepReaction";
 import { StaticTransformation, Transformation } from "./api/transformer";
+import { RejectionCode } from "./api/rejection";
 
 export interface ContainerOption {
   /**
@@ -174,10 +175,13 @@ export class ContainerFactory<
 
     return {
       get stepId() { return instance.stepId },
+      get lastAttempt() { return instance.lastAttempt },
       actions: instance.actions,
       controlStates: instance.controlStates,
       representationRef: instance.representationRef,
       compose: instance.compose,
+      rollback: (step) => instance.rollback(step),
+      reset: (state) => instance.reset(state),
     };
   }
 }
@@ -202,6 +206,24 @@ function isMutationShortcut<M extends Mutation<any, any>>(
 
 
 
+/**
+ * The action was refused by its own auth predicate: the proposal is never presented
+ * to the model. Report it on the instance so the refusal is not console only.
+ */
+function reportUnauthorized(
+  instance: IInstance<any, any, any, any> & SAMLoop,
+  actionName: string
+) {
+  instance.discardProposal({
+    code: RejectionCode.unauthorized,
+    message: `Unauthorized action ${actionName} at step ${instance.stepId}.`,
+    meta: {
+      action: actionName,
+      controlStates: instance.controlStates.slice(),
+    },
+  });
+}
+
 function toSyncAction<A extends (...args: any[]) => any>(
   name: string,
   action: A,
@@ -215,6 +237,7 @@ function toSyncAction<A extends (...args: any[]) => any>(
               console.warn(
                   `Unauthorized action ${name} at step ${instance.stepId} with control states: ${instance.controlStates}`
               );
+              reportUnauthorized(instance, name);
               return;
               }
           }
@@ -244,6 +267,7 @@ function toAsyncAction<A extends (...args: any[]) => any>(
           console.warn(
               `Unauthorized action ${name} at step ${instance.stepId} with control states: ${instance.controlStates}`
           );
+          reportUnauthorized(instance, name);
           return;
           }
       }
@@ -259,6 +283,7 @@ function toAsyncAction<A extends (...args: any[]) => any>(
           console.warn(
               `Unauthorized action ${name} at step ${instance.stepId} with control states: ${instance.controlStates}`
           );
+          reportUnauthorized(instance, name);
           return;
           }
       }
@@ -286,6 +311,7 @@ function toCancelableAsyncAction<A extends (...args: any[]) => any>(
           console.warn(
               `Unauthorized action ${action.name} at step ${instance.stepId} with control states: ${instance.controlStates}`
           );
+          reportUnauthorized(instance, action.name);
           return;
           }
       }
