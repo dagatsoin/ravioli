@@ -141,7 +141,28 @@ export class Instance<
       }
 
     private NAPproposalBuffer: IProposalBuffer<any> = createNAPProposalBuffer<any>();
-    private isRunningNAP = false;  
+    private isRunningNAP = false;
+    /**
+     * How many steps in a row were started by the reactions themselves.
+     * Reset as soon as a reaction pass proposes nothing.
+     */
+    private napCascade = 0;
+
+    /**
+     * A step reaction pass did not run to the end. The step itself stands, its
+     * consequences do not. Report it on the last attempt rather than throwing:
+     * the caller never awaited the reaction pass and can not catch it.
+     */
+    private reportUnsettled(reason: Reason): void {
+      console.error(`[RAVIOLI] ${reason.message}`);
+      const attempt = this._lastAttempt.get();
+      if (attempt === undefined || attempt.status !== "accepted") {
+        return;
+      }
+      runInAction(() => {
+        this._lastAttempt.set({ ...attempt, settled: false, reason });
+      });
+    }
 
     /**
     * Agreggate proposal of multiple actions for the same step.
@@ -203,7 +224,7 @@ export class Instance<
       // Whatever the model decided, the attempt is reported.
       this._lastAttempt.set(
         acceptedMutations.length
-          ? { status: "accepted", attemptedAt, accepted: acceptedMutations.slice(), rejected }
+          ? { status: "accepted", attemptedAt, accepted: acceptedMutations.slice(), rejected, settled: true }
           : { status: "rejected", attemptedAt, rejected }
       );
 
@@ -363,43 +384,81 @@ export class Instance<
     },
     isInit: boolean = false
   ) {
-    for (let i = 0; i < this.stepReactions.length; i++) {
-      const { runOnInit = true, when: predicate, do: effect, once, debugName, awaitAsync } = this.stepReactions[i];
-      if (isInit && !runOnInit) {
-        continue
-      }
-      // Filter nap which have already ran on the instance
-      if (!predicate || predicate(args)) {
-        // Run the reaction
-        if (debugName) {
-          console.info("[SAM] reaction:", debugName);
+    // Nobody awaits this pass and nobody can catch it: a throw which escaped
+    // here used to leave isRunningNAP true, and the instance then refused every
+    // later step, rollback and reset for good.
+    //
+    // Kept inline on purpose. Delegating to an awaited method would push the
+    // recovery to the next microtask, and a caller acting synchronously right
+    // after the throw would still find the instance closed.
+    try {
+      for (let i = 0; i < this.stepReactions.length; i++) {
+        const { runOnInit = true, when: predicate, do: effect, once, debugName, awaitAsync } = this.stepReactions[i];
+        if (isInit && !runOnInit) {
+          continue
         }
-        const result = effect({ ...args, actions: this.actions, representation: this.representationRef.current, compose: this.compose });
-        // Await the effect if awaitAsync is set to ensure sequential execution
-        if (awaitAsync && result instanceof Promise) {
-          await result;
-        }
-        // If it is a one shot reaction, dispose
-        if (once) {
-          const didDelete = this.disposeReaction(effect);
-          if (didDelete) {
-            i--; // Step back the cursor to compensate the last deleted item.
+        // Filter nap which have already ran on the instance
+        if (!predicate || predicate(args)) {
+          // Run the reaction
+          if (debugName) {
+            console.info("[SAM] reaction:", debugName);
           }
+          const result = effect({ ...args, actions: this.actions, representation: this.representationRef.current, compose: this.compose });
+          // Await the effect if awaitAsync is set to ensure sequential execution
+          if (awaitAsync && result instanceof Promise) {
+            await result;
+          }
+          // If it is a one shot reaction, dispose
+          if (once) {
+            const didDelete = this.disposeReaction(effect);
+            if (didDelete) {
+              i--; // Step back the cursor to compensate the last deleted item.
+            }
+          }
+
         }
-
       }
-    }
 
-    this.isRunningNAP = false;
+      this.isRunningNAP = false;
 
-    if (this.NAPproposalBuffer.length) {
-      this.startStep(this.NAPproposalBuffer.getTaggedProposal());
-    }
+      if (this.NAPproposalBuffer.length) {
+        // A reaction proposed something. Nothing says the next pass will propose
+        // less, so count the chain and cut it before it eats the stack.
+        this.napCascade++;
+        if (this.napCascade > MAX_NAP_CASCADE) {
+          this.stopCascade();
+        } else {
+          this.startStep(this.NAPproposalBuffer.getTaggedProposal());
+        }
+      } else {
+        // The pass settled.
+        this.napCascade = 0;
+      }
 
-    // Refresh the represenation
-    if (this.factory.transformer) {
-      derivate(this.representationRef.current, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
+      // Refresh the represenation
+      if (this.factory.transformer) {
+        derivate(this.representationRef.current, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
+      }
+    } catch (error) {
+      this.reportUnsettled(toUnsettledReason(error));
+    } finally {
+      this.isRunningNAP = false;
     }
+  }
+
+  /**
+   * The reactions kept proposing. Drop what they were about to present and say
+   * so, rather than recursing until the stack gives up.
+   */
+  private stopCascade(): void {
+    this.napCascade = 0;
+    this.NAPproposalBuffer.clear();
+    this.NAPproposalBuffer.setStepId(this._stepId.get());
+    this.reportUnsettled({
+      code: RejectionCode.reactionsDidNotSettle,
+      message: `The step reactions did not settle after ${MAX_NAP_CASCADE} steps.`,
+      meta: { steps: MAX_NAP_CASCADE },
+    });
   }
 
   private present(
@@ -455,4 +514,18 @@ function getRollbackStepId(step: Step<any, any, any>): number {
     );
   }
   return step.delta.proposal.stepId + 1;
+}
+
+/**
+ * How many steps in a row the reactions may start before the instance calls it
+ * a runaway. A settling chain is a handful of steps, never dozens.
+ */
+const MAX_NAP_CASCADE = 50;
+
+function toUnsettledReason(error: unknown): Reason {
+  return {
+    code: RejectionCode.reactionThrew,
+    message: error instanceof Error ? error.message : String(error),
+    meta: { error },
+  };
 }

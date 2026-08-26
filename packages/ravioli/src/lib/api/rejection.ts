@@ -29,13 +29,19 @@ export const RejectionCode = {
   staleProposal: "STALE_PROPOSAL",
   /** The action was not allowed for the current control states. */
   unauthorized: "UNAUTHORIZED",
+  /** A step reaction threw. The step happened, its consequences did not. */
+  reactionThrew: "REACTION_THREW",
+  /** The step reactions kept proposing and never settled. */
+  reactionsDidNotSettle: "REACTIONS_DID_NOT_SETTLE",
 } as const;
 
 /**
  * The outcome of a step attempt.
  *
  * - `accepted`: the model applied at least one mutation. `rejected` may still
- *   hold the parts of the proposal which were refused.
+ *   hold the parts of the proposal which were refused. `settled` says whether
+ *   the step reactions ran to the end: it is written true, then turned false if
+ *   the reaction pass fails, so an observer is told twice.
  * - `rejected`: the model examined the proposal and applied nothing. No new step,
  *   no step reaction: the clock did not tick.
  * - `discarded`: the proposal never reached the model (stale or unauthorized).
@@ -50,6 +56,13 @@ export type Attempt<MUTATION> =
       attemptedAt: number;
       accepted: MUTATION[];
       rejected: Rejection<MUTATION>[];
+      /**
+       * False when the step reactions did not run to the end. The step itself
+       * stands: the model was mutated and the step id did tick.
+       */
+      settled: boolean;
+      /** Why the reactions did not settle. Only when settled is false. */
+      reason?: Reason;
     }
   | {
       status: "rejected";
