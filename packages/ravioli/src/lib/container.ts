@@ -22,6 +22,7 @@ import { Instance } from "./instance"
 import { StepReaction } from "./api/stepReaction";
 import { StaticTransformation, Transformation } from "./api/transformer";
 import { RejectionCode } from "./api/rejection";
+import { validateControlStatePredicates } from "./controlState";
 
 export interface ContainerOption {
   /**
@@ -171,6 +172,11 @@ export class ContainerFactory<
     ACTIONS,
     REPRESENTATION
   > {
+    // Refuse a broken control state tree here, while the stack still points at
+    // the declaration. A forward reference is legal, so it can not be done
+    // earlier than this.
+    validateControlStatePredicates(this.controlStatePredicates);
+
     const instance = new Instance(initialValue, this.stepReactions, this, options)
 
     return {
