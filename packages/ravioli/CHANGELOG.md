@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.7.0](https://github.com/dagatsoin/ravioli/compare/v1.6.0...v1.7.0) (2026-08-28)
+
+
+### Features
+
+* rejection reporting, rollback and reset ([8d59fe9](https://github.com/dagatsoin/ravioli/commit/8d59fe9c0676c0c72e253029bff22ac7bae62f79))
+
+
+### Bug Fixes
+
+* a failing step reaction no longer closes the container ([5a35c1a](https://github.com/dagatsoin/ravioli/commit/5a35c1a317d42698a9d316139decabe571062a26))
+* control state predicate tree ([7c4fc48](https://github.com/dagatsoin/ravioli/commit/7c4fc48ce8714789f4e44386489741a739a6ea24))
+
 ## [1.6.0](https://github.com/dagatsoin/ravioli/compare/v1.5.1...v1.6.0) (2026-08-24)
 
 
