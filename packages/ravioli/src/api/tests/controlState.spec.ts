@@ -484,19 +484,19 @@ test("Use case with declarative control state", function () {
 
   actions.setSynchronised({ isSynchronised: true });
   expect(app.controlStates.sort()).toEqual(
-    ["SYNCHRONISED", "LOGGED_ONLINE", "ON"].sort()
+    ["SYNCHRONISED", "LOGGED_ONLINE", "ON", "RUNNING_ONLINE"].sort()
   );
 
   // Disable data
   actions.setSynchronised({ isSynchronised: false });
   expect(app.controlStates.sort()).toEqual(
-    ["LOGGED_ONLINE", "ON"].sort()
+    ["LOGGED_ONLINE", "ON", "RUNNING_OFFLINE"].sort()
   );
 
   // Enable data
   actions.setSynchronised({ isSynchronised: true });
   expect(app.controlStates.sort()).toEqual(
-    ["SYNCHRONISED", "ON", "LOGGED_ONLINE"].sort()
+    ["SYNCHRONISED", "ON", "LOGGED_ONLINE", "RUNNING_ONLINE"].sort()
   );
 
   // Logout when data is enabled
@@ -514,7 +514,7 @@ test("Use case with declarative control state", function () {
     actions.setSynchronised({ isSynchronised: true }),
   ]);
   expect(app.controlStates.sort()).toEqual(
-    ["ON", "SYNCHRONISED", "LOGGED_ONLINE"].sort()
+    ["ON", "SYNCHRONISED", "LOGGED_ONLINE", "RUNNING_ONLINE"].sort()
   );
 
   // Logout when data is enabled
@@ -542,25 +542,25 @@ test("Use case with declarative control state", function () {
   // Restore data
   actions.setUserId({ id: "foo" });
   expect(app.controlStates.sort()).toEqual(
-    ["ON", "RESTORED", "LOGGED_OFFLINE"].sort()
+    ["ON", "RESTORED", "LOGGED_OFFLINE", "RUNNING_OFFLINE"].sort()
   );
 
   // Enable data.
   actions.setConnected({ connected: true });
   expect(app.controlStates.sort()).toEqual(
-    ["ON", "RESTORED", "LOGGED_OFFLINE"].sort()
+    ["ON", "RESTORED", "LOGGED_OFFLINE", "RUNNING_OFFLINE"].sort()
   );
 
   // Relogin online
   actions.setLoginStatus({ loginStatus: "loggedOnline" });
   expect(app.controlStates.sort()).toEqual(
-    ["ON", "RESTORED", "LOGGED_ONLINE"].sort()
+    ["ON", "RESTORED", "LOGGED_ONLINE", "RUNNING_OFFLINE"].sort()
   );
 
   // Sync data
   actions.setSynchronised({ isSynchronised: true });
   expect(app.controlStates.sort()).toEqual(
-    ["ON", "RESTORED", "SYNCHRONISED", "LOGGED_ONLINE"].sort()
+    ["ON", "RESTORED", "SYNCHRONISED", "LOGGED_ONLINE", "RUNNING_ONLINE"].sort()
   );
 
   function areServicesUp({ data }: { data: Model }) {
