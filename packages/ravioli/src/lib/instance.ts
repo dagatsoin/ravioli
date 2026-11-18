@@ -54,7 +54,7 @@ export class Instance<
         // Bind action to instance
         Object.keys(factory.wrapedActions).map((k) => {
             const key = k as keyof ACTIONS
-            (this.actions[key] as any) = factory.wrapedActions[k]?.(this)
+            (this.actions[key] as any) = factory.wrapedActions[k](this)
         })
 
         // Get the initial control states
