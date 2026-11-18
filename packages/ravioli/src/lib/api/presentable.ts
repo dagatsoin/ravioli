@@ -1,3 +1,4 @@
+import { Origin } from "../origin";
 import { Reason } from "./rejection";
 
 export interface SAMLoop {
@@ -6,7 +7,17 @@ export interface SAMLoop {
    * Report a proposal which was refused before being presented to the model.
    * It does not start a step, it only fills the last attempt.
    */
-  discardProposal(reason: Reason): void;
+  discardProposal(reason: Reason, origin?: Origin): void;
+  /**
+   * Says whether a proposal is being presented. The step is then locked:
+   * what was about to be proposed is discarded, and reported as such.
+   */
+  refuseIfLocked(origin?: Origin): boolean;
+  /**
+   * How many steps and jumps (rollback, reset) the container took. Unlike the
+   * step id it never comes back to a value it had.
+   */
+  moment: number;
 }
 
 export type Proposal<MUTATION> = MUTATION[];
@@ -17,7 +28,7 @@ export type TaggedProposal<MUTATION = any> = Proposal<MUTATION> & {
 
 export type StartStep = Present;
 
-export type Present = (proposal: TaggedProposal<any>) => void;
+export type Present = (proposal: TaggedProposal<any>, origin?: Origin) => void;
 
 export type Delta<MUTATION, CONTROL_STATES_PREDICATES> = {
   acceptedMutations: MUTATION[];

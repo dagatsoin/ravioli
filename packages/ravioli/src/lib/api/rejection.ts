@@ -29,6 +29,12 @@ export const RejectionCode = {
   staleProposal: "STALE_PROPOSAL",
   /** The action was not allowed for the current control states. */
   unauthorized: "UNAUTHORIZED",
+  /**
+   * A proposal was already being presented. Nothing else is presented
+   * meanwhile: neither a condition, a mutator, a control state predicate nor
+   * whoever listens to the model sends an action.
+   */
+  stepLocked: "STEP_LOCKED",
   /** A step reaction threw. The step happened, its consequences did not. */
   reactionThrew: "REACTION_THREW",
   /** The step reactions kept proposing and never settled. */
