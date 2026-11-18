@@ -34,9 +34,8 @@ What it must guarantee:
 1. **The step stays atomic, however long.** The container is locked from the moment the step starts
    until its end, minutes if needed. The model is read-only during the condition; the mutator
    applies everything at the end. Observers keep seeing the previous state until then.
-2. **Proposals presented meanwhile are queued, never dropped.** Generalise `NAPproposalBuffer`
-   (`src/lib/instance.ts:143`, `:210-212`) into a container-level queue: NAP proposals of the step
-   first (SAM's order), then the queued proposals in arrival order (weak fairness).
+2. **Proposals presented meanwhile are queued, never dropped.** Done in 1.8 for the reactions (see
+   "Done" below): the queue a long condition needs is the same one.
 3. **A long condition is a supervised job, not a promise.** A promise survives nothing (restart,
    deploy), reports nothing and cannot be stopped. The job has an id, a state (queued, running,
    done, failed), progress, a timeout and cancellation, runs in a worker or a process, and returns
@@ -45,7 +44,8 @@ What it must guarantee:
    the reason recorded; the lock can never be held forever.
 5. **No half state.** A crash during the step applies nothing (the mutator runs at the end). An
    intent journal lets the container tell each author their intent did not complete, or present it
-   again.
+   again. Since 1.8 a step can be taken back and each author is told (`attempt`); what is missing
+   is the journal of the intents which were still waiting.
 6. **Progress is not state.** It is published outside the model (a separate observable), so it
    creates no step and no transition.
 7. **The lock is per container.** Other containers keep running.
@@ -90,18 +90,161 @@ What it must guarantee:
 6. **A sleeping child costs nothing.** What the parent accepted meanwhile waits for it and is
    applied when it wakes.
 
+**What already bites today.** Two containers which hold the same node, in memory, do not know of
+each other. Since 1.8 a container takes back every write made in its model during a step whose
+write fails, whoever made it: container B, taking its step back, undoes what container A wrote in
+the shared node meanwhile, and saved. A is left with a model behind its database and an attempt
+which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 above is the way out.
+
 ## Smaller items found on the way
 
-- **A step-end signal.** Step reactions are started without the caller knowing when they are done
-  (`src/lib/instance.ts:395-409`, `awaitAsync` is awaited inside the loop but nothing is returned to
-  whoever presented the proposal). A promise or an event "step N finished, reactions included" is
-  what an external queue needs today (e.g. to commit to git before the next intent).
-- **A built-in intent queue.** Out of the box there is none: an intent presented while a step runs
-  is either buffered (during NAP) or tagged with a stale step id. Every server use builds the same
-  small queue; it could ship with the container.
-- **Tell the author when a cancelable action is dropped.** `isCancelable` drops a proposal whose step
-  id is stale (`src/lib/instance.ts:195-203`) and only reports it as a diagnostic. A callback or a
-  rejected result would let a server answer "the state changed, try again".
 - **Reconcile without rewriting whole lists.** The internal reconcile replaces arrays wholesale
   (2–2.5× the state size in patches on Jared's spike); a keyed reconcile would let observers emit
   minimal patches.
+- **A rollback which is taken back.** When the awaited reaction which follows a `rollback` or a
+  `reset` fails, the container stays on the given state: a jump is not a step and nothing of it is
+  recorded. The recorder could record a jump as it records a step.
+- **No half state when an acceptor throws.** A mutator which throws in the middle of a proposal
+  leaves what the mutators before it wrote, and what it wrote itself: no step is taken, the model
+  is changed all the same. The recorder holds what is needed to take it back, but only containers
+  which have a reaction have a recorder.
+- **No half step when a control state predicate throws.** The model is written and the step id has
+  ticked, the control states are those of the step before and the reactions do not run.
+- **A time limit on an awaited reaction.** One which never ends keeps the container closed for
+  ever: what waits behind it waits, `rollback` and `reset` are refused, and nothing cuts it. Two
+  containers which each await an `attempt` on the other from an awaited reaction are the same
+  case.
+- **Measuring the queue.** Nothing tells how many proposals wait, nor for how long. It is what
+  "Several containers on one graph" asks for before anything is cut.
+- **A switch for the recorder.** Every container which has a reaction is listened to node by node,
+  since its reactions may read the patches. On 50 000 nodes (`yarn measure`) the creation takes
+  about 300 ms instead of 150 and 93 MB instead of 55; a step which changes one field costs about
+  the same with and without, around 10 µs. A container whose reactions read no patch and await
+  nothing could be spared the creation.
+- **What a step still costs beyond what it changes** (`yarn measure`):
+  - the first key a step removes from a `Map`, a `Set` or an object costs one pass over its keys,
+    to give the key its place back should the step be taken back, and its return puts back behind
+    it the keys which stood there: neither has a way to put a key in the middle;
+  - a step which gives objects to a `Set` costs one pass over that set, once for all it was
+    given: MobX reports the value a set was given, not the observable the set made of it. Until
+    the step is over these members are not listened to: a mutator which adds one and writes in it
+    right away has both told as one write;
+  - reading the patches of a step which writes in a `Set` of objects, or gives it a member or
+    takes one, costs the JSON of each of its members: a member is named by its JSON, and a patch
+    has to know which names are taken (3 ms on a set of 1 000 objects);
+  - reading the patches of a step which wrote in an item of a list costs one pass over that list,
+    once per list, to find the index of the item; a step which writes in items and moves them in
+    turns pays it each time;
+  - the objects which have no proxy (the instances of a class, every object under
+    `useProxies: "never"`) are gone through before each return and each reading of the patches,
+    to count the fields they were given since: MobX tells nobody of those. A model of plain
+    objects, the usual one, has none;
+  - `MobX` itself moves the whole list at each `shift`.
+- **A model which holds what MobX does not observe.** A `Date`, an object which is not observable
+  (an instance of a class which is not, a plain object kept by reference), a field MobX was not
+  told of (a class annotated in part, a field annotated `false` or born after the creation) or an
+  object used as the key of a `Map`, observable or not, can be written in without anybody being
+  told. As long as the model holds one, no step
+  is taken back, the step stands and the attempt says `STEP_NOT_UNDONE`, and the patches of a
+  step are not read: reading them throws. Nothing says so when the container is created. It is
+  all or nothing where it could be finer: a `Date` has one value, which could be compared before
+  and after the step; a field could be compared the same way when it holds no object.
+- **What is out of reach.** A `#private` field, a field which is not enumerable, what a function
+  carries on itself: a step which writes in one is said taken back, and the write stays. The
+  README says so; nothing refuses it.
+- **A `Map` which is put in another order.** `replace` is the one write MobX tells nobody of when
+  the entries are the same. The recorder wraps `replace` on each `Map` of the model, once for a
+  map however many containers hold it, as an own property of the map, to keep the order it had.
+  `ObservableMap.prototype.replace.call(map, …)` goes around it, and a map which can not be given
+  a property (`Object.preventExtensions`) makes the creation throw. Wrapping the method on the
+  prototype of MobX's maps, once for all, would close both: it changes MobX for everybody in the
+  page. A way to be told by MobX would be better.
+- **A container lives as long as its nodes on an engine without `WeakRef`.** The nodes hold their
+  recorder weakly. Where a node is shared by many containers which come and go, what is left of
+  those which are gone is dropped at the next write in that node.
+- **A listener which was there before the container, and writes in the node it listens to.** Its
+  write is heard before the one it answers. The recorder sees it and refuses from then on: steps
+  stand, patches are not read. Hearing them in order would need to be told before each write of
+  every node, lists included, and to match each with what follows it.
+- **A model nested more than a thousand levels deep.** Listening to a model goes down it by
+  recursion, one more call per level than MobX itself: about 1 100 nested levels are taken where
+  1.7 took 1 300 to 1 400 (node 22, default stack size). Beyond, creating the container throws
+  `Maximum call stack size exceeded`.
+- **The order of the fields of an object.** A field which is removed and comes back is put back at
+  its place. MobX has a public way for a `Map` and a `Set` (`replace`), none for an object: the
+  recorder defines the properties again on the object MobX keeps behind its proxy. It finds that
+  object in MobX's administration (`$mobx`) by what it is, not by its name, which the production
+  build changes. The suite runs on the development and the production build of MobX 6.15
+  (`yarn test`, `yarn test:production`), and was run by hand on both builds of 6.6.0, the oldest
+  the package accepts.
+- **A field kept by reference which comes back.** A field annotated `observable.ref`, removed by a
+  step which is then taken back, comes back as a plain observable field: what is assigned to it
+  later is made observable.
+- **A custom representation which hands over a list made from the model writes in the model.**
+  Already so in 1.7 (`lib/derivate.ts`, the refresh of an array): with
+  `addTransformation(({ data }) => ({ visible: data.items.filter((item) => !item.hidden) }))`,
+  the first representation holds the items of the model themselves, and the refresh after
+  `hide(1)` writes the new list over them: the model `[1, 2, 3]` becomes `[2, 3, 3]`. In 1.8 these
+  writes happen outside of any step: no patch tells them and no return takes them back. A
+  transformation which copies what it shows is not concerned. To reproduce:
+  ```js
+  let model;
+  const list = createContainer()
+    .addAcceptor("hide", {
+      mutator: (data, id) => { data.items.find((item) => item.id === id).hidden = true; },
+    })
+    .addActions({ hide: "hide" })
+    .addTransformation(({ data }) => ({ visible: data.items.filter((item) => !item.hidden) }))
+    .addStepReaction({ do: ({ data }) => { model = data; } })
+    .create({ items: [{ id: 1 }, { id: 2 }, { id: 3 }] });
+  list.actions.hide(1);
+  // model.items, the model itself, now holds the ids 2, 3, 3
+  ```
+- **The creation is not a step.** The reactions which run at creation do so while the container is
+  open: what they propose is presented at once, and an awaited one keeps nothing waiting.
+- **A one shot reaction which starts a step at creation runs twice.** It is disposed of once its
+  run is over, and the step it starts at creation runs the reactions before that. As in 1.7.
+- **Waking a container from a copy.** A container created from stored data and `initialStepId`
+  computes its control states as a brand new one does. A control state which depends on the past
+  is answered as if nothing came before: a hero dead for long wakes up `JUST_DIED`.
+- **The patches, where FS-001 is not written yet** (`specs/FS-001-json-patch-generation-interview.md`
+  on `feat/json-patch`, sections 3 to 7):
+  - `move`, `copy` and `test` are neither written nor applied. A sort is one `replace` of the
+    array; a `move` per item would be smaller on a long list.
+  - A patch is applied to a JSON copy only. Applying it to a live model (a `Map` and a `Set` are
+    not objects there) is what a client which mirrors a container needs.
+  - Two keys of a `Map` which read the same (`1` and `"1"`) are one in a JSON copy. The patches
+    of a step which writes such an entry, or under it, or which gives the map another order, are
+    refused: reading them throws. `jsonCopy` keeps the last of two twins, and names an object key
+    by its JSON, without a word.
+  - A `rollback` hands its reactions the delta of the step it goes back to, and with it patches
+    which are not what the rollback did to the model (the README says what they are). A journal
+    has to start again from a JSON copy after a jump: a rollback could tell its own patches.
+  - A model which holds a cycle has a JSON copy (`"[Circular]"` where it comes back) but its
+    patches only tell the paths which do not go through the cycle. A member of a `Set` which holds
+    the set is named from the member in a patch, from the root in the copy: the two differ, and the
+    replay throws.
+  - The patches of a step are read while its reactions run; later, reading them throws. Keeping
+    them would mean writing them at each step, read or not.
+  - Plain objects are not a source: the recorder only listens to MobX.
+
+## Done
+
+- **A built-in intent queue** (1.8). A proposal presented while a step runs waits for its turn and
+  gets a step of its own, in arrival order, behind what the reactions of the step propose. It
+  replaces the buffer which merged everything in one proposal.
+- **A step is locked while its proposal is presented** (1.8). An action sent by a condition, a
+  mutator, a control state predicate or whoever listens to the model meanwhile is discarded with
+  `STEP_LOCKED`: in 1.7 it was presented inside the presentation, and its step taken in the middle
+  of the first. Left as it is: what is sent while a `rollback` or a `reset` puts its state in the
+  model is not refused, it waits for the reactions which replay the jump.
+- **A step-end signal** (1.8). `attempt.<action>(…)`, on the container `create()` returns,
+  resolves with the attempt of one proposal once nothing can change it anymore: the reactions of
+  its step ran, and the steps they started.
+- **Tell the author when a cancelable action is dropped** (1.8). Same `attempt`: a stale proposal
+  resolves `discarded`, with `STALE_PROPOSAL`.
+- **A step whose awaited reaction fails is taken back** (1.8), from what each write recorded,
+  without a copy of the model. What waited behind it is refused with `PRECEDING_STEP_UNDONE`.
+- **The patches of a step** (1.8). `delta.patches` and `delta.inversePatches`, RFC 6902, one patch
+  per write in the model, from the same recorder as the return. `jsonCopy` and `applyPatch` read
+  them.
