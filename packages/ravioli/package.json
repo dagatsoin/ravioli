@@ -13,6 +13,7 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
+    "test:coverage": "jest --config jest.coverage.js",
     "release": "standard-version",
     "doc": "typedoc --plugin typedoc-plugin-markdown --out doc/ --entryPoints src/api/index.ts --excludeExternals --readme none"
   },

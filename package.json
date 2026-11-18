@@ -7,6 +7,7 @@
   "scripts": {
     "build": "yarn workspace @warfog/ravioli build",
     "test": "yarn workspace @warfog/ravioli test",
+    "test:coverage": "yarn workspace @warfog/ravioli test:coverage",
     "build:watch": "yarn workspace @warfog/ravioli build --watch",
     "release": "yarn workspace @warfog/ravioli release",
     "doc": "yarn workspace @warfog/ravioli doc"
