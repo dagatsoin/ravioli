@@ -2,14 +2,14 @@ import { IObservable, IObservableArray, IObservableValue, observable, runInActio
 import { IInstance } from "../api";
 import { Acceptor, Mutation } from "./api/acceptor";
 import { IProposalBuffer, Proposal, SAMLoop, Step, TaggedProposal } from "./api/presentable";
-import { Origin, ReactionPass } from "./origin";
+import { Author, Origin, ReactionPass } from "./origin";
 import { StepReaction } from "./api/stepReaction";
 import { ContainerFactory, ContainerOption } from "./container";
 import { getControlStates } from "./controlState";
 import { derivate, reconcile } from "./derivate";
 import { IProposalQueue, WaitingProposal, createNAPProposalBuffer, createProposalQueue } from "./proposalBuffer";
 import { IStepRecorder, createStepRecorder } from "./stepRecorder";
-import { Compose } from "./api/composer";
+import { AttemptCall, Compose } from "./api/composer";
 import { Attempt, Reason, Rejection, RejectionCode, toReason } from "./api/rejection";
 
 export class Instance<
@@ -136,13 +136,19 @@ export class Instance<
      * A proposal was refused before reaching the model. No step, no reaction.
      */
     public discardProposal(reason: Reason, origin?: Origin<MUTATIONS>): void {
-      runInAction(() => {
-        this._lastAttempt.set({
-          status: "discarded",
-          attemptedAt: this._stepId.get(),
-          reason,
+      const attempt: Attempt<MUTATIONS> = {
+        status: "discarded",
+        attemptedAt: this._stepId.get(),
+        reason,
+      };
+      try {
+        runInAction(() => {
+          this._lastAttempt.set(attempt);
         });
-      });
+      } finally {
+        // Whatever an observer of the last attempt throws.
+        origin?.author?.tell(attempt);
+      }
     }
 
     private currentControlStates: IObservableArray<CONTROL_STATES> = observable([]);
@@ -178,6 +184,10 @@ export class Instance<
      */
     private reportUnsettled(pass: Pass<MUTATIONS, CONTROL_STATES>, reason: Reason): void {
       console.error(`[RAVIOLI] ${reason.message}`);
+      // The first reason is the one which is told.
+      if (pass.toTell !== undefined && pass.toTell.attempt.settled) {
+        pass.toTell.attempt = { ...pass.toTell.attempt, settled: false, reason };
+      }
       // The pass of the creation, of a rollback or of a reset reacts to no
       // step: it has no attempt to report on, and must not report on another's.
       const attempt = pass.step?.attempt;
@@ -197,6 +207,43 @@ export class Instance<
       // on the step id its proposal is tagged with.
       untracked(() => this.startStep(this.toTaggedProposal(composer)));
     };
+
+    /**
+     * Present a proposal and tell its author what became of it, once nothing
+     * can change it anymore.
+     *
+     * It is not what the actions return: a reaction written
+     * `do: ({ actions }) => actions.heal()` hands back what the action returns,
+     * and an awaited one would wait for a step which waits for it.
+     */
+    public attempt: AttemptCall<ACTIONS, MUTATIONS> = this.toAttempt();
+
+    private toAttempt(): AttemptCall<ACTIONS, MUTATIONS> {
+      const attempt = (composer: Parameters<Compose<ACTIONS, MUTATIONS>>[0]) =>
+        this.ask((origin) => this.startStep(this.toTaggedProposal(composer), origin));
+      Object.keys(this.factory.wrapedActions).forEach((name) => {
+        // Defined, not assigned: an action can be called `name` or `length`,
+        // which a function has already and does not let be written.
+        Object.defineProperty(attempt, name, {
+          enumerable: true,
+          configurable: true,
+          writable: true,
+          value: (...args: any[]) =>
+            this.ask((origin) => this.factory.wrapedActions[name](this, origin)(...args)),
+        });
+      });
+      return attempt as AttemptCall<ACTIONS, MUTATIONS>;
+    }
+
+    /**
+     * Have a proposal presented for an author, who is told what becomes of it.
+     */
+    private ask(present: (origin: Origin<MUTATIONS>) => unknown): Promise<Attempt<MUTATIONS>> {
+      return new Promise<Attempt<MUTATIONS>>((tell, fail) => {
+        // An asynchronous action which throws does it in its own promise.
+        Promise.resolve(untracked(() => present({ author: { tell, fail } }))).catch(fail);
+      });
+    }
 
     private toTaggedProposal(composer: Parameters<Compose<ACTIONS, MUTATIONS>>[0]): TaggedProposal {
       const proposals = (typeof composer === 'function'
@@ -272,7 +319,7 @@ export class Instance<
     // What comes from elsewhere meanwhile waits behind it, for a step of its own.
     // A stale proposal does not wait: it goes on to the guard #1, which discards it.
     if (this.isBusy && !this.isStale(proposal, origin)) {
-      if (pass !== undefined && this.isClosedBy(pass)) {
+      if (pass !== undefined && this.isClosedBy(pass) && origin.author === undefined) {
         this.NAPproposalBuffer.push(proposal);
       } else {
         this.waitingProposals.push({ proposal, origin, depth });
@@ -301,6 +348,15 @@ export class Instance<
     depth: number,
     from?: Pass<MUTATIONS, CONTROL_STATES>
   ): void {
+    // A reaction which asks what becomes of what it proposes gets a step of
+    // its own each time: a chain it keeps going that way is cut here.
+    if (depth > MAX_NAP_CASCADE) {
+      const reason = toRunawayReason();
+      console.error(`[RAVIOLI] ${reason.message}`);
+      this.discardProposal(reason, origin);
+      return;
+    }
+
     // Major guard #1
     // The proposal should be tagged with the current step ID
     // If not, that means that is an old payload and the presentation is not possible.
@@ -344,6 +400,13 @@ export class Instance<
           }
         }
       });
+    } catch (error) {
+      // Whoever asked what becomes of the step is told at its end, as for
+      // any step: what an observer throws is not their outcome.
+      if (delta === undefined || origin.author === undefined) {
+        throw error;
+      }
+      console.error(`[RAVIOLI] ${toUnsettledReason(error).message}`);
     } finally {
       if (delta !== undefined) {
         // Run the static NAP
@@ -375,6 +438,7 @@ export class Instance<
 
     // No mutations happened, abort the step
     if (attempt.status !== "accepted") {
+      origin.author?.tell(attempt);
       return undefined;
     }
     // Model is updated, the new step is validated.
@@ -394,6 +458,9 @@ export class Instance<
       })
     );
     pass.step = { attempt, previousControlStates };
+    // A step the reactions started has no author: the one of the step
+    // which started the chain waits for it too.
+    pass.toTell = origin.author ? { author: origin.author, attempt } : from?.toTell;
     // The lock is lifted, and the container closed until the reactions of
     // the step are done: what an observer presents on what it sees waits.
     this.pass = pass;
@@ -736,6 +803,13 @@ export class Instance<
       return;
     }
 
+    // The step first, then what waited behind it. A step whose reactions
+    // started this one stands: only its consequences did not happen.
+    if (pass.toTell !== undefined) {
+      const { author } = pass.toTell;
+      author.tell(pass.toTell.attempt === attempt ? undone : { ...pass.toTell.attempt, settled: false, reason });
+    }
+
     for (let waiting = refused.shift(); waiting !== undefined; waiting = refused.shift()) {
       const { origin } = waiting;
       this.quietly(() => this.discardProposal({
@@ -758,6 +832,9 @@ export class Instance<
       this.refresh(pass);
     } finally {
       // Whatever an observer of the representation threw.
+      if (pass.toTell !== undefined) {
+        pass.toTell.author.tell(pass.toTell.attempt);
+      }
       this.takeTurns();
     }
   }
@@ -822,7 +899,11 @@ export class Instance<
       this.takeStep(proposal, origin, depth);
     } catch (error) {
       // Whoever called the action is long gone.
-      console.error(`[RAVIOLI] ${toUnsettledReason(error).message}`);
+      if (origin.author !== undefined) {
+        origin.author.fail(error);
+      } else {
+        console.error(`[RAVIOLI] ${toUnsettledReason(error).message}`);
+      }
     }
   }
 
@@ -887,6 +968,11 @@ type Pass<MUTATIONS, CONTROL_STATES> = ReactionPass & {
    * or of a reset.
    */
   step?: RunningStep<MUTATIONS, CONTROL_STATES>;
+  /**
+   * Who asked what becomes of the step the chain started with, and what they
+   * are told when the chain is over.
+   */
+  toTell?: { author: Author<MUTATIONS>; attempt: AcceptedAttempt<MUTATIONS> };
   /**
    * The one shot reactions it disposed of, with the place each one had.
    */

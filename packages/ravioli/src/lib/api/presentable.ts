@@ -5,7 +5,8 @@ export interface SAMLoop {
   startStep: StartStep;
   /**
    * Report a proposal which was refused before being presented to the model.
-   * It does not start a step, it only fills the last attempt.
+   * It does not start a step, it only fills the last attempt, and tells the
+   * author when there is one to tell.
    */
   discardProposal(reason: Reason, origin?: Origin): void;
   /**

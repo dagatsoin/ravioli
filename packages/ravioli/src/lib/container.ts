@@ -1,5 +1,5 @@
 import { untracked } from "mobx";
-import { IContainerFactory, IInstance } from "..";
+import { IAttempt, IContainerFactory, IInstance } from "..";
 import {
   Acceptor,
   Mutation,
@@ -173,7 +173,7 @@ export class ContainerFactory<
     CONTROL_STATES,
     ACTIONS,
     REPRESENTATION
-  > {
+  > & IAttempt<ACTIONS, MUTATIONS> {
     // Refuse a broken control state tree here, while the stack still points at
     // the declaration. A forward reference is legal, so it can not be done
     // earlier than this.
@@ -188,6 +188,7 @@ export class ContainerFactory<
       controlStates: instance.controlStates,
       representationRef: instance.representationRef,
       compose: instance.compose,
+      attempt: instance.attempt,
       rollback: (step) => instance.rollback(step),
       reset: (state) => instance.reset(state),
     };

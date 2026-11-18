@@ -62,9 +62,9 @@ export const RejectionCode = {
  *   awaited: the model is not left ahead of a write which did not happen.
  * - `rejected`: the model examined the proposal and applied nothing. No new step,
  *   no step reaction: the clock did not tick.
- * - `discarded`: the proposal never reached the model (stale, unauthorized, or
- *   waiting behind a step which was undone). There is no per mutation reason as
- *   no acceptor ever ran.
+ * - `discarded`: the proposal never reached the model (stale, unauthorized,
+ *   unknown action, or waiting behind a step which was undone). There is no per
+ *   mutation reason as no acceptor ever ran.
  *
  * `attemptedAt` is the step id the attempt was made against. Compare it with the
  * current `stepId` to know if the attempt still relates to what you display.
