@@ -1,5 +1,5 @@
 import { Compose } from "./composer";
-import { Delta } from "./presentable";
+import { StepDelta } from "./presentable";
 
 export type StepReaction<
   TYPE,
@@ -28,11 +28,11 @@ export type StepReaction<
    */
   awaitAsync?: boolean;
   when?(args: {
-    delta: Delta<MUTATION, CONTROL_STATES_PREDICATES>;
+    delta: StepDelta<MUTATION, CONTROL_STATES_PREDICATES>;
     data: TYPE;
   }): boolean;
   do(args: {
-    delta: Delta<MUTATION, CONTROL_STATES_PREDICATES>;
+    delta: StepDelta<MUTATION, CONTROL_STATES_PREDICATES>;
     data: TYPE;
     representation: REPRESENTATION;
     actions: ACTIONS;

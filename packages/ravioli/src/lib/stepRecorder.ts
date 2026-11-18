@@ -12,13 +12,26 @@ import {
   runInAction,
   set,
 } from "mobx";
+import { Patch } from "./api/patch";
 import { Change, Store, apply, invert } from "./changes";
+import { Model, isSameKey, toTwinRefusal, writePatches } from "./patchWriter";
+
+/**
+ * What a step did to the model data, in both directions. Each is written when
+ * it is first read: a step nobody reads the patches of copies nothing.
+ */
+export type StepPatches = { patches: Patch[]; inversePatches: Patch[] };
 
 export interface IStepRecorder {
   /**
    * Start a record. One at a time.
    */
   start(): void;
+  /**
+   * The patches of what was recorded so far. They can be read until the
+   * record ends.
+   */
+  read(): StepPatches;
   /**
    * End the record and forget it.
    */
@@ -65,9 +78,11 @@ type Watched = {
 };
 
 /**
- * Where a node is: the node which holds it.
+ * Where a node is: the node which holds it and, in an object or a map, under
+ * which key. In an array nothing is kept: an index moves with every splice
+ * before it, it is asked when a patch needs it.
  */
-type Place = { holder: Watched };
+type Place = { holder: Watched; key: any };
 
 type Running = {
   /**
@@ -87,6 +102,12 @@ type Running = {
    * observe: nothing says the model came back if it is written in.
    */
   blind: string | undefined;
+  /**
+   * The text two keys of a map read as, in a map which was given another
+   * order: which of the two a JSON copy shows may have changed, and no patch
+   * tells it.
+   */
+  twins?: string;
 };
 
 /**
@@ -133,9 +154,30 @@ class StepRecorder implements IStepRecorder {
    */
   private isDisordered = false;
   private blind: Map<string, number> = new Map();
+  /**
+   * For a map: how many of its keys which are not texts read as each text.
+   * None as long as all its keys are texts, which have no two reading the
+   * same.
+   */
+  private odds: WeakMap<object, Map<string, number>> = new WeakMap();
+  private model: Model;
 
   constructor(root: object) {
     this.root = this.listen(root);
+    this.model = {
+      root,
+      // Every node a change holds is listened to: a model which holds
+      // anything else has no patches.
+      positionsOf: (node) =>
+        (this.watched.get(node) as Watched).places.map(({ holder, key }) => ({
+          holder: holder.node,
+          key,
+        })),
+      oddOf: (map, text) => {
+        const odd = this.odds.get(map);
+        return odd === undefined ? 0 : odd.get(text) || 0;
+      },
+    };
   }
 
   public start(): void {
@@ -150,6 +192,55 @@ class StepRecorder implements IStepRecorder {
       changes: [],
       orders: new Map(),
       blind: Array.from(this.blind.keys())[0],
+    };
+  }
+
+  public read(): StepPatches {
+    const running = this.running;
+    if (running === undefined) {
+      return { patches: [], inversePatches: [] };
+    }
+    // The members the step gave a set are listened to from now on: what
+    // somebody writes in them while the step is saved is heard.
+    this.settle();
+    // What is written in the model from now on is not of the step.
+    const { id } = running;
+    const count = running.changes.length;
+    const write = (isInverse: boolean): Patch[] => {
+      const now = this.running;
+      if (now === undefined || now.id !== id) {
+        throw new Error(
+          "[RAVIOLI] The patches of a step are read while its reactions run. A reaction which is not awaited reads them before it waits on anything."
+        );
+      }
+      this.settle();
+      this.look();
+      if (now.blind !== undefined) {
+        throw new Error(
+          `[RAVIOLI] The patches of this step can not be written: ${this.toBlindness(
+            now.blind
+          )}.`
+        );
+      }
+      if (this.isDisordered) {
+        throw new Error(
+          `[RAVIOLI] The patches of this step can not be written: ${DISORDER}.`
+        );
+      }
+      if (now.twins !== undefined) {
+        throw new Error(toTwinRefusal(now.twins));
+      }
+      return writePatches(now.changes, count, isInverse, this.model);
+    };
+    let patches: Patch[] | undefined;
+    let inversePatches: Patch[] | undefined;
+    return {
+      get patches() {
+        return (patches = patches || write(false));
+      },
+      get inversePatches() {
+        return (inversePatches = inversePatches || write(true));
+      },
     };
   }
 
@@ -270,6 +361,9 @@ class StepRecorder implements IStepRecorder {
     const watched: Watched = { node, places: [], isOut: false };
     this.watched.set(node, watched);
     hear(node, this.self);
+    if (isObservableMap(node)) {
+      node.forEach((_: any, key: any) => this.countKey(node, key, 1));
+    }
     this.hold(watched);
     return watched;
   }
@@ -331,7 +425,7 @@ class StepRecorder implements IStepRecorder {
       watched.isOut = false;
       this.hold(watched);
     }
-    watched.places.push({ holder });
+    watched.places.push({ holder, key });
   }
 
   /**
@@ -403,6 +497,22 @@ class StepRecorder implements IStepRecorder {
   }
 
   /**
+   * A map is about to be given another order. When two of its keys read the
+   * same, the patches of the record can not tell what a JSON copy shows.
+   */
+  private seeTwins(map: any): void {
+    const running = this.running;
+    const odd = this.odds.get(map);
+    if (running !== undefined && odd !== undefined) {
+      odd.forEach((times, text) => {
+        if (times + (map.has(text) ? 1 : 0) > 1) {
+          running.twins = text;
+        }
+      });
+    }
+  }
+
+  /**
    * The keys of a node are about to move: their order is kept, once a record.
    */
   private keepOrder(watched: Watched): void {
@@ -416,6 +526,14 @@ class StepRecorder implements IStepRecorder {
     }
   }
 
+  private countKey(map: any, key: any, by: number): void {
+    if (typeof key !== "string") {
+      const odd = this.odds.get(map) || new Map<string, number>();
+      this.odds.set(map, odd);
+      count(odd, String(key), by);
+    }
+  }
+
   /**
    * A map is about to be replaced. It is the one write nobody is told of
    * when the entries are the ones the map already has: it takes their order,
@@ -423,6 +541,7 @@ class StepRecorder implements IStepRecorder {
    */
   public onWillReplace(node: any): void {
     this.keepOrder(this.watched.get(node) as Watched);
+    this.seeTwins(node);
   }
 
   public onWillChange(node: any, event: any): void {
@@ -443,6 +562,9 @@ class StepRecorder implements IStepRecorder {
     const keys = isObservableMap(watched.node)
       ? change.added.length - change.removed.length
       : 0;
+    if (keys) {
+      this.countKey(watched.node, event.name, keys);
+    }
     // Out of the model since before the record: neither its nodes nor its
     // writes are the container's. It is asked what it holds if it comes back.
     if (watched.isOut) {
@@ -667,7 +789,9 @@ function count(counts: Map<string, number>, name: string, by: number): void {
 }
 
 function unplace(watched: Watched, holder: Watched, key: any): void {
-  const at = watched.places.findIndex((place) => place.holder === holder);
+  const at = watched.places.findIndex(
+    (place) => place.holder === holder && isSameKey(place.key, key)
+  );
   watched.places.splice(at, 1);
 }
 

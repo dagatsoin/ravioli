@@ -8,7 +8,8 @@ import { ContainerFactory, ContainerOption } from "./container";
 import { getControlStates } from "./controlState";
 import { derivate, reconcile } from "./derivate";
 import { IProposalQueue, WaitingProposal, createNAPProposalBuffer, createProposalQueue } from "./proposalBuffer";
-import { IStepRecorder, createStepRecorder } from "./stepRecorder";
+import { Patch } from "./api/patch";
+import { IStepRecorder, StepPatches, createStepRecorder } from "./stepRecorder";
 import { AttemptCall, Compose } from "./api/composer";
 import { Attempt, Reason, Rejection, RejectionCode, toReason } from "./api/rejection";
 
@@ -53,9 +54,9 @@ export class Instance<
 
         this.stepReactions = [...reactions]
 
-        // Only the failure of an awaited reaction takes a step back. Without
-        // one, the model is not listened to.
-        if (reactions.some(({ awaitAsync }) => awaitAsync)) {
+        // Only a reaction reads the patches of a step, and only the failure of
+        // one takes a step back. Without any, the model is not listened to.
+        if (reactions.length) {
           this.stepRecorder = createStepRecorder(this.data as unknown as object)
         }
 
@@ -441,6 +442,8 @@ export class Instance<
       origin.author?.tell(attempt);
       return undefined;
     }
+    // What the acceptors wrote, and nothing of what is written later.
+    const patches = this.stepRecorder === undefined ? NO_PATCHES : this.stepRecorder.read();
     // Model is updated, the new step is validated.
     this._stepId.set(this._stepId.get() + 1)
     this._moment++;
@@ -470,7 +473,7 @@ export class Instance<
       controlStates: this.currentControlStates,
       previousControlStates,
     };
-    return delta;
+    return withPatches(delta, patches);
   }
 
   /**
@@ -516,7 +519,7 @@ export class Instance<
         controlStates: this.currentControlStates,
         previousControlStates: step.delta.previousControlStates,
       };
-      return delta;
+      return withPatches(delta, step.delta);
     }, false);
   }
 
@@ -600,7 +603,7 @@ export class Instance<
       controlStates: this.currentControlStates,
       previousControlStates: [],
     };
-    return delta;
+    return withPatches(delta, NO_PATCHES);
   }
 
   /**
@@ -1011,7 +1014,37 @@ type Arrival<MUTATIONS, CONTROL_STATES> = {
   proposal: TaggedProposal;
   controlStates: IObservableArray<CONTROL_STATES>;
   previousControlStates: CONTROL_STATES[];
+  patches: Patch[];
+  inversePatches: Patch[];
 };
+
+/**
+ * What a step tells of its patches when nothing recorded it.
+ */
+const NO_PATCHES: StepPatches = { patches: [], inversePatches: [] };
+
+/**
+ * The patches are on the delta without being listed in it. Whoever goes
+ * through a delta, to copy it or to write it down as a 1.7 program does, does
+ * not read them. They are written when they are read by name, not for every
+ * step. A program which writes its own there, for the reaction which follows,
+ * finds what it wrote.
+ */
+function withPatches<DELTA extends object>(delta: DELTA, source: object) {
+  // A step built by hand, to roll back to, has none.
+  const patches: Partial<StepPatches> = source;
+  const define = (name: "patches" | "inversePatches") =>
+    Object.defineProperty(delta, name, {
+      configurable: true,
+      get: () => patches[name] || [],
+      set: (value) => {
+        Object.defineProperty(delta, name, { value, writable: true, enumerable: true, configurable: true });
+      },
+    });
+  define("patches");
+  define("inversePatches");
+  return delta as DELTA & StepPatches;
+}
 
 /**
  * A proposal is tagged with the step it was presented against: the step it

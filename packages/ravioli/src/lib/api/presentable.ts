@@ -1,4 +1,5 @@
 import { Origin } from "../origin";
+import { Patch } from "./patch";
 import { Reason } from "./rejection";
 
 export interface SAMLoop {
@@ -36,6 +37,41 @@ export type Delta<MUTATION, CONTROL_STATES_PREDICATES> = {
   proposal: TaggedProposal<MUTATION>;
   controlStates: CONTROL_STATES_PREDICATES[];
   previousControlStates: CONTROL_STATES_PREDICATES[];
+};
+
+/**
+ * What a step reaction is given of the step it reacts to: the delta, and the
+ * patches of the step.
+ *
+ * They are read by name: they are not listed in the delta, so
+ * `JSON.stringify`, a spread and `toEqual` see the delta as it always was.
+ * They only tell the model data: the step id and the control states are right
+ * there in the delta. Unlike the rest of the delta they hold copies, not live
+ * references: a patch can be stored as it is.
+ *
+ * They are written when they are first read, and are read while the
+ * reactions of the step run: a reaction which is not awaited reads them
+ * before it waits on anything. Once the step is over, reading patches nobody
+ * read in time throws.
+ *
+ * They are empty at creation and after a reset. A rollback hands over those
+ * of the step it is given, none when it was built by hand.
+ */
+export type StepDelta<MUTATION, CONTROL_STATES_PREDICATES> = Delta<
+  MUTATION,
+  CONTROL_STATES_PREDICATES
+> & {
+  /**
+   * What the step did to the model data, as JSON patches (RFC 6902): one patch
+   * per write in the model, first write first. Applied in that order to a JSON
+   * copy of the data before the step, they give the data after it.
+   */
+  patches: Patch[];
+  /**
+   * What undoes the step, last write first. Applied in that order to a JSON
+   * copy of the data after the step, they give the data before it.
+   */
+  inversePatches: Patch[];
 };
 
 /**

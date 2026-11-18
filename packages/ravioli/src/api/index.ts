@@ -203,8 +203,13 @@ export { createContainerFromJSON } from './fromJSON/containerFromJSON';
 export type { ContainerConfig } from './fromJSON/containerConfig';
 
 // Step types
-export type { Delta, Proposal, Step, TaggedProposal } from '../lib/api/presentable';
+export type { Delta, Proposal, Step, StepDelta, TaggedProposal } from '../lib/api/presentable';
 
 // Rejection types
 export type { Attempt, Reason, Rejection } from '../lib/api/rejection';
 export { RejectionCode } from '../lib/api/rejection';
+
+
+// The patches of a step, and what reads them
+export type { Patch, PatchOperation } from '../lib/api/patch';
+export { applyPatch, jsonCopy } from '../lib/jsonPatch';
