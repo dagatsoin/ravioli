@@ -345,8 +345,8 @@ function toCancelableAsyncAction<A extends (...args: any[]) => any>(
       // Preserve the step id during which the action call occured.
       // It will be used to determinate, after the action resolving, if this proposal is still valid.
       const stepId = instance.stepId;
-      // A step id comes back with a rollback. The moment does not: it tells
-      // whether anything happened since the call.
+      // A step id comes back when a step is taken back. The moment does not:
+      // it tells whether anything happened since the call, a return included.
       const calledAt = instance.moment;
       const proposal: TaggedProposal = Object.assign(await action(...args), {
           stepId,

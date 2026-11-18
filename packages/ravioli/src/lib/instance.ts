@@ -8,6 +8,7 @@ import { ContainerFactory, ContainerOption } from "./container";
 import { getControlStates } from "./controlState";
 import { derivate, reconcile } from "./derivate";
 import { IProposalQueue, WaitingProposal, createNAPProposalBuffer, createProposalQueue } from "./proposalBuffer";
+import { IStepRecorder, createStepRecorder } from "./stepRecorder";
 import { Compose } from "./api/composer";
 import { Attempt, Reason, Rejection, RejectionCode, toReason } from "./api/rejection";
 
@@ -52,6 +53,12 @@ export class Instance<
 
         this.stepReactions = [...reactions]
 
+        // Only the failure of an awaited reaction takes a step back. Without
+        // one, the model is not listened to.
+        if (reactions.some(({ awaitAsync }) => awaitAsync)) {
+          this.stepRecorder = createStepRecorder(this.data as unknown as object)
+        }
+
         // Bind action to instance
         Object.keys(factory.wrapedActions).map((k) => {
             const key = k as keyof ACTIONS
@@ -86,6 +93,7 @@ export class Instance<
         this.react({ data: this.data, delta: this.toCreationDelta() }, true)
     }
     private data: TYPE;
+    private stepRecorder?: IStepRecorder;
     public stepReactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>> = [];
     private disposeReaction(effect: StepReaction<any, any, any, any, any>["do"]) {
       const index = this.stepReactions.findIndex((r) => r.do === effect)
@@ -323,6 +331,7 @@ export class Instance<
       // Put in this transaction all the needed updates
       // The view won't react until the transaction is finished.
       runInAction(() => {
+        this.stepRecorder?.start();
         try {
           delta = this.accept(proposal, origin, pass, from);
         } finally {
@@ -330,6 +339,7 @@ export class Instance<
             // No step: nothing to take back, and the container is as open
             // as it was. Not later: an observer which acts on a refusal, at
             // the end of the transaction, is not locked out.
+            this.endRecord();
             this.pass = before;
           }
         }
@@ -550,6 +560,9 @@ export class Instance<
     // is open: what its reactions propose is presented at once.
     const isOpen = !this.isClosedBy(pass);
     let handles: { actions: ACTIONS; compose: Compose<ACTIONS, MUTATIONS> } | undefined;
+    // What takes the step back should the running reaction fail: nothing,
+    // unless that reaction is awaited.
+    let recorder: IStepRecorder | undefined;
     try {
       // The reactions as they are when the pass starts. Another pass can
       // dispose of a one shot reaction while this one waits: counting in the
@@ -569,6 +582,7 @@ export class Instance<
             console.info("[SAM] reaction:", debugName);
           }
           handles = handles || this.toHandles(pass);
+          recorder = awaitAsync ? this.stepRecorder : undefined;
           this.reacting = pass;
           const result = effect({ ...args, actions: handles.actions, representation: this.representationRef.current, compose: handles.compose });
           this.reacting = undefined;
@@ -576,9 +590,14 @@ export class Instance<
           if (awaitAsync && isThenable(result)) {
             await result;
           }
+          recorder = undefined;
           // If it is a one shot reaction, dispose
           if (once) {
-            this.disposeReaction(effect);
+            // With the place it had, should the step be taken back.
+            const at = this.stepReactions.indexOf(reaction);
+            if (this.disposeReaction(effect)) {
+              pass.disposed.push([at, reaction]);
+            }
           }
 
         }
@@ -589,7 +608,7 @@ export class Instance<
       }
     } catch (error) {
       this.reacting = undefined;
-      this.quietly(() => this.reportUnsettled(pass, toUnsettledReason(error)));
+      this.quietly(() => this.failPass(pass, toUnsettledReason(error), recorder));
     } finally {
       this.quietly(() => this.endPass(pass, isOpen));
     }
@@ -606,7 +625,26 @@ export class Instance<
       this.stopCascade(pass);
       return;
     }
+    // The step stands for good: the next one has a record of its own.
+    this.endRecord();
     this.takeStep(this.NAPproposalBuffer.getTaggedProposal(), {}, pass.depth + 1, pass);
+  }
+
+  /**
+   * A reaction threw. When it was awaited, what the step was waiting for did
+   * not happen: the step is taken back. Otherwise the step stands, and only
+   * its consequences did not happen.
+   */
+  private failPass(
+    pass: Pass<MUTATIONS, CONTROL_STATES>,
+    reason: Reason,
+    recorder: IStepRecorder | undefined
+  ): void {
+    if (recorder !== undefined && pass.step !== undefined) {
+      this.undoStep(pass, pass.step, recorder, reason);
+    } else {
+      this.reportUnsettled(pass, reason);
+    }
   }
 
   /**
@@ -638,6 +676,77 @@ export class Instance<
   }
 
   /**
+   * An awaited reaction failed: what the step was waiting for, a write for
+   * example, did not happen. The step is taken back rather than leaving the
+   * model ahead of it. What its reactions did before is done.
+   *
+   * All or nothing: when the model can not be taken back whole, the step
+   * stands whole, and that is what is reported.
+   */
+  private undoStep(
+    pass: Pass<MUTATIONS, CONTROL_STATES>,
+    { attempt, previousControlStates }: RunningStep<MUTATIONS, CONTROL_STATES>,
+    recorder: IStepRecorder,
+    reason: Reason
+  ): void {
+    const stepId = attempt.attemptedAt;
+    const undone: AcceptedAttempt<MUTATIONS> = { ...attempt, settled: false, reason, undone: true };
+    // What waited behind the step was meant for a state which is gone. What
+    // arrives once the model is back is not.
+    let refused: IProposalQueue<MUTATIONS> | undefined;
+    let failure: unknown;
+    console.error(`[RAVIOLI] ${reason.message}`);
+
+    // One transaction: the observers see it all come back at once. What one
+    // of them throws once it is told is said on the console, and the author
+    // is told all the same.
+    this.quietly(() => runInAction(() => {
+      // The control states first, and not computed again: one which depends
+      // on the past could not be. Should whoever is asked refuse them,
+      // nothing of the model has moved yet.
+      const states = this.currentControlStates.slice();
+      try {
+        this.quietly(() => this.currentControlStates.replace(previousControlStates));
+        if (!isSameList(this.currentControlStates, previousControlStates)) {
+          throw new Error("the control states were kept from coming back");
+        }
+        recorder.undo();
+      } catch (error) {
+        failure = error;
+        // All or nothing: the step stands, with the control states it has.
+        this.quietly(() => this.currentControlStates.replace(states));
+        return;
+      }
+      // A one shot reaction which ran in it has not had its run.
+      pass.disposed.reverse().forEach(([index, reaction]) => {
+        this.stepReactions.splice(index, 0, reaction);
+      });
+      refused = this.waitingProposals;
+      this.waitingProposals = createProposalQueue<MUTATIONS>();
+      this._stepId.set(stepId);
+      this._lastAttempt.set(undone);
+    }));
+
+    if (refused === undefined) {
+      this.reportUnsettled(pass, {
+        code: RejectionCode.stepNotUndone,
+        message: `An awaited reaction failed and the step ${stepId + 1} could not be taken back: ${toUnsettledReason(failure).message}.`,
+        meta: { reason, error: failure },
+      });
+      return;
+    }
+
+    for (let waiting = refused.shift(); waiting !== undefined; waiting = refused.shift()) {
+      const { origin } = waiting;
+      this.quietly(() => this.discardProposal({
+        code: RejectionCode.precedingStepUndone,
+        message: `The step ${stepId + 1} was undone: what waited behind it was not presented.`,
+        meta: { stepId: stepId + 1, reason },
+      }, origin));
+    }
+  }
+
+  /**
    * The step is over, and the steps its reactions started with it. The
    * container opens again, first for the proposals which waited.
    */
@@ -645,11 +754,19 @@ export class Instance<
     this.pass = undefined;
     pass.chain.isOver = true;
     try {
+      this.endRecord();
       this.refresh(pass);
     } finally {
       // Whatever an observer of the representation threw.
       this.takeTurns();
     }
+  }
+
+  /**
+   * Nothing of the step is taken back from here.
+   */
+  private endRecord(): void {
+    this.stepRecorder?.stop();
   }
 
   /**
@@ -770,6 +887,10 @@ type Pass<MUTATIONS, CONTROL_STATES> = ReactionPass & {
    * or of a reset.
    */
   step?: RunningStep<MUTATIONS, CONTROL_STATES>;
+  /**
+   * The one shot reactions it disposed of, with the place each one had.
+   */
+  disposed: Array<[number, StepReaction<any, any, any, any, any>]>;
 };
 
 /**
@@ -783,7 +904,7 @@ const PRESENTING: Pass<any, any> = toPass(0);
  * given, or starts one.
  */
 function toPass(depth: number, chain = { isOver: false }) {
-  return { depth, chain };
+  return { depth, chain, disposed: [] };
 }
 
 /**
@@ -840,6 +961,10 @@ function toRunawayReason(): Reason {
 function isThenable(value: unknown): value is PromiseLike<unknown> {
   const held = Object(value);
   return held === value && typeof held.then === "function";
+}
+
+function isSameList<T>(one: T[], other: T[]): boolean {
+  return one.length === other.length && one.every((item, at) => item === other[at]);
 }
 
 function toUnsettledReason(error: unknown): Reason {

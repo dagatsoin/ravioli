@@ -35,10 +35,20 @@ export const RejectionCode = {
    * whoever listens to the model sends an action.
    */
   stepLocked: "STEP_LOCKED",
-  /** A step reaction threw. The step happened, its consequences did not. */
+  /**
+   * A step reaction threw. The step happened, its consequences did not. When
+   * the reaction was awaited, the step itself was undone.
+   */
   reactionThrew: "REACTION_THREW",
+  /**
+   * An awaited reaction failed and the step could not be taken back. It
+   * stands, whole.
+   */
+  stepNotUndone: "STEP_NOT_UNDONE",
   /** The step reactions kept proposing and never settled. */
   reactionsDidNotSettle: "REACTIONS_DID_NOT_SETTLE",
+  /** The proposal waited behind a step which was undone. It was not presented. */
+  precedingStepUndone: "PRECEDING_STEP_UNDONE",
 } as const;
 
 /**
@@ -47,11 +57,14 @@ export const RejectionCode = {
  * - `accepted`: the model applied at least one mutation. `rejected` may still
  *   hold the parts of the proposal which were refused. `settled` says whether
  *   the step reactions ran to the end: it is written true, then turned false if
- *   the reaction pass fails, so an observer is told twice.
+ *   the reaction pass fails, so an observer is told twice. `undone` says the
+ *   step was then taken back, which happens when the reaction which failed was
+ *   awaited: the model is not left ahead of a write which did not happen.
  * - `rejected`: the model examined the proposal and applied nothing. No new step,
  *   no step reaction: the clock did not tick.
- * - `discarded`: the proposal never reached the model (stale or unauthorized).
- *   There is no per mutation reason as no acceptor ever ran.
+ * - `discarded`: the proposal never reached the model (stale, unauthorized, or
+ *   waiting behind a step which was undone). There is no per mutation reason as
+ *   no acceptor ever ran.
  *
  * `attemptedAt` is the step id the attempt was made against. Compare it with the
  * current `stepId` to know if the attempt still relates to what you display.
@@ -64,11 +77,18 @@ export type Attempt<MUTATION> =
       rejected: Rejection<MUTATION>[];
       /**
        * False when the step reactions did not run to the end. The step itself
-       * stands: the model was mutated and the step id did tick.
+       * stands, unless it was undone: the model was mutated and the step id did
+       * tick.
        */
       settled: boolean;
       /** Why the reactions did not settle. Only when settled is false. */
       reason?: Reason;
+      /**
+       * True when the step was taken back, because an awaited reaction failed.
+       * The model, the step id and the control states are those from before the
+       * step, and `accepted` tells what was undone. Only when settled is false.
+       */
+      undone?: boolean;
     }
   | {
       status: "rejected";
