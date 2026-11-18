@@ -392,9 +392,14 @@ export class Instance<
     // recovery to the next microtask, and a caller acting synchronously right
     // after the throw would still find the instance closed.
     try {
-      for (let i = 0; i < this.stepReactions.length; i++) {
-        const { runOnInit = true, when: predicate, do: effect, once, debugName, awaitAsync } = this.stepReactions[i];
-        if (isInit && !runOnInit) {
+      // The reactions as they are when the pass starts. Another pass can
+      // dispose of a one shot reaction while this one waits: counting in the
+      // list itself would then skip the reaction which follows it.
+      const reactions = this.stepReactions.slice();
+      for (let i = 0; i < reactions.length; i++) {
+        const { runOnInit = true, when: predicate, do: effect, once, debugName, awaitAsync } = reactions[i];
+        // A one shot reaction another pass disposed of meanwhile has had its run.
+        if ((isInit && !runOnInit) || this.stepReactions.indexOf(reactions[i]) === -1) {
           continue
         }
         // Filter nap which have already ran on the instance
@@ -410,10 +415,7 @@ export class Instance<
           }
           // If it is a one shot reaction, dispose
           if (once) {
-            const didDelete = this.disposeReaction(effect);
-            if (didDelete) {
-              i--; // Step back the cursor to compensate the last deleted item.
-            }
+            this.disposeReaction(effect);
           }
 
         }

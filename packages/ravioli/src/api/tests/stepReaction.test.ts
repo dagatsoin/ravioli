@@ -247,3 +247,68 @@ it("should run a one shot reaction twice when it starts a step at creation", fun
   expect(welcomes).toBe(2);
   expect(Fraktar.representationRef.current.hp).toBe(4);
 })
+
+it("should run the reactions which follow a one shot reaction another pass disposed of", async function() {
+  const loads: Array<() => void> = [];
+  const saves: number[] = [];
+  const Fraktar = createContainer<{ hp: number }>()
+    .addAcceptor("incHP", { mutator: (data) => data.hp++ })
+    .addActions({ incHP: "incHP" })
+    // Loads something once, at creation, and is awaited.
+    .addStepReaction({
+      debugName: "load",
+      once: true,
+      awaitAsync: true,
+      do: () => new Promise<void>((done) => { loads.push(done) }),
+    })
+    .addStepReaction({
+      debugName: "save",
+      awaitAsync: true,
+      runOnInit: false,
+      do: async ({ data }) => { saves.push(data.hp) },
+    })
+    .create({ hp: 1 });
+
+  // A step is taken while the load of the creation is still running: the
+  // pass of the step waits on a load of its own.
+  Fraktar.actions.incHP();
+  loads.forEach((done) => done());
+  await new Promise(r => setTimeout(r, 0));
+
+  // The pass of the creation disposed of the load meanwhile. The pass of the
+  // step went on one reaction too far, and the step was never saved.
+  expect(saves).toEqual([2]);
+})
+
+it("should not run a one shot reaction another pass disposed of before its turn", async function() {
+  const writes: Array<() => void> = [];
+  const loads: Array<() => void> = [];
+  const Fraktar = createContainer<{ hp: number }>()
+    .addAcceptor("incHP", { mutator: (data) => data.hp++ })
+    .addActions({ incHP: "incHP" })
+    .addStepReaction({
+      debugName: "save",
+      awaitAsync: true,
+      do: () => new Promise<void>((done) => { writes.push(done) }),
+    })
+    .addStepReaction({
+      debugName: "load",
+      once: true,
+      awaitAsync: true,
+      do: () => new Promise<void>((done) => { loads.push(done) }),
+    })
+    .create({ hp: 1 });
+
+  // The save of the creation is running, and so is the one of a step.
+  Fraktar.actions.incHP();
+  // The creation goes on to its load, which ends: it had its run.
+  writes[0]();
+  await new Promise(r => setTimeout(r, 0));
+  loads[0]();
+  await new Promise(r => setTimeout(r, 0));
+  // The step goes on in turn, and finds the load gone.
+  writes[1]();
+  await new Promise(r => setTimeout(r, 0));
+
+  expect(loads.length).toBe(1);
+})
