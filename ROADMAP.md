@@ -116,11 +116,9 @@ which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 abo
   case.
 - **Measuring the queue.** Nothing tells how many proposals wait, nor for how long. It is what
   "Several containers on one graph" asks for before anything is cut.
-- **A switch for the recorder.** Every container which has a reaction is listened to node by node,
-  since its reactions may read the patches. On 50 000 nodes (`yarn measure`) the creation takes
-  about 300 ms instead of 150 and 93 MB instead of 55; a step which changes one field costs about
-  the same with and without, around 10 µs. A container whose reactions read no patch and await
-  nothing could be spared the creation.
+- **A switch for the recorder** (postponed). Install the recorder only when a step reaction is
+  awaited or declares that it reads the patches. Today any step reaction has the model listened
+  to: at 200 000 nodes, creation 0.5 → 1.3 s and memory 219 → 367 MB against 1.7.0.
 - **What a step still costs beyond what it changes** (`yarn measure`):
   - the first key a step removes from a `Map`, a `Set` or an object costs one pass over its keys,
     to give the key its place back should the step be taken back, and its return puts back behind
