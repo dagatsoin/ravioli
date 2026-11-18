@@ -1757,8 +1757,213 @@ describe("an observer which acts when it sees a jump", function () {
   });
 });
 
+describe("an action sent while a rollback or a reset puts its state in the model", function () {
+  type Hero = { hp: number; potions: number; log: string[] };
+
+  /**
+   * A hero who is put on another state, and somebody who sends an action in
+   * the middle of it. `steps` is what the reactions saw.
+   */
+  function createDrinker(steps: string[] = []) {
+    const interrupt: { predicate?: () => void } = {};
+    const Fraktar = createContainer<Hero>()
+      .addAcceptor("addHP", {
+        mutator: (data, hp: number) => {
+          data.hp += hp;
+        },
+      })
+      .addAcceptor("drink", {
+        mutator: (data) => {
+          data.potions--;
+          data.log.push("potion");
+        },
+      })
+      .addControlStatePredicate("IS_WEAK", ({ data }) => {
+        if (interrupt.predicate !== undefined) {
+          interrupt.predicate();
+        }
+        return data.hp < 5;
+      })
+      .addActions({
+        hit: (hp: number) => [{ type: "addHP", payload: -hp }],
+        drink: "drink",
+        sip: {
+          isAsync: true,
+          action: async () => [{ type: "drink", payload: undefined }],
+        },
+        gulp: {
+          isAsync: true,
+          isCancelable: true,
+          action: async () => [{ type: "drink", payload: undefined }],
+        },
+      })
+      .addStepReaction({
+        runOnInit: false,
+        do: ({ delta, data }) => {
+          steps.push(
+            `${delta.acceptedMutations.map(({ type }) => type).join()} at hp ${
+              data.hp
+            }`
+          );
+        },
+      })
+      .create({ hp: 10, potions: 3, log: [] });
+    return { Fraktar, interrupt };
+  }
+
+  const wounded = {
+    data: { hp: 3, potions: 3, log: [] },
+    delta: {
+      acceptedMutations: [],
+      proposal: Object.assign([], { stepId: 6 }),
+      controlStates: [],
+      previousControlStates: [],
+    },
+  };
+
+  it("should not be presented when who listens to the model sends it during a rollback", function () {
+    const steps: string[] = [];
+    const { Fraktar } = createDrinker(steps);
+    const dispose = observe(Fraktar.representationRef.current, "hp", () => {
+      Fraktar.actions.drink();
+    });
+
+    Fraktar.rollback(wounded);
+
+    // The state which was asked for, and the arrival replayed once.
+    expect(Fraktar.representationRef.current).toEqual(wounded.data);
+    expect(Fraktar.stepId).toBe(7);
+    expect(steps).toEqual([" at hp 3"]);
+    dispose();
+  });
+
+  it("should not be presented when who is asked before a write sends it during a reset", function () {
+    const steps: string[] = [];
+    const { Fraktar } = createDrinker(steps);
+    Fraktar.actions.hit(7);
+    const dispose = intercept(
+      Fraktar.representationRef.current,
+      "hp",
+      (change) => {
+        Fraktar.compose(({ drink }) => [drink()]);
+        return change;
+      }
+    );
+
+    Fraktar.reset({ hp: 10, potions: 3, log: [] });
+
+    expect(Fraktar.representationRef.current.potions).toBe(3);
+    expect(Fraktar.stepId).toBe(0);
+    expect(steps).toEqual(["addHP at hp 3"]);
+    dispose();
+  });
+
+  it("should not be presented when a control state predicate sends it during a reset", function () {
+    const { Fraktar, interrupt } = createDrinker();
+    interrupt.predicate = () => Fraktar.actions.drink();
+
+    Fraktar.reset({ hp: 10, potions: 3, log: [] });
+    interrupt.predicate = undefined;
+
+    expect(Fraktar.representationRef.current.potions).toBe(3);
+    expect(Fraktar.stepId).toBe(0);
+  });
+
+  it("should not be presented later either when it takes a while, cancelable or not", async function () {
+    const { Fraktar } = createDrinker();
+    const dispose = observe(Fraktar.representationRef.current, "hp", () => {
+      Fraktar.actions.sip();
+      Fraktar.actions.gulp();
+    });
+
+    Fraktar.rollback(wounded);
+    dispose();
+    await settle();
+
+    // Refused when they were called: neither slips in around the jump.
+    expect(Fraktar.representationRef.current.potions).toBe(3);
+    expect(Fraktar.stepId).toBe(7);
+    expect(Fraktar.lastAttempt).toBeUndefined();
+  });
+
+  it("should not keep the hero from being put on another state again: a jump from inside a jump is refused as during a step", function () {
+    const { Fraktar } = createDrinker();
+    const dispose = observe(Fraktar.representationRef.current, "hp", () => {
+      Fraktar.reset({ hp: 1, potions: 0, log: [] });
+    });
+
+    Fraktar.rollback(wounded);
+    dispose();
+
+    expect(Fraktar.representationRef.current).toEqual(wounded.data);
+    expect(Fraktar.stepId).toBe(7);
+  });
+});
+
+describe("the reactions which replay a rollback, and what the view sends when it sees it", function () {
+  it("should propose as they do, and go first", function () {
+    const steps: string[] = [];
+    const Fraktar = createContainer<{ hp: number; log: string[] }>()
+      .addAcceptor("addHP", {
+        mutator: (data, hp: number) => {
+          data.hp += hp;
+        },
+      })
+      .addAcceptor("note", {
+        mutator: (data, line: string) => {
+          data.log.push(line);
+        },
+      })
+      .addActions({
+        drink: () => [{ type: "addHP", payload: 10 }],
+        note: "note",
+      })
+      .addStepReaction({
+        runOnInit: false,
+        do: ({ delta, data }) => {
+          steps.push(
+            `${delta.acceptedMutations.map(({ type }) => type).join()} at hp ${
+              data.hp
+            }`
+          );
+        },
+      })
+      // The next action: a hero who is hurt drinks.
+      .addStepReaction({
+        runOnInit: false,
+        when: ({ data }) => data.hp < 5,
+        do: ({ actions }) => actions.drink(),
+      })
+      .create({ hp: 10, log: [] });
+    // The view: it notes the health of the hero as soon as it sees it.
+    let isWatching = false;
+    const dispose = autorun(() => {
+      const { hp } = Fraktar.representationRef.current;
+      if (isWatching) {
+        isWatching = false;
+        Fraktar.actions.note(`hp ${hp}`);
+      }
+    });
+
+    isWatching = true;
+    Fraktar.rollback({
+      data: { hp: 3, log: [] },
+      delta: {
+        acceptedMutations: [],
+        proposal: Object.assign([], { stepId: 6 }),
+        controlStates: [],
+        previousControlStates: [],
+      },
+    });
+
+    // The arrival, what a reaction proposes on it, then what the view sent.
+    expect(steps).toEqual([" at hp 3", "addHP at hp 13", "note at hp 13"]);
+    dispose();
+  });
+});
+
 describe("a rollback the model refuses", function () {
-  it("should leave the container open, and give their turn to who acted meanwhile", function () {
+  it("should leave the container open, and present nothing of what was sent meanwhile", function () {
     const Fraktar = createContainer<Model>()
       .addAcceptor("addHP", {
         mutator: (data, hp: number) => {
@@ -1791,11 +1996,12 @@ describe("a rollback the model refuses", function () {
         },
       })
     ).toThrow("The hero is under a spell.");
-
-    expect(Fraktar.representationRef.current.hp).toBe(11);
-    Fraktar.actions.heal(1);
-    expect(Fraktar.representationRef.current.hp).toBe(12);
     disposers.forEach((dispose) => dispose());
+
+    // The heal sent in the middle of the rollback was refused.
+    expect(Fraktar.representationRef.current.hp).toBe(10);
+    Fraktar.actions.heal(1);
+    expect(Fraktar.representationRef.current.hp).toBe(11);
   });
 
   it("should not have its arrival replayed", function () {

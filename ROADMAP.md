@@ -236,8 +236,8 @@ which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 abo
 - **A step is locked while its proposal is presented** (1.8). An action sent by a condition, a
   mutator, a control state predicate or whoever listens to the model meanwhile is discarded with
   `STEP_LOCKED`: in 1.7 it was presented inside the presentation, and its step taken in the middle
-  of the first. Left as it is: what is sent while a `rollback` or a `reset` puts its state in the
-  model is not refused, it waits for the reactions which replay the jump.
+  of the first. The same while a `rollback` or a `reset` puts its state in the model; the reactions
+  which replay the jump are not locked.
 - **A step-end signal** (1.8). `attempt.<action>(…)`, on the container `create()` returns,
   resolves with the attempt of one proposal once nothing can change it anymore: the reactions of
   its step ran, and the steps they started.

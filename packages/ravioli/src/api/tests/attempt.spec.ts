@@ -1330,3 +1330,29 @@ describe("an autorun which asks what becomes of an action", function () {
     expect(asked.length).toBe(1);
   });
 });
+
+describe("the author of an action sent while the hero is put on another state", function () {
+  it("should be told it was discarded, the container being locked", async function () {
+    const Fraktar = createContainer<Model>()
+      .addAcceptor("addItem", {
+        mutator: (data, item: string) => {
+          data.inventory.push(item);
+        },
+      })
+      .addActions({ addItem: "addItem" })
+      .create({ hp: 10, inventory: [] });
+    const asked: Array<Promise<Attempt<any>>> = [];
+    const dispose = observe(Fraktar.representationRef.current, "hp", () => {
+      asked.push(Fraktar.attempt.addItem("shield"));
+    });
+
+    Fraktar.reset({ hp: 3, inventory: [] });
+    dispose();
+
+    expect(asDiscarded(await asked[0]).reason).toEqual({
+      code: RejectionCode.stepLocked,
+      message: "The container is being rolled back or reset.",
+    });
+    expect(Fraktar.representationRef.current.inventory).toEqual([]);
+  });
+});

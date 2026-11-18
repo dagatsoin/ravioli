@@ -286,18 +286,18 @@ export class Instance<
    * or the view presents a proposal, between two steps: a condition, a
    * mutator, a control state predicate, or whoever listens to the model
    * meanwhile, does not send an action. What they propose is discarded.
+   *
+   * The same while a rollback or a reset puts its state in the model.
    */
   public refuseIfLocked(origin?: Origin<MUTATIONS>): boolean {
-    if (this.pass !== PRESENTING) {
+    if (this.pass !== PRESENTING && this.pass !== LANDING) {
       return false;
     }
-    console.info(
-      "[RAVIOLI] Tried to present a proposal while another one is being presented."
-    );
-    this.discardProposal({
-      code: RejectionCode.stepLocked,
-      message: "A proposal is already being presented.",
-    }, origin);
+    const message = this.pass === PRESENTING
+      ? "A proposal is already being presented."
+      : "The container is being rolled back or reset.";
+    console.info(`[RAVIOLI] Tried to present a proposal while it is locked. ${message}`);
+    this.discardProposal({ code: RejectionCode.stepLocked, message }, origin);
     return true;
   }
 
@@ -564,31 +564,37 @@ export class Instance<
 
   /**
    * A rollback or a reset: the model is put on another state, then the
-   * reactions replay the arrival. The container is closed from the start:
-   * what is proposed meanwhile, by whoever listens to the model, waits for
-   * them.
+   * reactions replay the arrival. The container is locked while the state is
+   * put in the model, as it is while a proposal is presented: what whoever
+   * listens to the model sends meanwhile is discarded. The reactions which
+   * replay the arrival are not locked: they propose as they do.
    */
   private jump(
     land: () => void,
     toDelta: () => Arrival<MUTATIONS, CONTROL_STATES>,
     isInit: boolean
   ): void {
-    const pass = this.pass = toPass(0);
+    const pass = toPass(0);
+    this.pass = LANDING;
     let hasLanded = false;
     try {
       // Put in this transaction all the needed updates
       // The view won't react until the transaction is finished.
       runInAction(() => {
-        land();
-        hasLanded = true;
+        try {
+          land();
+          hasLanded = true;
+        } finally {
+          // The lock is lifted before the transaction ends: an observer
+          // which acts at its end waits for the reactions which replay the
+          // arrival. When the model did not take the state, it finds the
+          // container as open as it was.
+          this.pass = hasLanded ? pass : undefined;
+        }
       });
     } finally {
       if (hasLanded) {
         this.react({ data: this.data, delta: toDelta() }, isInit, pass);
-      } else {
-        // The model did not take it: the container is as open as it was.
-        this.pass = undefined;
-        this.takeTurns();
       }
     }
   }
@@ -987,6 +993,12 @@ type Pass<MUTATIONS, CONTROL_STATES> = ReactionPass & {
  * is taken yet, and none can be asked for.
  */
 const PRESENTING: Pass<any, any> = toPass(0);
+
+/**
+ * What it holds while a rollback or a reset puts its state in the model: the
+ * same lock, for another reason.
+ */
+const LANDING: Pass<any, any> = toPass(0);
 
 /**
  * A pass which reacts to no step yet. It is of the chain of steps it is
