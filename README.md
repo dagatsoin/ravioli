@@ -40,6 +40,15 @@ yarn build
 # Run tests
 yarn test
 
+# Run them against MobX's production build
+yarn test:production
+
+# Run them and fail under 100 % coverage
+yarn test:coverage
+
+# Measure what a step costs on a large model (after a build)
+yarn measure
+
 # Watch mode for development
 yarn build:watch
 ```
@@ -375,9 +384,12 @@ When step reactions perform async operations (like database persistence), they c
 
 **How it works:**
 - With `awaitAsync: true`, the library awaits the `do()` promise before proceeding
-- Actions called during an async NAP are buffered and processed after completion
-- Each action is still processed in its own step (stepId increments for each)
+- Actions called during an async NAP wait in a queue and are processed after completion
+- Each action is still processed in its own step (stepId increments for each), in the order it was called
+- What the reactions of the step propose goes first, composed in one step, then the actions which waited
+- An action which waited is checked again when its turn comes: if it is not allowed anymore, it is discarded as `UNAUTHORIZED`
 - Saves complete in order: step 1 finishes before step 2 starts
+- `rollback` and `reset` are refused while the container is busy with a step: while its reactions run, and while the queue is being emptied
 
 **Without `awaitAsync` (race condition):**
 ```
@@ -389,11 +401,178 @@ save(1) completes → DB=1 ✗ OVERWRITES!
 
 **With `awaitAsync: true` (sequential):**
 ```
-Action 1 → save(1) starts, Action 2 BUFFERED
+Action 1 → save(1) starts, Action 2 and Action 3 WAIT
 save(1) completes → DB=1 ✓
 Action 2 processed → save(2) starts
 save(2) completes → DB=2 ✓
+Action 3 processed → save(3) starts
+save(3) completes → DB=3 ✓
 ```
+
+A cancelable action is the exception. It is accepted only if nothing happened since it was called: a step, a step which was taken back, a rollback or a reset cancels it, in the queue as anywhere else.
+
+#### Who presents a proposal
+
+In SAM a proposal is presented between two steps, by the view or by a step reaction (the next-action predicate). While one is presented the step is **locked**, from the first `condition` to the last control state predicate: nothing else is presented.
+
+- A `condition`, a `mutator` or a control state predicate does not send an action. Neither does whoever listens to the model with `observe` or `intercept` and is told during the presentation
+- What they send is discarded with the reason `STEP_LOCKED`, through an action, `compose` or `attempt`, cancelable or not: none of its acceptors runs, it takes no step, it does not wait in the queue
+- `attempt` resolves `discarded` with that reason. `lastAttempt` holds it for an instant only: the proposal which is being presented writes its own outcome right after. It stays when that presentation throws
+- A cancelable action is therefore presented against the very state it was checked in: no step can be taken between that check and its mutators
+- 1.7.0 let a presentation run inside another: the second step was taken in the middle of the first. 1.8 refuses it
+- A proposal which arrives after `present` but before the step reactions of the step, from an `autorun` or a `reaction` on the representation for example, is not refused: it is presented after the next-action predicates of that step. The NAP always goes before any other action. In 1.7.0 it was taken at once, ahead of them
+- An action built on a representation which is no longer the right one when it is presented is judged by the acceptors against the current model. If it must not be, it declares itself `isCancelable`
+- Calling an action is not reading. An `autorun` which calls one depends on what it reads itself, not on the step id nor on the control states the call reads. One which reads again the data its own action changes runs again each time, as any `autorun` which writes what it reads
+
+#### What an observer sees meanwhile
+
+- **With a transformation which copies what it shows** (`({ data }) => ({ count: data.todos.length, titles: data.todos.map(({ title }) => title) })`), the representation follows the model once the step is over: its reactions are done, the awaited ones included, and so are the steps they started. It never shows a step which is still being saved, whoever proposed it, nor a step which is then taken back
+- A transformation which hands over a node of the model (`({ data }) => ({ todos: data.todos })`) shows that node as it is, at once: the node is the model, not a copy of it
+- **Without a transformation**, the representation is the model itself. An observer sees a step as soon as the model accepted it, before its save, and sees it go away if the save fails. Give the container a transformation when the view must only show what is saved
+- `stepId`, `controlStates` and `lastAttempt` are those of the model, in both cases: they move as soon as the step is accepted
+
+#### When the save fails
+
+If an `awaitAsync` reaction rejects, or throws, the step is **taken back**: the model, the `stepId` and the control states are again what they were before the step. The model is never left ahead of a save which did not happen.
+
+```
+Action 1 → save(1) starts, Action 2 WAITS
+save(1) fails → step 1 is undone, DB and model agree again
+Action 2 is refused: it waited behind a step which did not happen
+```
+
+- `lastAttempt` tells it: the attempt is still `accepted`, with `settled: false`, the `reason` and `undone: true`
+- The actions which waited behind it are discarded with the reason `PRECEDING_STEP_UNDONE`. An action called after the return is processed as usual
+- Going back does not copy the model. Each write leaves what is needed to undo it, so a step and its return cost what the step changes. With one exception: a key removed from a `Map`, a `Set` or an object costs one pass over its keys, whose order is kept, and its return puts the keys which stood behind it back behind it. `yarn measure` gives the figures
+- What comes back is the very node which was removed, not a copy, at the place it had: its observers are still attached
+- A `once` reaction which ran in the step gets its run back
+
+It is all or nothing. When the step can not be taken back whole, it stands whole: the attempt has `settled: false` and the reason `STEP_NOT_UNDONE`, never `undone: true`, and the actions which waited take their turn. It happens when:
+- the model holds something MobX does not observe. MobX does not tell what is written in it, so as long as the model holds one, no step is taken back:
+  - a `Date`: keep a date as a text or a number
+  - an object which is not observable: an instance of a class which is not, a plain object kept by reference (`observable.ref`, `{ deep: false }`)
+  - a field MobX was not told of: a class which annotates only some of its fields (`makeObservable(this, { hp: observable })` with a plain field beside), a field annotated `false`, a field which the constructor of a `makeAutoObservable` class leaves without a value, a field given by assignment to an object which has no proxy (`configure({ useProxies: 'never' })`). What an object can do, a function, is not counted
+  - an object used as the key of a `Map`, observable or not: a map keeps its keys as they are given, and does not hold them
+- something refuses the way back: an interceptor (`intercept`) which cancels a write, or throws, on the model or on `controlStates`
+- somebody who listened to a node (`observe`) before the container was created writes in that node when it is told of a write. The container then hears the second write before the first: it says so, and from then on no step is taken back
+
+The reason names the first thing in cause and where it is, as a JSON pointer: `the model holds a Date at /createdAt, which MobX does not observe…`. A member of a `Set` has no place of its own in a pointer, it is written `*`.
+
+A container takes back every write made in its model during the step, whoever made it. **Two containers must not hold the same node**: the return of one would undo what the other wrote in it meanwhile, and saved.
+
+**What is out of reach.** Nothing can tell these are there, nor that they were written: a step which writes in one is said taken back, `undone: true`, and the write stays. Do not keep there what a step changes.
+- a `#private` field of a class
+- a field which is not enumerable (`Object.defineProperty(hero, 'hits', { enumerable: false, … })`)
+- what a function kept in the model carries on itself (`hero.onHit.calls++`)
+- the order of a `Map` which is replaced through the method every map inherits, `ObservableMap.prototype.replace.call(map, …)`, and not through its own `map.replace(…)`
+
+**A container nobody holds is collected**, with its model, even when one of its nodes lives on: a `Map` of reference data which several containers are given in turn, a node a program kept after it left the model. It needs an engine which has `WeakRef`; on another one, a container lives as long as its nodes.
+
+What it does not do:
+- **A reaction which already ran is not undone.** If a mail left before the save failed, it left
+- **A save which succeeded is not undone either.** With two `awaitAsync` reactions, if the save succeeds and the next one fails, the model goes back and the save stays. The reaction which persists the step must be the last `awaitAsync` one, or the only one
+- A reaction which is not `awaitAsync` and throws does not undo the step: the step stands, `settled` is false, its consequences did not happen
+- A `rollback` or a `reset` is not a step: it is not taken back when the save which follows it fails
+- An `awaitAsync` reaction which never ends keeps the container closed: there is no time limit
+
+#### Knowing what became of an action
+
+An action returns nothing, and `lastAttempt` only holds the last attempt, whoever made it. When several actions wait, ask for the outcome of yours with `attempt`:
+
+```ts
+const attempt = await counter.attempt.increment();
+
+if (attempt.status === 'accepted' && attempt.settled) {
+  // The step is done, saved, and so are the steps its reactions started
+}
+if (attempt.status === 'accepted' && attempt.undone) {
+  // The save failed, the step was taken back: attempt.reason says why
+}
+if (attempt.status === 'discarded') {
+  // Never presented: not allowed, stale (the state changed, try again),
+  // or waiting behind a step which was undone. See attempt.reason.code
+}
+if (attempt.status === 'rejected') {
+  // The model refused it: attempt.rejected holds a reason per mutation
+}
+```
+
+- `attempt` holds the same actions as `actions`, with the same arguments: `counter.attempt.increment()` where `counter.actions.increment()` returns nothing. Whatever an action is called, `name` or `call` included. Or give it a composer, as `compose` takes: `counter.attempt(({ increment }) => [increment(), increment()])`
+- The promise resolves once nothing can change the attempt anymore: at once for a refusal, after the reactions of the step for an accepted one
+- You are told of your own step only. The failure of a reaction of another step is not yours
+- A refusal is an outcome, the promise does not reject for it. It rejects when the action, an acceptor or a control state predicate throws
+- The actions themselves stay fire and forget and still return nothing
+- `attempt` is on the container `create()` returns. Its type is `IAttempt`, apart from `IInstance`: an object written by hand as an `IInstance` does not need it
+- Work which must be done before the next step belongs in an `awaitAsync` reaction: when the outcome reaches you, the container may already be at the next action of the queue
+- Do not `await` it inside an `awaitAsync` reaction of the same container: the step would wait for an attempt which waits for the step. Two containers which each await an attempt on the other from an `awaitAsync` reaction wait for ever the same way, and nothing cuts it
+- A reaction which keeps a chain of steps going without ever letting it end is cut after 50 steps in a row. What it proposed through `attempt` is discarded as `REACTIONS_DID_NOT_SETTLE`. Through its `actions`, the last step stays `accepted`, with `settled: false` and that reason
+- A reaction which proposes later, after a timer for example, starts a new chain each time: a countdown or a poll is not cut
+
+### The patches of a step
+
+A step reaction receives what the step did to the model data, as JSON patches ([RFC 6902](https://datatracker.ietf.org/doc/html/rfc6902)). No need to save the whole model at each step, nor to work out what changed:
+
+```ts
+.addStepReaction({
+  debugName: 'journal',
+  awaitAsync: true,
+  runOnInit: false,
+  do: async ({ delta }) => {
+    await journal.write({
+      at: new Date().toISOString(),
+      patches: delta.patches,
+    });
+  },
+})
+```
+
+```ts
+// data.inventory.splice(1, 2, 'axe') gives one patch:
+[
+  { op: 'remove', path: '/inventory/1' },
+  { op: 'remove', path: '/inventory/1' },
+  { op: 'add', path: '/inventory/1', value: 'axe' },
+]
+```
+
+- `delta.patches`: one patch per write in the model, in order. A mutator which writes three fields gives three patches, a splice is one write. A patch is an array of operations, and only `add`, `remove` and `replace` are written
+- `delta.inversePatches`: what undoes the step, last write first
+- A patch holds copies, not live references: it can be stored as it is
+- They tell the model data only. The `stepId` and the control states are in the delta, where they were
+- They are written from the record the step is undone from when the save fails
+- They are written when they are first read: a step whose patches nobody reads copies nothing, and a container without any reaction is not even listened to
+- They are not listed in the delta: `JSON.stringify(delta)`, `{ ...delta }` and a comparison of two deltas see the delta as it was in 1.7. Read them by name
+- The delta a step reaction is given is a `StepDelta`: the `Delta` of 1.7, which the `Step` given to `rollback` still holds, plus `patches` and `inversePatches`. A test which calls the `do` of a reaction with a delta built by hand gives it `patches: []` and `inversePatches: []`
+- A 1.7 program which writes its own `delta.patches` for the reaction which follows still can: what it wrote is what is read from then on, and it is listed in the delta as any field it adds
+- **Read them while the reactions of the step run.** An `awaitAsync` reaction can read them after it waited. A reaction which is not awaited reads them before it waits on anything: once the step is over the model has moved on, and patches nobody read until then can not be written anymore. Reading them then throws. Those which were read stay what they are
+- **They are not read while the model holds something MobX does not observe**: a `Date`, an object which is not observable, a field MobX was not told of, an object used as the key of a `Map` (the list given for a save which fails, above). A write in it would be missing from the journal and nothing would say so: reading the patches of a step throws instead, as long as the model holds one. The error names the first one and where it is, as the reason of a step which stands does. The same when a listener which was there before the container made it hear two writes in the wrong order
+- **A `rollback` is not a step, and its patches are not what it did to the model.** Its reactions are given the delta of the step it goes back to. When the history kept the very delta a reaction was given, its patches are those of that step, if they were read then; reading them throws if nobody did. A copy of the delta (`{ ...delta }`, a JSON copy) has none: `[]`. Either way a journal which appends them does not replay to the model: after a `rollback` or a `reset`, start the journal again from `jsonCopy(data)`
+
+**Replaying a journal:**
+
+```ts
+import { applyPatch, jsonCopy } from '@warfog/ravioli';
+
+// The first entry of the journal: a JSON copy of the data
+const first = jsonCopy(data);
+
+// Later, anywhere: the patches of each step, in order
+const now = entries.reduce(
+  (copy, entry) => entry.patches.reduce(applyPatch, copy),
+  first
+);
+```
+
+`jsonCopy` and the patches follow the same conventions, as JSON has no `Map` nor `Set`:
+- a `Map` is an object, a key is a segment of the path: `/quests/dragon`. Two keys which read the same, `1` and `"1"`, are one key there, and no patch can tell them apart: reading the patches of a step which writes one of them, or under one of them, or which gives such a map another order (`replace`), throws. So does telling such a map as it was once it left the model and lost or was given a key there. Keep the keys of a map texts
+- a `Set` is an object too, `{ member: true }`: adding a member is `{ op: 'add', path: '/effects/poisoned', value: true }`
+- a member which is an object is named by its JSON, keys sorted. Nothing is under a key, so a write inside such a member removes the key it had and adds the one it has now. A step which adds such a member and writes in it right away tells it once, as it ends up
+- a `Date` is its ISO text in a JSON copy
+- where the model comes back to itself, a JSON copy writes `"[Circular]"`. The patches of a model which holds a cycle are not promised: a member of a `Set` which holds that set is named otherwise in a patch than in the copy, and replaying the patch throws. Keep cycles out of what is journaled
+- `undefined` and functions are not written: a field which becomes `undefined` is removed
+- a field named by a symbol is not written
+
+`applyPatch` changes the copy it is given and returns it. It refuses a path which leads nowhere rather than leaving a copy which is no longer the model.
 
 ### Hydrating Containers with `initialStepId`
 
