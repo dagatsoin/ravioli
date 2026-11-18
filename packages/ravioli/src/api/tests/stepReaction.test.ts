@@ -188,8 +188,10 @@ test("should await async NAP before allowing next step", async function() {
   Counter.actions.increment();  // Step 0 → 1, NAP awaits
   Counter.actions.increment();  // Buffered while NAP running, then Step 1 → 2
 
-  // Wait for both async NAPs to complete
-  await new Promise(r => setTimeout(r, 150));
+  // Wait for both async NAPs to complete, however long the machine takes
+  for (let wait = 0; wait < 200 && saveOrder.length < 2; wait++) {
+    await new Promise(r => setTimeout(r, 20));
+  }
 
   // Each action processed in its own step
   expect(Counter.stepId).toBe(2);
@@ -218,4 +220,30 @@ test("should initialize stepId from options for hydration", function() {
   hydratedCounter.actions.increment();
   expect(hydratedCounter.stepId).toBe(43);
   expect(hydratedCounter.representationRef.current.count).toBe(6);
+})
+
+it("should run a one shot reaction twice when it starts a step at creation", function() {
+  let welcomes = 0;
+  const Fraktar = createContainer<{ hp: number }>()
+    .addAcceptor("incHP", { mutator: (data) => data.hp++ })
+    .addActions({ incHP: "incHP" })
+    .addStepReaction({
+      debugName: "welcome gift",
+      once: true,
+      do: ({ actions }) => {
+        welcomes++;
+        actions.incHP();
+      },
+    })
+    .create({ hp: 1 });
+
+  // Not what once says. At creation the gift starts a step at once, whose
+  // reactions run the gift a second time before the first run disposed it.
+  expect(welcomes).toBe(2);
+  expect(Fraktar.representationRef.current.hp).toBe(3);
+
+  // It is gone for good.
+  Fraktar.actions.incHP();
+  expect(welcomes).toBe(2);
+  expect(Fraktar.representationRef.current.hp).toBe(4);
 })
