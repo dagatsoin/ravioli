@@ -15,6 +15,7 @@
     "test": "jest",
     "test:coverage": "jest --config jest.coverage.js",
     "test:production": "NODE_ENV=production jest",
+    "measure": "node --expose-gc bench/costs.js",
     "release": "standard-version",
     "doc": "typedoc --plugin typedoc-plugin-markdown --out doc/ --entryPoints src/api/index.ts --excludeExternals --readme none"
   },
