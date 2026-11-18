@@ -50,6 +50,46 @@ What it must guarantee:
    creates no step and no transition.
 7. **The lock is per container.** Other containers keep running.
 
+## Several containers on one graph
+
+**Origin.** Jared's lineage module (November 2026) holds a client's whole dependency graph in one
+container: values, results, and "depends on" edges, with each step persisted by an awaited
+reaction. A container takes one step at a time, the write included, so every author of that client
+waits in the same queue. Scaling out means several containers working on the same graph in the
+database.
+
+**What we do meanwhile.** One container per graph, and the queue is measured before anything is
+cut.
+
+**What does not help.** Several containers each holding the whole graph and each accepting writes.
+The database still has to put the writes in one order; the loser's write fails and its step is
+undone. That buys failover, not throughput.
+
+**What Ravioli could offer instead.** Composition, in the manner of React components: each
+container manages one part of a larger graph. A parent holds what is shared (reference values: few
+writes, many readers), children hold what depends on it. Dependencies go one way, parent to child.
+A step accepted by the parent reaches each child as a fact the child does not refuse, and the
+child's own acceptors work out the consequences in its part. A child which wants the parent to
+change presents a proposal to the parent, whose acceptors decide. Earlier attempts live on the
+branches `feat/add-child` (2022) and `next` (2025).
+
+What it must guarantee:
+
+1. **The model does not know who manipulates it.** Nothing in the data says which container holds
+   which part: no owner on a node, no container id in the model. The cut belongs to the containers,
+   so the same graph can be cut another way later, or not at all.
+2. **A step stays atomic inside a container; nothing is atomic across two.** A consequence crosses
+   from parent to child late. Whatever must be exact at a given moment is checked against the
+   parent at that moment, by fingerprint: a child keeps the fingerprint of each upstream value it
+   used.
+3. **A dependency across parts is an address and a fingerprint**, never a reference in memory.
+4. **One writer per part.** A write names the step it expects to follow and the database refuses
+   any other, so two containers can never both write the same part.
+5. **A child receives the parent's steps in the parent's order**, none lost and none twice, across
+   a restart of either.
+6. **A sleeping child costs nothing.** What the parent accepted meanwhile waits for it and is
+   applied when it wakes.
+
 ## Smaller items found on the way
 
 - **A step-end signal.** Step reactions are started without the caller knowing when they are done
