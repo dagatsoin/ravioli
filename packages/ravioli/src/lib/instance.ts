@@ -410,7 +410,7 @@ export class Instance<
           }
           const result = effect({ ...args, actions: this.actions, representation: this.representationRef.current, compose: this.compose });
           // Await the effect if awaitAsync is set to ensure sequential execution
-          if (awaitAsync && result instanceof Promise) {
+          if (awaitAsync && isThenable(result)) {
             await result;
           }
           // If it is a one shot reaction, dispose
@@ -530,4 +530,13 @@ function toUnsettledReason(error: unknown): Reason {
     message: error instanceof Error ? error.message : String(error),
     meta: { error },
   };
+}
+
+/**
+ * A promise, or what is awaited as one: what a query builder hands back, a
+ * promise made in another realm.
+ */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  const held = Object(value);
+  return held === value && typeof held.then === "function";
 }

@@ -312,3 +312,29 @@ it("should not run a one shot reaction another pass disposed of before its turn"
 
   expect(loads.length).toBe(1);
 })
+
+it("should await a reaction which hands back what can be awaited, a promise or not", async function() {
+  const answers: Array<() => void> = [];
+  const Counter = createContainer<{ count: number }>()
+    .addAcceptor("inc", { mutator: (data) => data.count++ })
+    .addActions({ increment: () => [{ type: "inc", payload: undefined }] })
+    .addStepReaction({
+      debugName: "persist",
+      awaitAsync: true,
+      runOnInit: false,
+      // What a query builder hands back: not a Promise, but it has a then.
+      do: () => ({ then: (done: () => void) => { answers.push(done) } }),
+    })
+    .create({ count: 0 });
+
+  Counter.actions.increment();
+  Counter.actions.increment();
+
+  // The second one waits for the query of the first.
+  await new Promise(r => setTimeout(r, 0));
+  expect(Counter.stepId).toBe(1);
+
+  answers[0]();
+  await new Promise(r => setTimeout(r, 0));
+  expect(Counter.stepId).toBe(2);
+})
