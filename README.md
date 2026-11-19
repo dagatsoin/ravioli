@@ -82,11 +82,11 @@ user.actions.rename({ name: "Fraktar" });
 
 API documentation is auto generated and available in a [separate doc](https://github.com/dagatsoin/ravioli/tree/master/doc)
 
-## Renamed in 1.9
+## Renamed in 1.8
 
 The old names still work: each one is marked `@deprecated` and does what the new one does.
 
-| Before 1.9 | Since 1.9 |
+| Before 1.8 | Since 1.8 |
 |---|---|
 | `container.representationRef.current` | `container.representation` |
 | `container.rollback(step)` | `container.restore(step)` |

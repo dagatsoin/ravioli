@@ -1,4 +1,4 @@
-// The names of 1.9 and the names they replace. A program written with the old
+// The names of 1.8 and the names they replace. A program written with the old
 // ones keeps working: each old name is the new one, or does what it does.
 import {
   ActionDeclaration,

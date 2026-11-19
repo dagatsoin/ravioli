@@ -671,7 +671,7 @@ export class Instance<
       for (let i = 0; i < reactions.length; i++) {
         const reaction = reactions[i];
         const { runOnInit = true, when: predicate, do: effect, once, debugName } = reaction;
-        // awaitAsync is the name awaited had before 1.9. When both are given,
+        // awaitAsync is the name awaited had before 1.8. When both are given,
         // awaited is the one which counts.
         const awaited = reaction.awaited ?? reaction.awaitAsync;
         // A one shot reaction another pass disposed of meanwhile has had its run.

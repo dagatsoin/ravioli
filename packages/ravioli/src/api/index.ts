@@ -61,7 +61,7 @@ export interface ContainerFactory<
     predicate: ControlStatePredicate<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
   ): ContainerFactory<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>;
   /**
-   * @deprecated Renamed `addControlState` in 1.9. It does the same.
+   * @deprecated Renamed `addControlState` in 1.8. It does the same.
    */
   addControlStatePredicate<I extends string>(
     id: I,
@@ -85,7 +85,7 @@ export interface ContainerFactory<
     transformer: C
   ): ContainerFactory<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
   /**
-   * @deprecated Renamed `setRepresentation` in 1.9. It does the same.
+   * @deprecated Renamed `setRepresentation` in 1.8. It does the same.
    */
   addTransformation<C extends Transformation<MODEL, CONTROL_STATES>>(
     transformer: C
@@ -98,7 +98,7 @@ export interface ContainerFactory<
     transformer: C
   ): ContainerFactory<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
   /**
-   * @deprecated Renamed `setStaticRepresentation` in 1.9. It does the same.
+   * @deprecated Renamed `setStaticRepresentation` in 1.8. It does the same.
    */
   addStaticTransformation<C extends StaticTransformation<MODEL, ACTIONS>>(
     transformer: C
@@ -131,7 +131,7 @@ export interface ContainerFactory<
 }
 
 /**
- * @deprecated Renamed `ContainerFactory` in 1.9. The same type.
+ * @deprecated Renamed `ContainerFactory` in 1.8. The same type.
  */
 export type IContainerFactory<
   MODEL,
@@ -166,7 +166,7 @@ export interface Container<
    */
   readonly representation: REPRESENTATION;
   /**
-   * @deprecated Read `representation` instead, since 1.9:
+   * @deprecated Read `representation` instead, since 1.8:
    * `representationRef.current` is the same object.
    */
   representationRef: { current: REPRESENTATION };
@@ -196,7 +196,7 @@ export interface Container<
    */
   restore(step: Step<MODEL, MUTATIONS, CONTROL_STATES>): void;
   /**
-   * @deprecated Renamed `restore` in 1.9. The same function.
+   * @deprecated Renamed `restore` in 1.8. The same function.
    */
   rollback(step: Step<MODEL, MUTATIONS, CONTROL_STATES>): void;
   /**
@@ -231,7 +231,7 @@ export interface Container<
 }
 
 /**
- * @deprecated Renamed `Container` in 1.9, which has `attempt`,
+ * @deprecated Renamed `Container` in 1.8, which has `attempt`,
  * `representation` and `restore` too. Kept as it was, so that an `IInstance`
  * written by hand, a test double for example, is still one.
  */
@@ -294,7 +294,7 @@ export interface IInstance<
  * What an instance made by a container adds to `IInstance`. It is apart so
  * that an `IInstance` written by hand before it existed is still one.
  *
- * @deprecated Part of `Container` since 1.9.
+ * @deprecated Part of `Container` since 1.8.
  */
 export interface IAttempt<ACTIONS, MUTATIONS> {
   /**

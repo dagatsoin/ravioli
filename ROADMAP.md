@@ -247,7 +247,7 @@ which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 abo
 
 ## Done
 
-- **One name for each thing** (1.9). `representation`, `restore`, `attempt.stepId`, `Container`,
+- **One name for each thing** (1.8). `representation`, `restore`, `attempt.stepId`, `Container`,
   `addControlState`, `setRepresentation`, `setStaticRepresentation`, `awaited`,
   `ContainerFactory`, `ReasonCode`, `ControlStatePredicate`, `ActionDeclarations`,
   `ActionDeclaration`, `ActionOptions`; the generic parameters `MODEL`, `MUTATIONS`,

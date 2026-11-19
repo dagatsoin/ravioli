@@ -54,7 +54,7 @@ export const ReasonCode = {
 } as const;
 
 /**
- * @deprecated Renamed `ReasonCode` in 1.9: the codes are those of a `Reason`,
+ * @deprecated Renamed `ReasonCode` in 1.8: the codes are those of a `Reason`,
  * which a rejection is not the only one to give. The same object.
  */
 export const RejectionCode = ReasonCode;
@@ -76,14 +76,14 @@ export const RejectionCode = ReasonCode;
  *
  * `stepId` is the step id the attempt was made against. Compare it with the
  * current `stepId` of the container to know if the attempt still relates to
- * what you display. `attemptedAt`, its name before 1.9, holds the same.
+ * what you display. `attemptedAt`, its name before 1.8, holds the same.
  */
 export type Attempt<MUTATIONS> =
   | {
       status: "accepted";
       /** The step id the attempt was made against. */
       stepId: number;
-      /** @deprecated Renamed `stepId` in 1.9. The same number. */
+      /** @deprecated Renamed `stepId` in 1.8. The same number. */
       attemptedAt: number;
       accepted: MUTATIONS[];
       rejected: Rejection<MUTATIONS>[];
@@ -106,7 +106,7 @@ export type Attempt<MUTATIONS> =
       status: "rejected";
       /** The step id the attempt was made against. */
       stepId: number;
-      /** @deprecated Renamed `stepId` in 1.9. The same number. */
+      /** @deprecated Renamed `stepId` in 1.8. The same number. */
       attemptedAt: number;
       rejected: Rejection<MUTATIONS>[];
     }
@@ -114,7 +114,7 @@ export type Attempt<MUTATIONS> =
       status: "discarded";
       /** The step id the attempt was made against. */
       stepId: number;
-      /** @deprecated Renamed `stepId` in 1.9. The same number. */
+      /** @deprecated Renamed `stepId` in 1.8. The same number. */
       attemptedAt: number;
       reason: Reason;
     };
