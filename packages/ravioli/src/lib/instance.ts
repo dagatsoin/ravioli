@@ -379,7 +379,11 @@ export class Instance<
       );
       this.discardProposal({
         code: RejectionCode.staleProposal,
-        message: `The proposal was tagged with the step ${proposal.stepId} but the current step is ${attemptedAt}.`,
+        // A cancelable action can be at the very step id it was called at,
+        // in another story.
+        message: proposal.stepId === attemptedAt
+          ? `The proposal was tagged with the step ${attemptedAt}, and the container moved since: it is at the step ${attemptedAt} again, after a rollback, a reset or a step which was taken back.`
+          : `The proposal was tagged with the step ${proposal.stepId} but the current step is ${attemptedAt}.`,
         meta: { proposalStepId: proposal.stepId },
       }, origin);
       return;

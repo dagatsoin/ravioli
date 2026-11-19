@@ -435,9 +435,11 @@ describe("a cancelable action called before a step which is taken back", functio
     swallow();
     await pending;
 
-    expect(asDiscarded(Fraktar.lastAttempt).reason.code).toBe(
-      RejectionCode.staleProposal
-    );
+    expect(asDiscarded(Fraktar.lastAttempt).reason).toEqual({
+      code: RejectionCode.staleProposal,
+      message: "The proposal was tagged with the step 0, and the container moved since: it is at the step 0 again, after a rollback, a reset or a step which was taken back.",
+      meta: { proposalStepId: 0 },
+    });
     expect(Fraktar.representationRef.current.hp).toBe(10);
   });
 });

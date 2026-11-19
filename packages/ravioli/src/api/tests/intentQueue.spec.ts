@@ -377,9 +377,12 @@ describe("a cancelable action", function () {
     swallow();
     await pending;
 
-    expect(asDiscarded(Fraktar.lastAttempt).reason.code).toBe(
-      RejectionCode.staleProposal
-    );
+    // Said as it is: the step id is the same, the step is not.
+    expect(asDiscarded(Fraktar.lastAttempt).reason).toEqual({
+      code: RejectionCode.staleProposal,
+      message: "The proposal was tagged with the step 1, and the container moved since: it is at the step 1 again, after a rollback, a reset or a step which was taken back.",
+      meta: { proposalStepId: 1 },
+    });
     expect(Fraktar.representationRef.current.hp).toBe(3);
   });
 
@@ -394,8 +397,8 @@ describe("a cancelable action", function () {
     swallow();
     await pending;
 
-    expect(asDiscarded(Fraktar.lastAttempt).reason.code).toBe(
-      RejectionCode.staleProposal
+    expect(asDiscarded(Fraktar.lastAttempt).reason.message).toBe(
+      "The proposal was tagged with the step 0, and the container moved since: it is at the step 0 again, after a rollback, a reset or a step which was taken back."
     );
     expect(Fraktar.representationRef.current.hp).toBe(3);
   });
