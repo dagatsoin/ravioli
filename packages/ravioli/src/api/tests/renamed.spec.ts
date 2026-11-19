@@ -4,7 +4,9 @@ import {
   ActionDeclaration,
   ActionDeclarations,
   ActionOptions,
+  ContainerFactory,
   ControlStatePredicate,
+  IContainerFactory,
   ReasonCode,
   RejectionCode,
   createContainer,
@@ -79,5 +81,65 @@ describe("the types renamed", function () {
     expect(container.controlStates.slice()).toEqual([]);
     container.actions.setHP(5);
     expect(asDiscarded(container.lastAttempt).reason.code).toBe(ReasonCode.unauthorized);
+  });
+});
+
+describe("the factory", function () {
+  test("ContainerFactory, was IContainerFactory", function () {
+    expect(
+      same<ContainerFactory<{ hp: number }, Mutations, "ALIVE">, IContainerFactory<{ hp: number }, Mutations, "ALIVE">>(true)
+    ).toBe(true);
+    const factory: IContainerFactory<{ hp: number }> = createContainer<{ hp: number }>();
+    expect(factory).toBeDefined();
+  });
+
+  function hero() {
+    return createContainer<{ hp: number }>()
+      .addAcceptor("setHP", { mutator: (data, hp: number) => { data.hp = hp; } })
+      .addActions({ setHP: "setHP" });
+  }
+
+  test("addControlState, was addControlStatePredicate", function () {
+    // Before addActions: a control state added after it loses the type of the
+    // actions, as addControlStatePredicate always did.
+    const container = createContainer<{ hp: number }>()
+      .addAcceptor("setHP", { mutator: (data, hp: number) => { data.hp = hp; } })
+      .addControlState("ALIVE", ({ data }) => data.hp > 0)
+      .addControlStatePredicate("DEAD", ({ data }) => data.hp <= 0)
+      .addActions({ setHP: "setHP" })
+      .create({ hp: 1 });
+    expect(container.controlStates.slice()).toEqual(["ALIVE"]);
+    container.actions.setHP(0);
+    expect(container.controlStates.slice()).toEqual(["DEAD"]);
+  });
+
+  test("addControlState and addControlStatePredicate declare in the same place", function () {
+    expect(() =>
+      hero()
+        .addControlState("ALIVE", ({ data }) => data.hp > 0)
+        .addControlStatePredicate("ALIVE", ({ data }) => data.hp > 0)
+    ).toThrow("This component has already a control state called ALIVE");
+  });
+
+  test("setRepresentation, was addTransformation", function () {
+    const renamed = hero().setRepresentation(({ data }) => ({ health: data.hp })).create({ hp: 3 });
+    const old = hero().addTransformation(({ data }) => ({ health: data.hp })).create({ hp: 3 });
+    renamed.actions.setHP(4);
+    old.actions.setHP(4);
+    expect(renamed.representationRef.current).toEqual({ health: 4 });
+    expect(old.representationRef.current).toEqual({ health: 4 });
+  });
+
+  test("setStaticRepresentation, was addStaticTransformation", function () {
+    const renamed = hero()
+      .setStaticRepresentation(({ data, actions }) => ({ health: () => data.hp, setHP: actions.setHP }))
+      .create({ hp: 3 });
+    const old = hero()
+      .addStaticTransformation(({ data, actions }) => ({ health: () => data.hp, setHP: actions.setHP }))
+      .create({ hp: 3 });
+    renamed.representationRef.current.setHP(4);
+    old.representationRef.current.setHP(4);
+    expect(renamed.representationRef.current.health()).toBe(4);
+    expect(old.representationRef.current.health()).toBe(4);
   });
 });

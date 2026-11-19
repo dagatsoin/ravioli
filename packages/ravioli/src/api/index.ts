@@ -7,9 +7,9 @@ import { StepReaction } from "../lib/api/stepReaction";
 import { StaticTransformation, Transformation } from "../lib/api/transformer";
 import { Attempt } from "../lib/api/rejection";
 import { Step } from "../lib/api/presentable";
-import { ContainerFactory, ContainerOption } from "../lib/container";
+import { Factory, ContainerOption } from "../lib/container";
 
-export interface IContainerFactory<
+export interface ContainerFactory<
   /**
    * The internal type of the model
    */
@@ -34,7 +34,7 @@ export interface IContainerFactory<
   addAcceptor<N extends string, M extends Acceptor<MODEL, any>>(
     name: N,
     acceptor: M
-  ): IContainerFactory<
+  ): ContainerFactory<
     MODEL,
     Exclude<
       | MUTATIONS
@@ -52,29 +52,61 @@ export interface IContainerFactory<
     ACTIONS,
     REPRESENTATION
   >;
+  /**
+   * Declare a control state: the predicate says, after each step, whether the
+   * model is in it.
+   */
+  addControlState<I extends string>(
+    id: I,
+    predicate: ControlStatePredicate<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
+  ): ContainerFactory<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>;
+  /**
+   * @deprecated Renamed `addControlState` in 1.9. It does the same.
+   */
   addControlStatePredicate<I extends string>(
     id: I,
     predicate: ControlStatePredicate<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
-  ): IContainerFactory<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>;
+  ): ContainerFactory<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>;
   addActions<P extends ActionDeclarations<CONTROL_STATES, MUTATIONS>>(
     actions: P
-  ): IContainerFactory<
+  ): ContainerFactory<
     MODEL,
     MUTATIONS,
     CONTROL_STATES,
     ACTIONS | Actions<CONTROL_STATES, MUTATIONS, P>,
     REPRESENTATION
   >;
+  /**
+   * Set the representation: what the transformation returns, derived again
+   * from the model and the control states after each step. It is the one the
+   * container shows instead of the model.
+   */
+  setRepresentation<C extends Transformation<MODEL, CONTROL_STATES>>(
+    transformer: C
+  ): ContainerFactory<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
+  /**
+   * @deprecated Renamed `setRepresentation` in 1.9. It does the same.
+   */
   addTransformation<C extends Transformation<MODEL, CONTROL_STATES>>(
     transformer: C
-  ): IContainerFactory<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
+  ): ContainerFactory<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
+  /**
+   * Set a static representation: what the transformation returns, computed
+   * once when the container is created, given the model and the actions.
+   */
+  setStaticRepresentation<C extends StaticTransformation<MODEL, ACTIONS>>(
+    transformer: C
+  ): ContainerFactory<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
+  /**
+   * @deprecated Renamed `setStaticRepresentation` in 1.9. It does the same.
+   */
   addStaticTransformation<C extends StaticTransformation<MODEL, ACTIONS>>(
     transformer: C
-  ): IContainerFactory<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
+  ): ContainerFactory<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
   addStepReaction<
     I extends string,
     R extends StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>
-  >(args: StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>): IContainerFactory<
+  >(args: StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>): ContainerFactory<
     MODEL,
     MUTATIONS,
     CONTROL_STATES,
@@ -98,8 +130,19 @@ export interface IContainerFactory<
   Mutations: MUTATIONS
 }
 
-export function createContainer<T>(): IContainerFactory<T> {
-  return new ContainerFactory<any>() as any;
+/**
+ * @deprecated Renamed `ContainerFactory` in 1.9. The same type.
+ */
+export type IContainerFactory<
+  MODEL,
+  MUTATIONS extends Mutation<any, any> = { type: never; payload: never },
+  CONTROL_STATES extends string = never,
+  ACTIONS = never,
+  REPRESENTATION = MODEL
+> = ContainerFactory<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>;
+
+export function createContainer<T>(): ContainerFactory<T> {
+  return new Factory<any>() as any;
 }
 
 

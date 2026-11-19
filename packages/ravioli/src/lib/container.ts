@@ -1,5 +1,5 @@
 import { untracked } from "mobx";
-import { IAttempt, IContainerFactory, IInstance } from "..";
+import { IAttempt, ContainerFactory, IInstance } from "..";
 import {
   Acceptor,
   Mutation,
@@ -35,14 +35,14 @@ export interface ContainerOption {
   initialStepId?: number;
 }
 
-export class ContainerFactory<
+export class Factory<
   MODEL,
   MUTATIONS extends Mutation<any, any> = { type: never; payload: never },
   CONTROL_STATES extends string = never,
   ACTIONS = never,
   REPRESENTATION = MODEL
 > implements
-    IContainerFactory<
+    ContainerFactory<
       MODEL,
       MUTATIONS,
       CONTROL_STATES,
@@ -85,7 +85,17 @@ export class ContainerFactory<
     return this;
   }
 
+  /**
+   * @deprecated Renamed `addControlState` in 1.9.
+   */
   addControlStatePredicate<I extends string>(
+    id: I,
+    predicate: ControlStatePredicate<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
+  ): any {
+    return this.addControlState(id, predicate);
+  }
+
+  addControlState<I extends string>(
     id: I,
     predicate: ControlStatePredicate<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
   ): any {
@@ -149,14 +159,28 @@ export class ContainerFactory<
     return this;
   }
 
-  addTransformation<C extends Transformation<MODEL, CONTROL_STATES>>(transformer: C): any {
+  setRepresentation<C extends Transformation<MODEL, CONTROL_STATES>>(transformer: C): any {
     this.transformer = transformer;
     return this;
   }
 
-  addStaticTransformation<C extends StaticTransformation<MODEL, ACTIONS>>(transformer: C): any {
+  /**
+   * @deprecated Renamed `setRepresentation` in 1.9.
+   */
+  addTransformation<C extends Transformation<MODEL, CONTROL_STATES>>(transformer: C): any {
+    return this.setRepresentation(transformer);
+  }
+
+  setStaticRepresentation<C extends StaticTransformation<MODEL, ACTIONS>>(transformer: C): any {
     this.staticTransformer = transformer;
-    return this  
+    return this
+  }
+
+  /**
+   * @deprecated Renamed `setStaticRepresentation` in 1.9.
+   */
+  addStaticTransformation<C extends StaticTransformation<MODEL, ACTIONS>>(transformer: C): any {
+    return this.setStaticRepresentation(transformer);
   }
 
   addStepReaction(reaction: StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>): any {

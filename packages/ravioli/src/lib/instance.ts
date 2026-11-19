@@ -4,7 +4,7 @@ import { Acceptor, Mutation } from "./api/acceptor";
 import { IProposalBuffer, Proposal, SAMLoop, Step, TaggedProposal } from "./api/presentable";
 import { Author, Origin, ReactionPass } from "./origin";
 import { StepReaction } from "./api/stepReaction";
-import { ContainerFactory, ContainerOption } from "./container";
+import { Factory, ContainerOption } from "./container";
 import { getControlStates } from "./controlState";
 import { derivate, reconcile } from "./derivate";
 import { IProposalQueue, WaitingProposal, createNAPProposalBuffer, createProposalQueue } from "./proposalBuffer";
@@ -36,7 +36,7 @@ export class Instance<
     constructor(
         data: MODEL,
         reactions: Array<StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>>,
-        private factory: ContainerFactory<
+        private factory: Factory<
             MODEL,
             MUTATIONS,
             CONTROL_STATES,
