@@ -14,13 +14,13 @@ import { AttemptCall, Compose } from "./api/composer";
 import { Attempt, Reason, Rejection, RejectionCode, toReason } from "./api/rejection";
 
 export class Instance<
-    TYPE,
+    MODEL,
     MUTATIONS extends Mutation<any, any> = { type: never; payload: never },
     CONTROL_STATES extends string = never,
     ACTIONS = never,
-    REPRESENTATION = TYPE
+    REPRESENTATION = MODEL
 > implements IInstance<
-  TYPE,
+  MODEL,
   MUTATIONS,
   CONTROL_STATES,
   ACTIONS,
@@ -34,10 +34,10 @@ export class Instance<
     };
 
     constructor(
-        data: TYPE,
-        reactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>>,
+        data: MODEL,
+        reactions: Array<StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>>,
         private factory: ContainerFactory<
-            TYPE,
+            MODEL,
             MUTATIONS,
             CONTROL_STATES,
             ACTIONS,
@@ -50,7 +50,7 @@ export class Instance<
 
         // The data is now observable
         // ISSUE: do we need make it observable?
-        this.data  = (observable(data as Record<string, unknown>) as unknown) as TYPE;
+        this.data  = (observable(data as Record<string, unknown>) as unknown) as MODEL;
 
         this.stepReactions = [...reactions]
 
@@ -93,9 +93,9 @@ export class Instance<
         // Run the reactions
         this.react({ data: this.data, delta: this.toCreationDelta() }, true)
     }
-    private data: TYPE;
+    private data: MODEL;
     private stepRecorder?: IStepRecorder;
-    public stepReactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>> = [];
+    public stepReactions: Array<StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>> = [];
     private disposeReaction(effect: StepReaction<any, any, any, any, any>["do"]) {
       const index = this.stepReactions.findIndex((r) => r.do === effect)
       if (index > -1 ) {
@@ -507,7 +507,7 @@ export class Instance<
    * It does not present a proposal: no acceptor runs, no condition is checked.
    * The given data is taken as it is.
    */
-  public rollback(step: Step<TYPE, MUTATIONS, CONTROL_STATES>): void {
+  public rollback(step: Step<MODEL, MUTATIONS, CONTROL_STATES>): void {
     // Major guard
     // A rollback while the reactions are running would move the model under them
     // and let the abandoned timeline leak in the new one.
@@ -549,7 +549,7 @@ export class Instance<
    * it has no past, so its control states are computed the way the constructor
    * does. The author gives the state back, the instance does not keep a copy.
    */
-  public reset(state: TYPE): void {
+  public reset(state: MODEL): void {
     // Major guard
     // Same as a rollback: not while the container is busy.
     if (this.isBusy) {
@@ -639,7 +639,7 @@ export class Instance<
   }
 
   private async react(
-    args: { data: TYPE; delta: Arrival<MUTATIONS, CONTROL_STATES> },
+    args: { data: MODEL; delta: Arrival<MUTATIONS, CONTROL_STATES> },
     isInit: boolean,
     pass: Pass<MUTATIONS, CONTROL_STATES> = toPass(0)
   ) {

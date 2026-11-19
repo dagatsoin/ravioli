@@ -22,9 +22,9 @@ export interface SAMLoop {
   moment: number;
 }
 
-export type Proposal<MUTATION> = MUTATION[];
+export type Proposal<MUTATIONS> = MUTATIONS[];
 
-export type TaggedProposal<MUTATION = any> = Proposal<MUTATION> & {
+export type TaggedProposal<MUTATIONS = any> = Proposal<MUTATIONS> & {
   stepId?: number;
 };
 
@@ -32,11 +32,11 @@ export type StartStep = Present;
 
 export type Present = (proposal: TaggedProposal<any>, origin?: Origin) => void;
 
-export type Delta<MUTATION, CONTROL_STATES_PREDICATES> = {
-  acceptedMutations: MUTATION[];
-  proposal: TaggedProposal<MUTATION>;
-  controlStates: CONTROL_STATES_PREDICATES[];
-  previousControlStates: CONTROL_STATES_PREDICATES[];
+export type Delta<MUTATIONS, CONTROL_STATES> = {
+  acceptedMutations: MUTATIONS[];
+  proposal: TaggedProposal<MUTATIONS>;
+  controlStates: CONTROL_STATES[];
+  previousControlStates: CONTROL_STATES[];
 };
 
 /**
@@ -57,9 +57,9 @@ export type Delta<MUTATION, CONTROL_STATES_PREDICATES> = {
  * They are empty at creation and after a reset. A rollback hands over those
  * of the step it is given, none when it was built by hand.
  */
-export type StepDelta<MUTATION, CONTROL_STATES_PREDICATES> = Delta<
-  MUTATION,
-  CONTROL_STATES_PREDICATES
+export type StepDelta<MUTATIONS, CONTROL_STATES> = Delta<
+  MUTATIONS,
+  CONTROL_STATES
 > & {
   /**
    * What the step did to the model data, as JSON patches (RFC 6902): one patch
@@ -85,9 +85,9 @@ export type StepDelta<MUTATION, CONTROL_STATES_PREDICATES> = Delta<
  * Beware that a delta given to a reaction holds live references. Snapshot it
  * before storing it, or your stored step will follow the model.
  */
-export type Step<TYPE, MUTATION, CONTROL_STATES_PREDICATES> = {
-  data: TYPE;
-  delta: Delta<MUTATION, CONTROL_STATES_PREDICATES>;
+export type Step<MODEL, MUTATIONS, CONTROL_STATES> = {
+  data: MODEL;
+  delta: Delta<MUTATIONS, CONTROL_STATES>;
 };
 
 export interface IProposalBuffer<MUTATIONS> {

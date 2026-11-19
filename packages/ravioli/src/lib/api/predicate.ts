@@ -1,18 +1,18 @@
 import { Mutation } from "./acceptor";
 
 export type Predicate<
-  TYPE,
-  MUTATION extends Mutation<any, any>,
+  MODEL,
+  MUTATIONS extends Mutation<any, any>,
   CONTROL_STATES extends string,
   LEAF
-> = PredicateFunction<TYPE, MUTATION, CONTROL_STATES> | PredicateTree<LEAF>;
+> = PredicateFunction<MODEL, MUTATIONS, CONTROL_STATES> | PredicateTree<LEAF>;
 
 export type CSPredicate<
-  TYPE,
+  MODEL,
   MUTATIONS extends Mutation<any, any>,
   CONTROL_STATES extends string = never
 > = Predicate<
-  TYPE,
+  MODEL,
   MUTATIONS,
   CONTROL_STATES,
   CONTROL_STATES | { previous: CONTROL_STATES }
@@ -20,12 +20,12 @@ export type CSPredicate<
 
 type PredicateFunction<
   T,
-  MUTATION extends Mutation<any, any>,
+  MUTATIONS extends Mutation<any, any>,
   CONTROL_STATES = string
 > = (args: {
   data: T;
   previousControlStates: CONTROL_STATES[];
-  acceptedMutations: MUTATION[];
+  acceptedMutations: MUTATIONS[];
 }) => boolean;
 
 type PredicateTree<Leaf> = BooleanNode<Leaf>;

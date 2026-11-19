@@ -36,14 +36,14 @@ export interface ContainerOption {
 }
 
 export class ContainerFactory<
-  TYPE,
+  MODEL,
   MUTATIONS extends Mutation<any, any> = { type: never; payload: never },
   CONTROL_STATES extends string = never,
   ACTIONS = never,
-  REPRESENTATION = TYPE
+  REPRESENTATION = MODEL
 > implements
     IContainerFactory<
-      TYPE,
+      MODEL,
       MUTATIONS,
       CONTROL_STATES,
       ACTIONS,
@@ -53,18 +53,18 @@ export class ContainerFactory<
       
   public acceptors: Record<
     string,
-    Acceptor<TYPE, MUTATIONS>
+    Acceptor<MODEL, MUTATIONS>
     > = {};
   public controlStatePredicates: Array<
-    [CONTROL_STATES, CSPredicate<TYPE, MUTATIONS, CONTROL_STATES>]
+    [CONTROL_STATES, CSPredicate<MODEL, MUTATIONS, CONTROL_STATES>]
   > = [];
-  public transformer?: Transformation<TYPE, CONTROL_STATES>;
-  public staticTransformer?: StaticTransformation<TYPE, ACTIONS>;
+  public transformer?: Transformation<MODEL, CONTROL_STATES>;
+  public staticTransformer?: StaticTransformation<MODEL, ACTIONS>;
   public wrapedActions: Record<keyof PackagedActions<CONTROL_STATES, MUTATIONS>, (instance: IInstance<any, any, any, any, any> & SAMLoop, origin?: Origin) => (...args: any) => unknown> = {};
   public originalActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
 
   private packagedActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
-  private stepReactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>> = [];
+  private stepReactions: Array<StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>> = [];
   
   constructor() {}
 
@@ -72,7 +72,7 @@ export class ContainerFactory<
     throw new Error("Mutations property is for typing purpose only. Don't use it.")
   }
 
-  addAcceptor<N extends string, M extends Acceptor<TYPE, any>>(
+  addAcceptor<N extends string, M extends Acceptor<MODEL, any>>(
     name: N,
     acceptor: M
   ): any {
@@ -87,7 +87,7 @@ export class ContainerFactory<
 
   addControlStatePredicate<I extends string>(
     id: I,
-    predicate: CSPredicate<TYPE, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
+    predicate: CSPredicate<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
   ): any {
     if (this.controlStatePredicates.some(([_id]) => (id as any) === _id)) {
       throw new Error(
@@ -149,26 +149,26 @@ export class ContainerFactory<
     return this;
   }
 
-  addTransformation<C extends Transformation<TYPE, CONTROL_STATES>>(transformer: C): any {
+  addTransformation<C extends Transformation<MODEL, CONTROL_STATES>>(transformer: C): any {
     this.transformer = transformer;
     return this;
   }
 
-  addStaticTransformation<C extends StaticTransformation<TYPE, ACTIONS>>(transformer: C): any {
+  addStaticTransformation<C extends StaticTransformation<MODEL, ACTIONS>>(transformer: C): any {
     this.staticTransformer = transformer;
     return this  
   }
 
-  addStepReaction(reaction: StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>): any {
+  addStepReaction(reaction: StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>): any {
     this.stepReactions.push(reaction);
     return this;
   }
 
   create(
-    initialValue: TYPE,
+    initialValue: MODEL,
     options?: ContainerOption
   ): IInstance<
-    TYPE,
+    MODEL,
     MUTATIONS,
     CONTROL_STATES,
     ACTIONS,

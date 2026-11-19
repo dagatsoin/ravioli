@@ -13,7 +13,7 @@ export interface IContainerFactory<
   /**
    * The internal type of the model
    */
-  TYPE,
+  MODEL,
   /**
    * The mutations names used by this container
    */
@@ -29,13 +29,13 @@ export interface IContainerFactory<
   /**
    * The representation type. By default it is the model type.
    */
-  REPRESENTATION = TYPE
+  REPRESENTATION = MODEL
 > {
-  addAcceptor<N extends string, M extends Acceptor<TYPE, any>>(
+  addAcceptor<N extends string, M extends Acceptor<MODEL, any>>(
     name: N,
     acceptor: M
   ): IContainerFactory<
-    TYPE,
+    MODEL,
     Exclude<
       | MUTATIONS
       | {
@@ -54,38 +54,38 @@ export interface IContainerFactory<
   >;
   addControlStatePredicate<I extends string>(
     id: I,
-    predicate: CSPredicate<TYPE, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
-  ): IContainerFactory<TYPE, MUTATIONS, CONTROL_STATES | ToLiteral<I>>;
+    predicate: CSPredicate<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
+  ): IContainerFactory<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>;
   addActions<P extends PackagedActions<CONTROL_STATES, MUTATIONS>>(
     actions: P
   ): IContainerFactory<
-    TYPE,
+    MODEL,
     MUTATIONS,
     CONTROL_STATES,
     ACTIONS | Actions<CONTROL_STATES, MUTATIONS, P>,
     REPRESENTATION
   >;
-  addTransformation<C extends Transformation<TYPE, CONTROL_STATES>>(
+  addTransformation<C extends Transformation<MODEL, CONTROL_STATES>>(
     transformer: C
-  ): IContainerFactory<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
-  addStaticTransformation<C extends StaticTransformation<TYPE, ACTIONS>>(
+  ): IContainerFactory<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
+  addStaticTransformation<C extends StaticTransformation<MODEL, ACTIONS>>(
     transformer: C
-  ): IContainerFactory<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
+  ): IContainerFactory<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, ReturnType<C>>;
   addStepReaction<
     I extends string,
-    R extends StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>
-  >(args: StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>): IContainerFactory<
-    TYPE,
+    R extends StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>
+  >(args: StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>): IContainerFactory<
+    MODEL,
     MUTATIONS,
     CONTROL_STATES,
     ACTIONS,
     REPRESENTATION
   >;
   create(
-    initialValue: TYPE,
+    initialValue: MODEL,
     options?: ContainerOption
   ): IInstance<
-    TYPE,
+    MODEL,
     MUTATIONS,
     CONTROL_STATES,
     ACTIONS,
@@ -104,11 +104,11 @@ export function createContainer<T>(): IContainerFactory<T> {
 
 
 export interface IInstance<
-  TYPE,
+  MODEL,
   MUTATIONS extends Mutation<any, any> = { type: never; payload: never },
   CONTROL_STATES extends string = never,
   ACTIONS = never,
-  REPRESENTATION = TYPE
+  REPRESENTATION = MODEL
 > {
   /**
    * The current control states ofr the given step. It is a Mobx reactive array.
@@ -144,12 +144,12 @@ export interface IInstance<
    * observers stay attached, then the step reactions replay against the
    * reinjected delta.
    */
-  rollback(step: Step<TYPE, MUTATIONS, CONTROL_STATES>): void;
+  rollback(step: Step<MODEL, MUTATIONS, CONTROL_STATES>): void;
   /**
    * Put the container back to its creation step. Give the state it was created
    * with: the instance does not keep a copy of it.
    */
-  reset(state: TYPE): void;
+  reset(state: MODEL): void;
   /**
    * Compose multiple actions in one proposal.
    * The first argument of the composer callback is the current available actions.

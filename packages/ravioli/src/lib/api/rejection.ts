@@ -11,8 +11,8 @@ export type Reason = {
 /**
  * A part of a proposal which was presented to the model and refused by its acceptor.
  */
-export type Rejection<MUTATION> = {
-  mutation: MUTATION;
+export type Rejection<MUTATIONS> = {
+  mutation: MUTATIONS;
   reason: Reason;
 };
 
@@ -70,12 +70,12 @@ export const RejectionCode = {
  * `attemptedAt` is the step id the attempt was made against. Compare it with the
  * current `stepId` to know if the attempt still relates to what you display.
  */
-export type Attempt<MUTATION> =
+export type Attempt<MUTATIONS> =
   | {
       status: "accepted";
       attemptedAt: number;
-      accepted: MUTATION[];
-      rejected: Rejection<MUTATION>[];
+      accepted: MUTATIONS[];
+      rejected: Rejection<MUTATIONS>[];
       /**
        * False when the step reactions did not run to the end. The step itself
        * stands, unless it was undone: the model was mutated and the step id did
@@ -94,7 +94,7 @@ export type Attempt<MUTATION> =
   | {
       status: "rejected";
       attemptedAt: number;
-      rejected: Rejection<MUTATION>[];
+      rejected: Rejection<MUTATIONS>[];
     }
   | {
       status: "discarded";

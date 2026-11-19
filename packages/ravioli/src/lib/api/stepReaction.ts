@@ -2,9 +2,9 @@ import { Compose } from "./composer";
 import { StepDelta } from "./presentable";
 
 export type StepReaction<
-  TYPE,
-  MUTATION,
-  CONTROL_STATES_PREDICATES extends string,
+  MODEL,
+  MUTATIONS,
+  CONTROL_STATES extends string,
   ACTIONS,
   REPRESENTATION,
 > = {
@@ -28,14 +28,14 @@ export type StepReaction<
    */
   awaitAsync?: boolean;
   when?(args: {
-    delta: StepDelta<MUTATION, CONTROL_STATES_PREDICATES>;
-    data: TYPE;
+    delta: StepDelta<MUTATIONS, CONTROL_STATES>;
+    data: MODEL;
   }): boolean;
   do(args: {
-    delta: StepDelta<MUTATION, CONTROL_STATES_PREDICATES>;
-    data: TYPE;
+    delta: StepDelta<MUTATIONS, CONTROL_STATES>;
+    data: MODEL;
     representation: REPRESENTATION;
     actions: ACTIONS;
-    compose: Compose<ACTIONS, MUTATION>;
+    compose: Compose<ACTIONS, MUTATIONS>;
   }): unknown;
 };
