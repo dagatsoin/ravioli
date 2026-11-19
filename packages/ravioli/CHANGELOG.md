@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.8.0](https://github.com/dagatsoin/ravioli/compare/v1.7.0...v1.8.0) (2026-11-19)
+
+
+### Features
+
+* a container is locked while a rollback or a reset lands ([6386a1f](https://github.com/dagatsoin/ravioli/commit/6386a1fbdbde9167eeea54d410fa4912809a8271))
+* a container is locked while a step is taken back ([4ee9b81](https://github.com/dagatsoin/ravioli/commit/4ee9b8107916d5008bc04f68e96bd85bd6262e27))
+* a step reaction receives the patches of its step ([da84d10](https://github.com/dagatsoin/ravioli/commit/da84d10d82cd33d814ec878d14f05711c071ca03))
+* a step whose awaited reaction fails is taken back ([2a3564c](https://github.com/dagatsoin/ravioli/commit/2a3564c3b9465b81d479656bd95809f9bbfc30d8))
+* attempt tells each author what became of their action ([94c7c88](https://github.com/dagatsoin/ravioli/commit/94c7c887857b52f111ccc370061a6eb9147aa259))
+* attempt.stepId, the step id an attempt was made against — attemptedAt is deprecated ([75f3fba](https://github.com/dagatsoin/ravioli/commit/75f3fbaf3be60eb78bbe8cf6e66e91223dd455fd))
+* awaited, the step reaction the next step waits for — awaitAsync is deprecated ([444ee23](https://github.com/dagatsoin/ravioli/commit/444ee23b2b4596b85bb57509d4bef477ee6b5b62))
+* Container, its representation, restore, and reset(data) ([f4b6caf](https://github.com/dagatsoin/ravioli/commit/f4b6caffed1f9465e14fbc34a1d96e387b9d9913))
+* ContainerFactory, addControlState, setRepresentation, setStaticRepresentation ([149e7d5](https://github.com/dagatsoin/ravioli/commit/149e7d5243d4f0db4f8002ab2e2e45f3184c7d0a))
+* ControlStatePredicate, ActionDeclarations, ActionDeclaration, ActionOptions ([0913d1f](https://github.com/dagatsoin/ravioli/commit/0913d1f6f665017cd5a5d5d0dc8a15b28729fe5c))
+* ReasonCode, the codes of a reason — RejectionCode is deprecated ([59c1019](https://github.com/dagatsoin/ravioli/commit/59c1019e996506a59288dbe453d7bb1fdbf418ab))
+
+
+### Bug Fixes
+
+* a cancelable action dropped by a jump says why ([ee729c1](https://github.com/dagatsoin/ravioli/commit/ee729c14538e5273c4d1febfc456581e538c7086))
+* a field given by Object.defineProperty to an object with a proxy is counted ([cbb4d0e](https://github.com/dagatsoin/ravioli/commit/cbb4d0e3f555129e0ee014d5b69f5dcf5dede726))
+* a write somebody else makes while a step is taken back keeps it standing ([8e98854](https://github.com/dagatsoin/ravioli/commit/8e988544be93dff87cafccf3980f344d8d4a0d1e))
+* an action called then is not put on attempt ([e169497](https://github.com/dagatsoin/ravioli/commit/e169497ece5e561be2eff5e73ab3a6ed063bc93e))
+* an action can be called prototype again ([1df8c54](https://github.com/dagatsoin/ravioli/commit/1df8c54053d4bb4d1789102de0caa1e069394fd4))
+* an awaited reaction which hands back a thenable is awaited ([5c94bad](https://github.com/dagatsoin/ravioli/commit/5c94bad4552bb0a871b162a83e9a4af3850d36c4))
+* attempt.x is the action actions.x is ([299f42e](https://github.com/dagatsoin/ravioli/commit/299f42eafec7389437b10c69b7fb9beafaad93cb))
+* every action which waits behind a step gets a step of its own ([0200e92](https://github.com/dagatsoin/ravioli/commit/0200e92044b71d5dc1c9a444a61787cd8e2ddbd2))
+* no reaction is skipped when a one shot reaction ends meanwhile ([04be729](https://github.com/dagatsoin/ravioli/commit/04be729e07ccd877a5e1993c113093a1c6500272))
+* rollback and reset are called, not read ([e0536f3](https://github.com/dagatsoin/ravioli/commit/e0536f389ccbee4d22547267570fd43ee52d9ede))
+* the last attempt of a step is the step's, whoever was refused meanwhile ([d02f2ef](https://github.com/dagatsoin/ravioli/commit/d02f2eff0cfc59608ce933a96681ec8f32742ca9))
+
 ## [1.7.0](https://github.com/dagatsoin/ravioli/compare/v1.6.0...v1.7.0) (2026-08-28)
 
 
