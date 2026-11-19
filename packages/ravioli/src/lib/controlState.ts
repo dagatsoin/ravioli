@@ -1,6 +1,6 @@
-import { CSPredicate } from "./api/predicate";
+import { ControlStatePredicate } from "./api/predicate";
 
-type Entry<T extends string> = [T, CSPredicate<any, any, T>];
+type Entry<T extends string> = [T, ControlStatePredicate<any, any, T>];
 
 /**
  * Check the whole set of predicates. Everything which does not depend on the
@@ -232,7 +232,7 @@ export function getControlStates<T extends string>({
     return result;
   }
 
-  function findPredicate(name: T, from: T): CSPredicate<any, any, T> {
+  function findPredicate(name: T, from: T): ControlStatePredicate<any, any, T> {
     const entry = controlStatePredicates.filter(([id]) => id === name)[0];
     if (entry === undefined) {
       throw new Error(

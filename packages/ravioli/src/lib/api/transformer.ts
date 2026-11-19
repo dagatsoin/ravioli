@@ -14,6 +14,10 @@ export type Transformation<MODEL, CONTROL_STATES> = ({
  */
 export type StaticTransformation<MODEL, ACTIONS> = ({ data }: {data: MODEL, actions: ACTIONS }) => any;
 
+/**
+ * @deprecated Nothing uses it, and it has no replacement. It is removed in
+ * the next major version.
+ */
 export type RepresentationPredicate<
   MODEL,
   MUTATIONS extends Mutation<any, any>,

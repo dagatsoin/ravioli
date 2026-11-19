@@ -7,7 +7,11 @@ export type Predicate<
   LEAF
 > = PredicateFunction<MODEL, MUTATIONS, CONTROL_STATES> | PredicateTree<LEAF>;
 
-export type CSPredicate<
+/**
+ * What says whether the model is in a control state: a function of the step,
+ * or a tree of other control states.
+ */
+export type ControlStatePredicate<
   MODEL,
   MUTATIONS extends Mutation<any, any>,
   CONTROL_STATES extends string = never
@@ -17,6 +21,15 @@ export type CSPredicate<
   CONTROL_STATES,
   CONTROL_STATES | { previous: CONTROL_STATES }
 >;
+
+/**
+ * @deprecated Renamed `ControlStatePredicate` in 1.9. The same type.
+ */
+export type CSPredicate<
+  MODEL,
+  MUTATIONS extends Mutation<any, any>,
+  CONTROL_STATES extends string = never
+> = ControlStatePredicate<MODEL, MUTATIONS, CONTROL_STATES>;
 
 type PredicateFunction<
   T,

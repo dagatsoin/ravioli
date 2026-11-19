@@ -1,6 +1,6 @@
 import { IContainerFactory } from "..";
 import { createContainer } from "..";
-import { PackagedActions } from "../../lib/api/action";
+import { ActionDeclarations } from "../../lib/api/action";
 import { ContainerConfig } from "./containerConfig";
 import {
   getAcceptor,
@@ -67,7 +67,7 @@ export function createContainerFromJSON<T>(
 
   // 3. Add actions
   if (config.actions) {
-    const actions: PackagedActions<any, any> = {};
+    const actions: ActionDeclarations<any, any> = {};
     for (const [actionName, registryKey] of Object.entries(config.actions)) {
       actions[actionName] = getAction(registryKey);
     }

@@ -1,8 +1,8 @@
 import { Acceptor, Mutation } from "../lib/api/acceptor";
-import { Actions, PackagedActions } from "../lib/api/action";
+import { Actions, ActionDeclarations } from "../lib/api/action";
 import { AttemptCall, Compose } from "../lib/api/composer";
 import { ToLiteral } from "../lib/api/helpers.type";
-import { CSPredicate } from "../lib/api/predicate";
+import { ControlStatePredicate } from "../lib/api/predicate";
 import { StepReaction } from "../lib/api/stepReaction";
 import { StaticTransformation, Transformation } from "../lib/api/transformer";
 import { Attempt } from "../lib/api/rejection";
@@ -54,9 +54,9 @@ export interface IContainerFactory<
   >;
   addControlStatePredicate<I extends string>(
     id: I,
-    predicate: CSPredicate<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
+    predicate: ControlStatePredicate<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
   ): IContainerFactory<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>;
-  addActions<P extends PackagedActions<CONTROL_STATES, MUTATIONS>>(
+  addActions<P extends ActionDeclarations<CONTROL_STATES, MUTATIONS>>(
     actions: P
   ): IContainerFactory<
     MODEL,
@@ -204,6 +204,10 @@ export type { ContainerConfig } from './fromJSON/containerConfig';
 
 // Step types
 export type { Delta, Proposal, Step, StepDelta, TaggedProposal } from '../lib/api/presentable';
+
+// What the factory is given
+export type { ActionDeclaration, ActionDeclarations, ActionOptions } from '../lib/api/action';
+export type { ControlStatePredicate } from '../lib/api/predicate';
 
 // Rejection types
 export type { Attempt, Reason, Rejection } from '../lib/api/rejection';

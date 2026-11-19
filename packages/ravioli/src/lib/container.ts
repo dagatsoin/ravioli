@@ -7,13 +7,13 @@ import {
 } from "./api/acceptor";
 import {
   ActionContext,
-  ActionPackage,
-  ConfigurableAction,
-  PackagedActions,
+  ActionDeclaration,
+  ActionOptions,
+  ActionDeclarations,
   SyncAction
 } from "./api/action";
 import { ToLiteral } from "./api/helpers.type";
-import { CSPredicate } from "./api/predicate";
+import { ControlStatePredicate } from "./api/predicate";
 import {
   Proposal,
   SAMLoop,
@@ -56,14 +56,14 @@ export class ContainerFactory<
     Acceptor<MODEL, MUTATIONS>
     > = {};
   public controlStatePredicates: Array<
-    [CONTROL_STATES, CSPredicate<MODEL, MUTATIONS, CONTROL_STATES>]
+    [CONTROL_STATES, ControlStatePredicate<MODEL, MUTATIONS, CONTROL_STATES>]
   > = [];
   public transformer?: Transformation<MODEL, CONTROL_STATES>;
   public staticTransformer?: StaticTransformation<MODEL, ACTIONS>;
-  public wrapedActions: Record<keyof PackagedActions<CONTROL_STATES, MUTATIONS>, (instance: IInstance<any, any, any, any, any> & SAMLoop, origin?: Origin) => (...args: any) => unknown> = {};
-  public originalActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
+  public wrapedActions: Record<keyof ActionDeclarations<CONTROL_STATES, MUTATIONS>, (instance: IInstance<any, any, any, any, any> & SAMLoop, origin?: Origin) => (...args: any) => unknown> = {};
+  public originalActions: ActionDeclarations<CONTROL_STATES, MUTATIONS> = {};
 
-  private packagedActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
+  private packagedActions: ActionDeclarations<CONTROL_STATES, MUTATIONS> = {};
   private stepReactions: Array<StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>> = [];
   
   constructor() {}
@@ -87,7 +87,7 @@ export class ContainerFactory<
 
   addControlStatePredicate<I extends string>(
     id: I,
-    predicate: CSPredicate<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
+    predicate: ControlStatePredicate<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
   ): any {
     if (this.controlStatePredicates.some(([_id]) => (id as any) === _id)) {
       throw new Error(
@@ -98,7 +98,7 @@ export class ContainerFactory<
     return this;
   }
 
-  addActions<P extends PackagedActions<CONTROL_STATES, MUTATIONS>>(
+  addActions<P extends ActionDeclarations<CONTROL_STATES, MUTATIONS>>(
     actions: P
   ): any {
     this.originalActions = {};
@@ -198,19 +198,19 @@ export class ContainerFactory<
 }
 
 function isSyncAction(
-  actionPackage: ActionPackage<any, any>
+  actionPackage: ActionDeclaration<any, any>
 ): actionPackage is SyncAction<any> {
   return typeof actionPackage === "function";
 }
 
 function isConfigurableAction(
-  actionPackage: ActionPackage<any, any>
-): actionPackage is ConfigurableAction<any, any> {
+  actionPackage: ActionDeclaration<any, any>
+): actionPackage is ActionOptions<any, any> {
   return typeof actionPackage === "object";
 }
 
 function isMutationShortcut<M extends Mutation<any, any>>(
-  actionPackage: ActionPackage<any, M>
+  actionPackage: ActionDeclaration<any, M>
 ): actionPackage is MutationName<M> {
   return typeof actionPackage === "string";
 }
