@@ -1,4 +1,5 @@
-import { IContainerFactory, IInstance } from "..";
+import { untracked } from "mobx";
+import { IAttempt, IContainerFactory, IInstance } from "..";
 import {
   Acceptor,
   Mutation,
@@ -18,6 +19,7 @@ import {
   SAMLoop,
   TaggedProposal
 } from "./api/presentable";
+import { Origin } from "./origin";
 import { Instance } from "./instance"
 import { StepReaction } from "./api/stepReaction";
 import { StaticTransformation, Transformation } from "./api/transformer";
@@ -58,7 +60,7 @@ export class ContainerFactory<
   > = [];
   public transformer?: Transformation<TYPE, CONTROL_STATES>;
   public staticTransformer?: StaticTransformation<TYPE, ACTIONS>;
-  public wrapedActions: Record<keyof PackagedActions<CONTROL_STATES, MUTATIONS>, (instance: IInstance<any, any, any, any, any> & SAMLoop) => ActionPackage<ActionContext<CONTROL_STATES>, MUTATIONS>> = {};
+  public wrapedActions: Record<keyof PackagedActions<CONTROL_STATES, MUTATIONS>, (instance: IInstance<any, any, any, any, any> & SAMLoop, origin?: Origin) => (...args: any) => unknown> = {};
   public originalActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
 
   private packagedActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
@@ -171,7 +173,7 @@ export class ContainerFactory<
     CONTROL_STATES,
     ACTIONS,
     REPRESENTATION
-  > {
+  > & IAttempt<ACTIONS, MUTATIONS> {
     // Refuse a broken control state tree here, while the stack still points at
     // the declaration. A forward reference is legal, so it can not be done
     // earlier than this.
@@ -186,8 +188,11 @@ export class ContainerFactory<
       controlStates: instance.controlStates,
       representationRef: instance.representationRef,
       compose: instance.compose,
-      rollback: (step) => instance.rollback(step),
-      reset: (state) => instance.reset(state),
+      attempt: instance.attempt,
+      // Called, not read, as an action is: an autorun which jumps does not
+      // come to depend on what the reactions which replay the jump read.
+      rollback: (step) => untracked(() => instance.rollback(step)),
+      reset: (state) => untracked(() => instance.reset(state)),
     };
   }
 }
@@ -218,7 +223,8 @@ function isMutationShortcut<M extends Mutation<any, any>>(
  */
 function reportUnauthorized(
   instance: IInstance<any, any, any, any> & SAMLoop,
-  actionName: string
+  actionName: string,
+  origin?: Origin
 ) {
   instance.discardProposal({
     code: RejectionCode.unauthorized,
@@ -227,7 +233,47 @@ function reportUnauthorized(
       action: actionName,
       controlStates: instance.controlStates.slice(),
     },
-  });
+  }, origin);
+}
+
+/**
+ * An action is presented only if it is allowed in the state it is presented
+ * in. The same check is made when it is called, once it resolved when it is
+ * asynchronous, and when its turn comes when its proposal had to wait: it goes
+ * with the proposal.
+ */
+function toGate(
+  instance: IInstance<any, any, any, any> & SAMLoop,
+  actionName: string,
+  authPredicate: ((actionContext: ActionContext) => boolean) | undefined,
+  origin?: Origin
+) {
+  const isAllowed = function () {
+    // No action is called from inside the presentation of a proposal.
+    if (instance.refuseIfLocked(origin)) {
+      return false;
+    }
+    if (!authPredicate || authPredicate({ controlStates: instance.controlStates })) {
+      return true;
+    }
+    console.warn(
+        `Unauthorized action ${actionName} at step ${instance.stepId} with control states: ${instance.controlStates}`
+    );
+    reportUnauthorized(instance, actionName, origin);
+    return false;
+  };
+  return { isAllowed, origin: { ...origin, isAllowed } };
+}
+
+/**
+ * An action is called, it is not read. Calling one reads the step id, to tag
+ * its proposal, and the control states, to know whether it is allowed:
+ * whoever calls it from an autorun of MobX must not come to depend on them,
+ * and run again at each step.
+ */
+function unobserved<F extends (...args: any[]) => any>(call: F): F {
+  const unobservedCall = (...args: any[]) => untracked(() => call(...args));
+  return unobservedCall as F;
 }
 
 function toSyncAction<A extends (...args: any[]) => any>(
@@ -235,23 +281,18 @@ function toSyncAction<A extends (...args: any[]) => any>(
   action: A,
   authPredicate?: (actionContext: ActionContext) => boolean
 ) {
-  return function(instance: IInstance<any, any, any, any> & SAMLoop) {
-      return function (...args: Parameters<A>): Proposal<any> | undefined {
+  return function(instance: IInstance<any, any, any, any> & SAMLoop, origin?: Origin) {
+      return unobserved(function (...args: Parameters<A>): Proposal<any> | undefined {
+          const gate = toGate(instance, name, authPredicate, origin);
           // Check auth
-          if (authPredicate) {
-              if (!authPredicate({ controlStates: instance.controlStates })) {
-              console.warn(
-                  `Unauthorized action ${name} at step ${instance.stepId} with control states: ${instance.controlStates}`
-              );
-              reportUnauthorized(instance, name);
+          if (!gate.isAllowed()) {
               return;
-              }
           }
           const proposal: TaggedProposal = Object.assign(action(...args), {
               stepId: instance.stepId,
           });
-          instance.startStep(proposal);
-      }
+          instance.startStep(proposal, gate.origin);
+      })
   }
 }
 
@@ -265,17 +306,12 @@ function toAsyncAction<A extends (...args: any[]) => any>(
   action: A,
   authPredicate?: (actionContext: ActionContext) => boolean
 ) {
-  return function(instance: IInstance<any, any, any, any> & SAMLoop) {
-      return async function (...args: Parameters<A>): Promise<void> {
+  return function(instance: IInstance<any, any, any, any> & SAMLoop, origin?: Origin) {
+      return unobserved(async function (...args: Parameters<A>): Promise<void> {
+      const gate = toGate(instance, name, authPredicate, origin);
       // Check auth
-      if (authPredicate) {
-          if (!authPredicate({ controlStates: instance.controlStates })) {
-          console.warn(
-              `Unauthorized action ${name} at step ${instance.stepId} with control states: ${instance.controlStates}`
-          );
-          reportUnauthorized(instance, name);
+      if (!gate.isAllowed()) {
           return;
-          }
       }
       const proposal: TaggedProposal = Object.assign(await action(...args), {
           stepId: instance.stepId,
@@ -283,18 +319,11 @@ function toAsyncAction<A extends (...args: any[]) => any>(
       // Check auth again
       // Maybe the app as reached a step where this action is
       // no more allowed
-  
-      if (authPredicate) {
-          if (!authPredicate({ controlStates: instance.controlStates })) {
-          console.warn(
-              `Unauthorized action ${name} at step ${instance.stepId} with control states: ${instance.controlStates}`
-          );
-          reportUnauthorized(instance, name);
+      if (!gate.isAllowed()) {
           return;
-          }
       }
-      instance.startStep(proposal);
-      };
+      instance.startStep(proposal, gate.origin);
+      });
   }
 }
 
@@ -309,25 +338,23 @@ function toCancelableAsyncAction<A extends (...args: any[]) => any>(
   action: A,
   authPredicate?: (actionContext: ActionContext) => boolean
 ) {
-  return function(instance: IInstance<any, any, any, any> & SAMLoop) {
-      return async function (...args: Parameters<A>): Promise<void> {
+  return function(instance: IInstance<any, any, any, any> & SAMLoop, origin?: Origin) {
+      return unobserved(async function (...args: Parameters<A>): Promise<void> {
+      const gate = toGate(instance, action.name, authPredicate, origin);
       // Check auth
-      if (authPredicate) {
-          if (!authPredicate({ controlStates: instance.controlStates })) {
-          console.warn(
-              `Unauthorized action ${action.name} at step ${instance.stepId} with control states: ${instance.controlStates}`
-          );
-          reportUnauthorized(instance, action.name);
+      if (!gate.isAllowed()) {
           return;
-          }
       }
       // Preserve the step id during which the action call occured.
       // It will be used to determinate, after the action resolving, if this proposal is still valid.
       const stepId = instance.stepId;
+      // A step id comes back when a step is taken back. The moment does not:
+      // it tells whether anything happened since the call, a return included.
+      const calledAt = instance.moment;
       const proposal: TaggedProposal = Object.assign(await action(...args), {
           stepId,
       });
-      instance.startStep(proposal);
-      };
+      instance.startStep(proposal, { ...gate.origin, calledAt });
+      });
   }
 }

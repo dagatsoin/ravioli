@@ -1,15 +1,6 @@
 import { Mutation, MutationName } from "./acceptor";
 import { Proposal } from "./presentable";
 
-export enum ActionType {
-  update = "update",
-}
-
-export type Intent<P> = {
-  type: ActionType;
-  payload: P;
-};
-
 export type Action<MUTATION extends Mutation<any, any> = any> =
   | SyncAction<MUTATION>
   | AsyncAction<MUTATION>;

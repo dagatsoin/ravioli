@@ -1,6 +1,6 @@
 import { Acceptor, Mutation } from "../lib/api/acceptor";
 import { Actions, PackagedActions } from "../lib/api/action";
-import { Compose } from "../lib/api/composer";
+import { AttemptCall, Compose } from "../lib/api/composer";
 import { ToLiteral } from "../lib/api/helpers.type";
 import { CSPredicate } from "../lib/api/predicate";
 import { StepReaction } from "../lib/api/stepReaction";
@@ -90,7 +90,7 @@ export interface IContainerFactory<
     CONTROL_STATES,
     ACTIONS,
     REPRESENTATION
-  >
+  > & IAttempt<ACTIONS, MUTATIONS>
   /**
    * For typing only.
    * @throws Don't try to access this property.
@@ -158,6 +158,31 @@ export interface IInstance<
   compose: Compose<ACTIONS, MUTATIONS>
 }
 
+/**
+ * What an instance made by a container adds to `IInstance`. It is apart so
+ * that an `IInstance` written by hand before it existed is still one.
+ */
+export interface IAttempt<ACTIONS, MUTATIONS> {
+  /**
+   * Present a proposal and get the outcome of that very attempt, where
+   * `lastAttempt` only holds the last one, whoever made it.
+   *
+   * Call an action on it as on `actions`, `attempt.heal(5)`, or give it a
+   * composer as `compose` takes. The promise resolves once the attempt is final: at once when the
+   * proposal is rejected or discarded, after the reactions of the step and the
+   * steps they started when it is accepted. Read `settled`, `reason` and
+   * `undone` on an accepted attempt to know how they went.
+   *
+   * A refusal is an outcome: the promise only rejects when the action, an
+   * acceptor or a control state predicate throws.
+   *
+   * Do not await it from a step reaction which is awaited itself, when the
+   * proposal has to wait for that reaction: its own container, or another one
+   * whose awaited reactions wait for this one.
+   */
+  attempt: AttemptCall<ACTIONS, MUTATIONS>
+}
+
 // Registry functions for JSON-based container creation
 export {
   registerAcceptor,
@@ -178,8 +203,13 @@ export { createContainerFromJSON } from './fromJSON/containerFromJSON';
 export type { ContainerConfig } from './fromJSON/containerConfig';
 
 // Step types
-export type { Delta, Proposal, Step, TaggedProposal } from '../lib/api/presentable';
+export type { Delta, Proposal, Step, StepDelta, TaggedProposal } from '../lib/api/presentable';
 
 // Rejection types
 export type { Attempt, Reason, Rejection } from '../lib/api/rejection';
 export { RejectionCode } from '../lib/api/rejection';
+
+
+// The patches of a step, and what reads them
+export type { Patch, PatchOperation } from '../lib/api/patch';
+export { applyPatch, jsonCopy } from '../lib/jsonPatch';

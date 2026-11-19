@@ -200,3 +200,25 @@ test("compose actions", function () {
 
   expect(grunt.representationRef.current.hp).toBe(0); // static would be 10003
 });
+
+test("compose proposals which are already built", function () {
+  const grunt = createContainer<{
+    hp: number;
+  }>()
+    .addAcceptor("setHP", {
+      mutator(data, { hp }: { hp: number }) {
+        data.hp = data.hp + hp;
+      },
+    })
+    .addActions({ hit: "setHP" })
+    .create({ hp: 10 });
+
+  // No composer function: the proposals are given as they are.
+  grunt.compose([
+    [{ type: "setHP", payload: { hp: -5 } }],
+    [{ type: "setHP", payload: { hp: -2 } }],
+  ]);
+
+  expect(grunt.representationRef.current.hp).toBe(3);
+  expect(grunt.stepId).toBe(1);
+});
