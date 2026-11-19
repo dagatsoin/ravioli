@@ -93,10 +93,8 @@ function reconcileNode(target: any, source: any, seen: Map<any, any>): void {
   }
 
   if (isObservableObject(target)) {
+    // A computed is not enumerable: it is never met here.
     Object.keys(target).forEach(function (key) {
-      if (isComputedProp(target, key)) {
-        return;
-      }
       if (!hasOwn(source, key)) {
         remove(target, key);
       }
@@ -197,10 +195,7 @@ function createEmptyLike(source: any): any {
   return undefined;
 }
 
-function isPlainObject(value: any): boolean {
-  if (value === null || typeof value !== "object") {
-    return false;
-  }
+function isPlainObject(value: object): boolean {
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }

@@ -1,6 +1,6 @@
 {
   "name": "@warfog/ravioli",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "license": "MIT",
   "author": "Daniel Neveux<d.neveux@warfog.gg>",
   "repository": "https://github.com/dagatsoin/ravioli",
@@ -13,6 +13,9 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
+    "test:coverage": "jest --config jest.coverage.js",
+    "test:production": "NODE_ENV=production jest",
+    "measure": "node --expose-gc bench/costs.js",
     "release": "standard-version",
     "doc": "typedoc --plugin typedoc-plugin-markdown --out doc/ --entryPoints src/api/index.ts --excludeExternals --readme none"
   },

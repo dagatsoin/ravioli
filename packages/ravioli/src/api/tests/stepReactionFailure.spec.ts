@@ -191,3 +191,102 @@ describe("a cascade which settles", function () {
     expect(attempt.settled).toBe(true);
   });
 });
+
+describe("a reaction which throws at creation", function () {
+  function createFraktar() {
+    return createContainer<{ hp: number }>()
+      .addAcceptor("setHP", {
+        mutator: (data, hp: number) => {
+          data.hp = hp;
+        },
+      })
+      .addActions({ setHP: "setHP" })
+      .addStepReaction({
+        when: ({ data }) => data.hp === 10,
+        do: () => {
+          throw new Error("boom");
+        },
+      })
+      .create({ hp: 10 });
+  }
+
+  it("should leave no attempt: there is none to report it on", function () {
+    const Fraktar = createFraktar();
+
+    expect(Fraktar.lastAttempt).toBeUndefined();
+    expect(Fraktar.stepId).toBe(0);
+  });
+
+  it("should not stop the container from taking a step", function () {
+    const Fraktar = createFraktar();
+
+    Fraktar.actions.setHP(7);
+
+    expect(Fraktar.representationRef.current.hp).toBe(7);
+    expect(Fraktar.stepId).toBe(1);
+  });
+});
+
+describe("a reaction which throws something else than an error", function () {
+  it("should report what was thrown as the message", function () {
+    const Fraktar = createContainer<{ hp: number }>()
+      .addAcceptor("setHP", {
+        mutator: (data, hp: number) => {
+          data.hp = hp;
+        },
+      })
+      .addActions({ setHP: "setHP" })
+      .addStepReaction({
+        runOnInit: false,
+        do: () => {
+          throw "out of mana";
+        },
+      })
+      .create({ hp: 10 });
+
+    Fraktar.actions.setHP(1);
+
+    const attempt = Fraktar.lastAttempt;
+    if (attempt?.status !== "accepted") {
+      throw new Error("unreachable");
+    }
+    expect(attempt.settled).toBe(false);
+    expect(attempt.reason?.code).toBe(RejectionCode.reactionThrew);
+    expect(attempt.reason?.message).toBe("out of mana");
+    expect(attempt.reason?.meta).toEqual({ error: "out of mana" });
+  });
+});
+
+describe("a transformation which throws", function () {
+  it("should be reported as a reaction is, the step stands", function () {
+    const Fraktar = createContainer<{ hp: number }>()
+      .addAcceptor("setHP", {
+        mutator: (data, hp: number) => {
+          data.hp = hp;
+        },
+      })
+      .addActions({ setHP: "setHP" })
+      .addTransformation(({ data }) => {
+        if (data.hp < 0) {
+          throw new Error("no health bar below zero");
+        }
+        return { health: data.hp };
+      })
+      .create({ hp: 10 });
+
+    Fraktar.actions.setHP(-1);
+
+    const attempt = Fraktar.lastAttempt;
+    if (attempt?.status !== "accepted") {
+      throw new Error("unreachable");
+    }
+    expect(attempt.settled).toBe(false);
+    expect(attempt.reason?.message).toBe("no health bar below zero");
+    expect(Fraktar.stepId).toBe(1);
+    // The representation is the last one which could be made.
+    expect(Fraktar.representationRef.current.health).toBe(10);
+
+    Fraktar.actions.setHP(4);
+    expect(Fraktar.representationRef.current.health).toBe(4);
+  });
+});

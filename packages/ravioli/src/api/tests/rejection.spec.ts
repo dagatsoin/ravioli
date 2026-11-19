@@ -1,30 +1,6 @@
 import { autorun } from "mobx";
-import { Attempt, RejectionCode, createContainer } from "../..";
-
-/**
- * Narrowing helpers. They fail the test with a readable message instead of
- * letting the assertion crash on an undefined field.
- */
-function asAccepted<M>(attempt: Attempt<M> | undefined) {
-  if (attempt?.status !== "accepted") {
-    throw new Error(`Expected an accepted attempt, got ${attempt?.status}`);
-  }
-  return attempt;
-}
-
-function asRejected<M>(attempt: Attempt<M> | undefined) {
-  if (attempt?.status !== "rejected") {
-    throw new Error(`Expected a rejected attempt, got ${attempt?.status}`);
-  }
-  return attempt;
-}
-
-function asDiscarded<M>(attempt: Attempt<M> | undefined) {
-  if (attempt?.status !== "discarded") {
-    throw new Error(`Expected a discarded attempt, got ${attempt?.status}`);
-  }
-  return attempt;
-}
+import { RejectionCode, createContainer } from "../..";
+import { asAccepted, asDiscarded, asRejected } from "./helpers";
 
 beforeEach(function () {
   jest.spyOn(console, "warn").mockImplementation(() => {});
@@ -306,5 +282,101 @@ describe("reactivity", function () {
     // One notification, not one per observable.
     expect(runs).toBe(2);
     dispose();
+  });
+});
+
+describe("a reason without a code", function () {
+  it("should be completed with the default code", function () {
+    const hero = createContainer<{ hp: number }>()
+      .addAcceptor("setHP", {
+        // A condition written in plain JS can forget the code.
+        condition: (data, hp: number) =>
+          hp >= 0 || ({ message: "hp cannot be negative" } as any),
+        mutator: (data, hp: number) => {
+          data.hp = hp;
+        },
+      })
+      .addActions({ setHP: "setHP" })
+      .create({ hp: 10 });
+
+    hero.actions.setHP(-2);
+
+    const [rejection] = asRejected(hero.lastAttempt).rejected;
+    expect(rejection.reason).toEqual({
+      code: RejectionCode.conditionFailed,
+      message: "hp cannot be negative",
+    });
+  });
+});
+
+describe("unauthorized asynchronous action", function () {
+  /**
+   * A hero who can only be healed alive. The potion takes a while to act: the
+   * hero can die in between.
+   */
+  function createMortal(initialHP: number, isCancelable: boolean) {
+    let swallow!: () => void;
+    const potion = new Promise<void>((resolve) => {
+      swallow = resolve;
+    });
+    const hero = createContainer<{ hp: number }>()
+      .addAcceptor("addHP", {
+        mutator: (data, hp: number) => {
+          data.hp += hp;
+        },
+      })
+      .addControlStatePredicate("IS_ALIVE", ({ data }) => data.hp > 0)
+      .addActions({
+        hit: (hp: number) => [{ type: "addHP", payload: -hp }],
+        drink: {
+          isAsync: true,
+          isCancelable,
+          isAllowed: ({ controlStates }) => controlStates.includes("IS_ALIVE"),
+          action: async (hp: number) => {
+            await potion;
+            return [{ type: "addHP", payload: hp }];
+          },
+        },
+      })
+      .create({ hp: initialHP });
+
+    return { hero, swallow };
+  }
+
+  it("should be discarded when it is called", async function () {
+    const { hero } = createMortal(0, false);
+
+    await hero.actions.drink(5);
+
+    const attempt = asDiscarded(hero.lastAttempt);
+    expect(attempt.reason.code).toBe(RejectionCode.unauthorized);
+    expect(attempt.reason.meta).toEqual({ action: "drink", controlStates: [] });
+    expect(hero.stepId).toBe(0);
+  });
+
+  it("should be discarded when it is not allowed anymore once resolved", async function () {
+    const { hero, swallow } = createMortal(3, false);
+
+    // Allowed when called...
+    const pending = hero.actions.drink(5);
+    // ... but the hero dies before the potion acts.
+    hero.actions.hit(3);
+    swallow();
+    await pending;
+
+    const attempt = asDiscarded(hero.lastAttempt);
+    expect(attempt.reason.code).toBe(RejectionCode.unauthorized);
+    expect(attempt.attemptedAt).toBe(1);
+    expect(hero.representationRef.current.hp).toBe(0);
+  });
+
+  it("should be discarded when it is cancelable too", async function () {
+    const { hero } = createMortal(0, true);
+
+    await hero.actions.drink(5);
+
+    const attempt = asDiscarded(hero.lastAttempt);
+    expect(attempt.reason.code).toBe(RejectionCode.unauthorized);
+    expect(hero.stepId).toBe(0);
   });
 });

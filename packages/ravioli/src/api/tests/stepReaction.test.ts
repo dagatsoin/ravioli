@@ -188,8 +188,10 @@ test("should await async NAP before allowing next step", async function() {
   Counter.actions.increment();  // Step 0 → 1, NAP awaits
   Counter.actions.increment();  // Buffered while NAP running, then Step 1 → 2
 
-  // Wait for both async NAPs to complete
-  await new Promise(r => setTimeout(r, 150));
+  // Wait for both async NAPs to complete, however long the machine takes
+  for (let wait = 0; wait < 200 && saveOrder.length < 2; wait++) {
+    await new Promise(r => setTimeout(r, 20));
+  }
 
   // Each action processed in its own step
   expect(Counter.stepId).toBe(2);
@@ -218,4 +220,121 @@ test("should initialize stepId from options for hydration", function() {
   hydratedCounter.actions.increment();
   expect(hydratedCounter.stepId).toBe(43);
   expect(hydratedCounter.representationRef.current.count).toBe(6);
+})
+
+it("should run a one shot reaction twice when it starts a step at creation", function() {
+  let welcomes = 0;
+  const Fraktar = createContainer<{ hp: number }>()
+    .addAcceptor("incHP", { mutator: (data) => data.hp++ })
+    .addActions({ incHP: "incHP" })
+    .addStepReaction({
+      debugName: "welcome gift",
+      once: true,
+      do: ({ actions }) => {
+        welcomes++;
+        actions.incHP();
+      },
+    })
+    .create({ hp: 1 });
+
+  // Not what once says. At creation the gift starts a step at once, whose
+  // reactions run the gift a second time before the first run disposed it.
+  expect(welcomes).toBe(2);
+  expect(Fraktar.representationRef.current.hp).toBe(3);
+
+  // It is gone for good.
+  Fraktar.actions.incHP();
+  expect(welcomes).toBe(2);
+  expect(Fraktar.representationRef.current.hp).toBe(4);
+})
+
+it("should run the reactions which follow a one shot reaction another pass disposed of", async function() {
+  const loads: Array<() => void> = [];
+  const saves: number[] = [];
+  const Fraktar = createContainer<{ hp: number }>()
+    .addAcceptor("incHP", { mutator: (data) => data.hp++ })
+    .addActions({ incHP: "incHP" })
+    // Loads something once, at creation, and is awaited.
+    .addStepReaction({
+      debugName: "load",
+      once: true,
+      awaitAsync: true,
+      do: () => new Promise<void>((done) => { loads.push(done) }),
+    })
+    .addStepReaction({
+      debugName: "save",
+      awaitAsync: true,
+      runOnInit: false,
+      do: async ({ data }) => { saves.push(data.hp) },
+    })
+    .create({ hp: 1 });
+
+  // A step is taken while the load of the creation is still running: the
+  // pass of the step waits on a load of its own.
+  Fraktar.actions.incHP();
+  loads.forEach((done) => done());
+  await new Promise(r => setTimeout(r, 0));
+
+  // The pass of the creation disposed of the load meanwhile. The pass of the
+  // step went on one reaction too far, and the step was never saved.
+  expect(saves).toEqual([2]);
+})
+
+it("should not run a one shot reaction another pass disposed of before its turn", async function() {
+  const writes: Array<() => void> = [];
+  const loads: Array<() => void> = [];
+  const Fraktar = createContainer<{ hp: number }>()
+    .addAcceptor("incHP", { mutator: (data) => data.hp++ })
+    .addActions({ incHP: "incHP" })
+    .addStepReaction({
+      debugName: "save",
+      awaitAsync: true,
+      do: () => new Promise<void>((done) => { writes.push(done) }),
+    })
+    .addStepReaction({
+      debugName: "load",
+      once: true,
+      awaitAsync: true,
+      do: () => new Promise<void>((done) => { loads.push(done) }),
+    })
+    .create({ hp: 1 });
+
+  // The save of the creation is running, and so is the one of a step.
+  Fraktar.actions.incHP();
+  // The creation goes on to its load, which ends: it had its run.
+  writes[0]();
+  await new Promise(r => setTimeout(r, 0));
+  loads[0]();
+  await new Promise(r => setTimeout(r, 0));
+  // The step goes on in turn, and finds the load gone.
+  writes[1]();
+  await new Promise(r => setTimeout(r, 0));
+
+  expect(loads.length).toBe(1);
+})
+
+it("should await a reaction which hands back what can be awaited, a promise or not", async function() {
+  const answers: Array<() => void> = [];
+  const Counter = createContainer<{ count: number }>()
+    .addAcceptor("inc", { mutator: (data) => data.count++ })
+    .addActions({ increment: () => [{ type: "inc", payload: undefined }] })
+    .addStepReaction({
+      debugName: "persist",
+      awaitAsync: true,
+      runOnInit: false,
+      // What a query builder hands back: not a Promise, but it has a then.
+      do: () => ({ then: (done: () => void) => { answers.push(done) } }),
+    })
+    .create({ count: 0 });
+
+  Counter.actions.increment();
+  Counter.actions.increment();
+
+  // The second one waits for the query of the first.
+  await new Promise(r => setTimeout(r, 0));
+  expect(Counter.stepId).toBe(1);
+
+  answers[0]();
+  await new Promise(r => setTimeout(r, 0));
+  expect(Counter.stepId).toBe(2);
 })
