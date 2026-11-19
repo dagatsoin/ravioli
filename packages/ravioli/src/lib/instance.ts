@@ -140,9 +140,11 @@ export class Instance<
      * A proposal was refused before reaching the model. No step, no reaction.
      */
     public discardProposal(reason: Reason, origin?: Origin<MUTATIONS>): void {
+      const stepId = this._stepId.get();
       const attempt: Attempt<MUTATIONS> = {
         status: "discarded",
-        attemptedAt: this._stepId.get(),
+        stepId,
+        attemptedAt: stepId,
         reason,
       };
       try {
@@ -445,14 +447,14 @@ export class Instance<
     pass: Pass<MUTATIONS, CONTROL_STATES>,
     from?: Pass<MUTATIONS, CONTROL_STATES>
   ): Arrival<MUTATIONS, CONTROL_STATES> | undefined {
-    const attemptedAt = this._stepId.get();
+    const stepId = this._stepId.get();
     const previousControlStates = this.controlStates.slice();
     const { accepted: acceptedMutations, rejected } = this.present(proposal);
 
     // Whatever the model decided, the attempt is reported.
     const attempt: Attempt<MUTATIONS> = acceptedMutations.length
-        ? { status: "accepted", attemptedAt, accepted: acceptedMutations.slice(), rejected, settled: true }
-        : { status: "rejected", attemptedAt, rejected };
+        ? { status: "accepted", stepId, attemptedAt: stepId, accepted: acceptedMutations.slice(), rejected, settled: true }
+        : { status: "rejected", stepId, attemptedAt: stepId, rejected };
     this._lastAttempt.set(attempt);
 
     // No mutations happened, abort the step
@@ -790,7 +792,7 @@ export class Instance<
     recorder: IStepRecorder,
     reason: Reason
   ): void {
-    const stepId = attempt.attemptedAt;
+    const stepId = attempt.stepId;
     const undone: AcceptedAttempt<MUTATIONS> = { ...attempt, settled: false, reason, undone: true };
     // What waited behind the step was meant for a state which is gone. What
     // arrives once the model is back is not.

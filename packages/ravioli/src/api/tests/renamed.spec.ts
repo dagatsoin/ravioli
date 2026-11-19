@@ -16,7 +16,7 @@ import {
 } from "../..";
 import { ActionPackage, ConfigurableAction, PackagedActions } from "../../lib/api/action";
 import { CSPredicate } from "../../lib/api/predicate";
-import { asDiscarded, settle } from "./helpers";
+import { asAccepted, asDiscarded, asRejected, settle } from "./helpers";
 
 // Each old type is the new one: a value of one is a value of the other.
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -246,5 +246,60 @@ describe("the container", function () {
     container.reset({ hp: 1 });
     expect(container.representation).toEqual({ hp: 1 });
     expect(container.stepId).toBe(0);
+  });
+});
+
+describe("stepId, was attemptedAt", function () {
+  function hero() {
+    return createContainer<{ hp: number }>()
+      .addAcceptor("setHP", {
+        condition: (_, hp: number) => hp >= 0,
+        mutator: (data, hp: number) => { data.hp = hp; },
+      })
+      .addActions({
+        setHP: "setHP",
+        never: { action: (hp: number) => [{ type: "setHP", payload: hp }], isAllowed: () => false },
+      });
+  }
+
+  test("an accepted attempt", async function () {
+    const container = hero().create({ hp: 1 });
+    container.actions.setHP(2);
+    const attempt = asAccepted(await container.attempt.setHP(3));
+    expect(attempt.stepId).toBe(1);
+    expect(attempt.attemptedAt).toBe(1);
+    expect(asAccepted(container.lastAttempt).stepId).toBe(1);
+  });
+
+  test("a rejected attempt", async function () {
+    const container = hero().create({ hp: 1 });
+    const attempt = asRejected(await container.attempt.setHP(-1));
+    expect(attempt.stepId).toBe(0);
+    expect(attempt.attemptedAt).toBe(0);
+  });
+
+  test("a discarded attempt", async function () {
+    const container = hero().create({ hp: 1 });
+    const attempt = asDiscarded(await container.attempt.never(2));
+    expect(attempt.stepId).toBe(0);
+    expect(attempt.attemptedAt).toBe(0);
+  });
+
+  test("a step taken back keeps both", async function () {
+    const container = hero()
+      .addStepReaction({ runOnInit: false, awaited: true, do: () => Promise.reject(new Error("down")) })
+      .create({ hp: 1 });
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    const attempt = asAccepted(await container.attempt.setHP(2));
+    expect(attempt.undone).toBe(true);
+    expect(attempt.stepId).toBe(0);
+    expect(attempt.attemptedAt).toBe(0);
+  });
+
+  test("both are plain fields: a copy has them", async function () {
+    const container = hero().create({ hp: 1 });
+    const attempt = await container.attempt.setHP(2);
+    expect({ ...attempt }).toEqual(attempt);
+    expect(JSON.parse(JSON.stringify(attempt))).toMatchObject({ stepId: 0, attemptedAt: 0 });
   });
 });

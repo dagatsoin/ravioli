@@ -74,12 +74,16 @@ export const RejectionCode = ReasonCode;
  *   unknown action, or waiting behind a step which was undone). There is no per
  *   mutation reason as no acceptor ever ran.
  *
- * `attemptedAt` is the step id the attempt was made against. Compare it with the
- * current `stepId` to know if the attempt still relates to what you display.
+ * `stepId` is the step id the attempt was made against. Compare it with the
+ * current `stepId` of the container to know if the attempt still relates to
+ * what you display. `attemptedAt`, its name before 1.9, holds the same.
  */
 export type Attempt<MUTATIONS> =
   | {
       status: "accepted";
+      /** The step id the attempt was made against. */
+      stepId: number;
+      /** @deprecated Renamed `stepId` in 1.9. The same number. */
       attemptedAt: number;
       accepted: MUTATIONS[];
       rejected: Rejection<MUTATIONS>[];
@@ -100,11 +104,17 @@ export type Attempt<MUTATIONS> =
     }
   | {
       status: "rejected";
+      /** The step id the attempt was made against. */
+      stepId: number;
+      /** @deprecated Renamed `stepId` in 1.9. The same number. */
       attemptedAt: number;
       rejected: Rejection<MUTATIONS>[];
     }
   | {
       status: "discarded";
+      /** The step id the attempt was made against. */
+      stepId: number;
+      /** @deprecated Renamed `stepId` in 1.9. The same number. */
       attemptedAt: number;
       reason: Reason;
     };
