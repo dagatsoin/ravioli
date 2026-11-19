@@ -189,8 +189,10 @@ export class ContainerFactory<
       representationRef: instance.representationRef,
       compose: instance.compose,
       attempt: instance.attempt,
-      rollback: (step) => instance.rollback(step),
-      reset: (state) => instance.reset(state),
+      // Called, not read, as an action is: an autorun which jumps does not
+      // come to depend on what the reactions which replay the jump read.
+      rollback: (step) => untracked(() => instance.rollback(step)),
+      reset: (state) => untracked(() => instance.reset(state)),
     };
   }
 }

@@ -424,7 +424,7 @@ In SAM a proposal is presented between two steps, by the view or by a step react
 - And while a step is taken back because its save failed: what is sent by whoever listens to the model or to the control states as they come back is discarded with `STEP_LOCKED`, `"A step is being taken back."`. An `autorun` which acts once the model is back is not: what it sends is presented once the step is over
 - A proposal which arrives after `present` but before the step reactions of the step, from an `autorun` or a `reaction` on the representation for example, is not refused: it is presented after the next-action predicates of that step. The NAP always goes before any other action. In 1.7.0 it was taken at once, ahead of them
 - An action built on a representation which is no longer the right one when it is presented is judged by the acceptors against the current model. If it must not be, it declares itself `isCancelable`
-- Calling an action is not reading. An `autorun` which calls one depends on what it reads itself, not on the step id nor on the control states the call reads. One which reads again the data its own action changes runs again each time, as any `autorun` which writes what it reads
+- Calling an action is not reading. An `autorun` which calls one depends on what it reads itself, not on the step id nor on the control states the call reads. One which reads again the data its own action changes runs again each time, as any `autorun` which writes what it reads. The same for `rollback` and `reset`: an `autorun` which calls one does not depend on what the step reactions which replay it read
 
 #### What an observer sees meanwhile
 

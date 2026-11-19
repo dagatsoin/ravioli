@@ -1557,6 +1557,59 @@ describe("an autorun which calls an action", function () {
   });
 });
 
+describe("an autorun which puts the container on another state", function () {
+  type Hero = { hp: number; potions: number; log: string[] };
+
+  (["reset", "rollback"] as const).forEach(function (jump) {
+    it(`should not run again for what the reactions which replay its ${jump} read`, function () {
+      const Fraktar = createContainer<Hero>()
+        .addAcceptor("addHP", {
+          mutator: (data, hp: number) => {
+            data.hp += hp;
+          },
+        })
+        .addActions({ hit: (hp: number) => [{ type: "addHP", payload: -hp }] })
+        // A reaction which reads the model, at the creation as at each step.
+        .addStepReaction({
+          do: ({ data }) => {
+            data.hp;
+            data.log.length;
+          },
+        })
+        .create({ hp: 10, potions: 1, log: [] });
+      let runs = 0;
+      // Puts the hero back on his feet once, as the view is shown. It gives up
+      // by itself far beyond what it should ever run.
+      const dispose = autorun(() => {
+        if (++runs > 60) {
+          return;
+        }
+        if (jump === "reset") {
+          Fraktar.reset({ hp: 10, potions: 1, log: [] });
+        } else {
+          Fraktar.rollback({
+            data: { hp: 10, potions: 1, log: [] },
+            delta: {
+              acceptedMutations: [],
+              proposal: Object.assign([], { stepId: 0 }),
+              controlStates: [],
+              previousControlStates: [],
+            },
+          });
+        }
+      });
+
+      Fraktar.actions.hit(1);
+
+      // Read by the autorun, the health would have run it again, and put the
+      // hero back on his feet at each blow.
+      expect(runs).toBe(1);
+      expect(Fraktar.representationRef.current.hp).toBe(9);
+      dispose();
+    });
+  });
+});
+
 describe("what the view sends when it sees a step, and what a reaction of that step proposes", function () {
   [false, true].forEach(function (awaitAsync) {
     it(`should be presented in that order: the reaction first${
