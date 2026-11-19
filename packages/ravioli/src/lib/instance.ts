@@ -220,8 +220,11 @@ export class Instance<
     public attempt: AttemptCall<ACTIONS, MUTATIONS> = this.toAttempt();
 
     private toAttempt(): AttemptCall<ACTIONS, MUTATIONS> {
-      const attempt = (composer: Parameters<Compose<ACTIONS, MUTATIONS>>[0]) =>
+      const call = (composer: Parameters<Compose<ACTIONS, MUTATIONS>>[0]) =>
         this.ask((origin) => this.startStep(this.toTaggedProposal(composer), origin));
+      // Bound: a bound function has no prototype, even once compiled to ES5,
+      // and an action can be called `prototype` as well.
+      const attempt = call.bind(undefined);
       Object.keys(this.factory.wrapedActions).forEach((name) => {
         // Defined, not assigned: an action can be called `name` or `length`,
         // which a function has already and does not let be written.

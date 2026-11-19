@@ -1268,6 +1268,46 @@ describe("an action which is called as something every function has", function (
       Object.keys(Fraktar.actions).sort()
     );
   });
+
+  it("should be attempted when it is called prototype, arguments or caller", async function () {
+    // 1.7 took them: the container is created, the actions are called.
+    const Fraktar = createContainer<{ log: string[] }>()
+      .addAcceptor("write", {
+        mutator: (data, line: string) => {
+          data.log.push(line);
+        },
+      })
+      .addActions({
+        prototype: () => [{ type: "write", payload: "prototype" }],
+        arguments: () => [{ type: "write", payload: "arguments" }],
+        caller: () => [{ type: "write", payload: "caller" }],
+      })
+      .create({ log: [] });
+
+    Fraktar.actions.prototype();
+    const outcomes = [
+      await Fraktar.attempt.prototype(),
+      await Fraktar.attempt.arguments(),
+      await Fraktar.attempt.caller(),
+    ];
+
+    expect(outcomes.map((outcome) => outcome.status)).toEqual([
+      "accepted",
+      "accepted",
+      "accepted",
+    ]);
+    expect(Fraktar.representationRef.current.log).toEqual([
+      "prototype",
+      "prototype",
+      "arguments",
+      "caller",
+    ]);
+    expect(Object.keys(Fraktar.attempt).sort()).toEqual([
+      "arguments",
+      "caller",
+      "prototype",
+    ]);
+  });
 });
 
 describe("an autorun which asks what becomes of an action", function () {
