@@ -26,6 +26,11 @@ export type StepReaction<
    * This ensures async operations (like persistence) complete in order.
    * Defaults to false.
    */
+  awaited?: boolean;
+  /**
+   * @deprecated Renamed `awaited` in 1.9. It does the same; when both are
+   * given, `awaited` counts.
+   */
   awaitAsync?: boolean;
   when?(args: {
     delta: StepDelta<MUTATIONS, CONTROL_STATES>;

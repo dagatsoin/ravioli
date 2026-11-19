@@ -13,7 +13,7 @@ import {
 } from "../..";
 import { ActionPackage, ConfigurableAction, PackagedActions } from "../../lib/api/action";
 import { CSPredicate } from "../../lib/api/predicate";
-import { asDiscarded } from "./helpers";
+import { asDiscarded, settle } from "./helpers";
 
 // Each old type is the new one: a value of one is a value of the other.
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -141,5 +141,40 @@ describe("the factory", function () {
     old.representationRef.current.setHP(4);
     expect(renamed.representationRef.current.health()).toBe(4);
     expect(old.representationRef.current.health()).toBe(4);
+  });
+});
+
+describe("awaited, was awaitAsync", function () {
+  // A counter whose step reaction writes somewhere, and is done when the test says.
+  function counter(options: { awaited?: boolean; awaitAsync?: boolean }) {
+    const writes: Array<() => void> = [];
+    const container = createContainer<{ n: number }>()
+      .addAcceptor("inc", { mutator: (data) => { data.n++; } })
+      .addActions({ inc: "inc" })
+      .addStepReaction({
+        runOnInit: false,
+        do: () => new Promise<void>((done) => { writes.push(done); }),
+        ...options,
+      })
+      .create({ n: 0 });
+    return { container, writes };
+  }
+
+  test.each([
+    ["awaited", { awaited: true }, true],
+    ["awaitAsync", { awaitAsync: true }, true],
+    ["awaited false over awaitAsync true", { awaited: false, awaitAsync: true }, false],
+    ["awaited true over awaitAsync false", { awaited: true, awaitAsync: false }, true],
+  ])("%s", async function (_, options, waits) {
+    const { container, writes } = counter(options);
+    container.actions.inc();
+    container.actions.inc();
+    // An awaited reaction keeps the next step waiting until it is done.
+    expect(container.stepId).toBe(waits ? 1 : 2);
+    writes.forEach((done) => done());
+    await settle();
+    writes.forEach((done) => done());
+    await settle();
+    expect(container.stepId).toBe(2);
   });
 });

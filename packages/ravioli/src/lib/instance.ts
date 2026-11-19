@@ -665,7 +665,10 @@ export class Instance<
       const reactions = this.stepReactions.slice();
       for (let i = 0; i < reactions.length; i++) {
         const reaction = reactions[i];
-        const { runOnInit = true, when: predicate, do: effect, once, debugName, awaitAsync } = reaction;
+        const { runOnInit = true, when: predicate, do: effect, once, debugName } = reaction;
+        // awaitAsync is the name awaited had before 1.9. When both are given,
+        // awaited is the one which counts.
+        const awaited = reaction.awaited ?? reaction.awaitAsync;
         // A one shot reaction another pass disposed of meanwhile has had its run.
         if ((isInit && !runOnInit) || this.stepReactions.indexOf(reaction) === -1) {
           continue
@@ -677,12 +680,12 @@ export class Instance<
             console.info("[SAM] reaction:", debugName);
           }
           handles = handles || this.toHandles(pass);
-          recorder = awaitAsync ? this.stepRecorder : undefined;
+          recorder = awaited ? this.stepRecorder : undefined;
           this.reacting = pass;
           const result = effect({ ...args, actions: handles.actions, representation: this.representationRef.current, compose: handles.compose });
           this.reacting = undefined;
-          // Await the effect if awaitAsync is set to ensure sequential execution
-          if (awaitAsync && isThenable(result)) {
+          // Await the effect if it is awaited, to ensure sequential execution
+          if (awaited && isThenable(result)) {
             await result;
           }
           recorder = undefined;
