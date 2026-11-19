@@ -75,6 +75,11 @@ type Watched = {
    * last looked at, and how many of them MobX did not observe.
    */
   fields?: { all: number; unobserved: number };
+  /**
+   * For an object which has a proxy: the fields MobX does not observe which
+   * it is about to lose.
+   */
+  dropping?: Array<string | symbol>;
 };
 
 /**
@@ -552,6 +557,29 @@ class StepRecorder implements IStepRecorder {
         this.settle();
       }
       this.keepOrder(watched);
+      // Once it is gone, nothing tells whether MobX observed it.
+      if (isProxied(watched) && !watched.isOut && isUnobserved(node, event.name)) {
+        watched.dropping = watched.dropping || [];
+        watched.dropping.push(event.name);
+      }
+    }
+  }
+
+  /**
+   * An object which has a proxy tells of a field it is given or loses, even
+   * one MobX does not observe: given by `Object.defineProperty`, for
+   * example. Written in later, that one is not told of.
+   */
+  private countField(watched: Watched, event: any): void {
+    if (event.type === "add" && isUnobserved(watched.node, event.name)) {
+      this.miss(watched, FIELD, 1);
+      return;
+    }
+    const dropping = watched.dropping || [];
+    const at = dropping.indexOf(event.name);
+    if (event.type === "remove" && at !== -1) {
+      dropping.splice(at, 1);
+      this.miss(watched, FIELD, -1);
     }
   }
 
@@ -577,6 +605,8 @@ class StepRecorder implements IStepRecorder {
     if (watched.fields !== undefined) {
       // A field MobX knows came or went: as many fields say nothing anymore.
       watched.fields.all = -1;
+    } else if (change.type === "entry" && isProxied(watched)) {
+      this.countField(watched, event);
     }
     change.removed.forEach((value) => this.drop(value, watched, key));
     const isLate =
@@ -715,6 +745,24 @@ function isObject(value: any): boolean {
  */
 function isObserved(node: any, key: string | symbol): boolean {
   return isObservableProp(node, key) || typeof node[key] === "function";
+}
+
+/**
+ * A field of the model nobody is told the writes of, as the fields of a node
+ * are counted: one which is not listed among the others is out of reach.
+ */
+function isUnobserved(node: any, key: string | symbol): boolean {
+  return (
+    Object.prototype.propertyIsEnumerable.call(node, key) &&
+    !isObserved(node, key)
+  );
+}
+
+/**
+ * An object which has a proxy: its fields are not counted, it tells of them.
+ */
+function isProxied(watched: Watched): boolean {
+  return watched.fields === undefined && isObservableObject(watched.node);
 }
 
 const DISORDER =

@@ -1614,6 +1614,73 @@ describe("what MobX does not observe", function () {
     expect(toJS(Fraktar)).toEqual({ hp: 3 });
   });
 
+  it("should keep a hero with a proxy who was given a field MobX does not observe from it", function () {
+    const Fraktar = observable<{ hp: number; target?: string }>({ hp: 3 });
+    const recorder = createStepRecorder(Fraktar);
+    recorder.start();
+    // Through the proxy, MobX is told of the field, and leaves it alone.
+    Object.defineProperty(Fraktar, "target", {
+      value: "troll",
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+    recorder.stop();
+
+    recorder.start();
+    runInAction(() => {
+      Fraktar.hp--;
+      // Nobody is told of this one.
+      Fraktar.target = "orc";
+    });
+
+    expect(() => recorder.undo()).toThrowError(
+      /the model holds a field which is not observable at \/target/
+    );
+    expect(toJS(Fraktar)).toEqual({ hp: 2, target: "orc" });
+  });
+
+  it("should take a hero with a proxy back again once such a field is gone", function () {
+    const Fraktar = observable<{ hp: number; target?: string }>({ hp: 3 });
+    const recorder = createStepRecorder(Fraktar);
+    Object.defineProperty(Fraktar, "target", {
+      value: "troll",
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+    delete Fraktar.target;
+
+    recorder.start();
+    runInAction(() => {
+      Fraktar.hp--;
+    });
+    recorder.undo();
+
+    expect(toJS(Fraktar)).toEqual({ hp: 3 });
+  });
+
+  it("should still say nothing of a field which is not listed, given through a proxy, nor once it is gone", function () {
+    const Fraktar = observable({ hp: 3 });
+    const recorder = createStepRecorder(Fraktar);
+    Object.defineProperty(Fraktar, "hits", {
+      value: 0,
+      writable: true,
+      enumerable: false,
+      configurable: true,
+    });
+    const hero = Fraktar as { hp: number; hits?: number };
+    delete hero.hits;
+
+    recorder.start();
+    runInAction(() => {
+      hero.hp--;
+    });
+    recorder.undo();
+
+    expect(toJS(hero)).toEqual({ hp: 3 });
+  });
+
   it("should say nothing of a field which is not listed among the others", function () {
     const Fraktar = observable({ hp: 3 });
     // Hidden from whoever goes through the fields of the hero.
