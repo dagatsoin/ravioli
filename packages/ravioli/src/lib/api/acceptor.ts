@@ -34,6 +34,10 @@ export type Mutator<M, P> = (data: M, payload: P) => void;
 // Helper type. Extract all mutations names.
 export type MutationName<F extends Mutation<any, any>> = F["type"];
 
+/**
+ * @deprecated Nothing uses it, and it has no replacement. It is removed in
+ * the next major version.
+ */
 export type MapToProposal<
   M extends Record<string, Acceptor<any, any>>
 > = {

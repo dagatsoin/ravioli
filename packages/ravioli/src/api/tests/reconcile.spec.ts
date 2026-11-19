@@ -3,6 +3,7 @@ import {
   isObservableArray,
   isObservableMap,
   isObservableObject,
+  isObservableSet,
   makeAutoObservable,
   observable,
 } from "mobx";
@@ -234,5 +235,108 @@ describe("the party", function () {
 
     expect(party.Fraktar.guild).toBe(party.Elwing.guild);
     expect(party.Fraktar.guild.name).toBe("Warfog");
+  });
+});
+
+describe("a field which gets a shape it did not have", function () {
+  it("should become an observable array", function () {
+    const Fraktar = observable<{ inventory: any }>({ inventory: null });
+
+    reconcile(Fraktar, { inventory: ["sword", "shield"] });
+
+    expect(isObservableArray(Fraktar.inventory)).toBe(true);
+    expect(Fraktar.inventory.slice()).toEqual(["sword", "shield"]);
+  });
+
+  it("should become an observable map", function () {
+    const Fraktar = observable<{ quests: any }>({ quests: null });
+
+    reconcile(Fraktar, { quests: new Map([["dragon", { progress: 1 }]]) });
+
+    expect(isObservableMap(Fraktar.quests)).toBe(true);
+    expect(Fraktar.quests.get("dragon").progress).toBe(1);
+  });
+
+  it("should become an observable set", function () {
+    const Fraktar = observable<{ effects: any }>({ effects: null });
+
+    reconcile(Fraktar, { effects: new Set(["poisoned"]) });
+
+    expect(isObservableSet(Fraktar.effects)).toBe(true);
+    expect(Array.from(Fraktar.effects)).toEqual(["poisoned"]);
+  });
+});
+
+describe("a boxed value in the sheet", function () {
+  it("should be set in place, the box stays", function () {
+    const hp = observable.box(3);
+    const Fraktar = observable({ hp });
+
+    reconcile(Fraktar, { hp: 10 });
+
+    expect(Fraktar.hp).toBe(hp);
+    expect(hp.get()).toBe(10);
+  });
+});
+
+describe("a computed of the sheet", function () {
+  it("should not be written when the new state carries its name", function () {
+    const Fraktar = observable({
+      hp: 2,
+      get isAlive() {
+        return this.hp > 0;
+      },
+    });
+
+    // A state which was read from the representation carries the derived values too.
+    reconcile(Fraktar, { hp: 0, isAlive: true });
+
+    expect(Fraktar.hp).toBe(0);
+    expect(Fraktar.isAlive).toBe(false);
+  });
+});
+
+describe("a target which is not observable", function () {
+  it("should be left alone", function () {
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    const Fraktar = { hp: 3 };
+
+    reconcile(Fraktar, { hp: 10 });
+
+    expect(Fraktar.hp).toBe(3);
+    jest.restoreAllMocks();
+  });
+});
+
+describe("a new state which is observable itself", function () {
+  it("should be read through its box", function () {
+    const hp = observable.box(3);
+
+    reconcile(hp, observable.box(10));
+
+    expect(hp.get()).toBe(10);
+  });
+
+  it("should update the quest log and the status effects in place", function () {
+    const Fraktar = observable({
+      quests: new Map([["dragon", { progress: 1 }]]),
+      effects: new Set(["poisoned"]),
+    });
+    const quests = Fraktar.quests;
+    const effects = Fraktar.effects;
+
+    // The maps and sets of an observable state are not Map nor Set anymore.
+    reconcile(
+      Fraktar,
+      observable({
+        quests: new Map([["dragon", { progress: 3 }]]),
+        effects: new Set(["blessed"]),
+      })
+    );
+
+    expect(Fraktar.quests).toBe(quests);
+    expect(Fraktar.quests.get("dragon")!.progress).toBe(3);
+    expect(Fraktar.effects).toBe(effects);
+    expect(Array.from(Fraktar.effects)).toEqual(["blessed"]);
   });
 });

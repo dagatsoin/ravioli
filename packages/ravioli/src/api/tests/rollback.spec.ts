@@ -343,3 +343,66 @@ describe("the last attempt", function () {
     expect(Fraktar.lastAttempt).toBeUndefined();
   });
 });
+
+describe("a reset asked by a reaction", function () {
+  it("should be refused while the reactions are running", function () {
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    let stepIdDuringReaction = -1;
+
+    const Fraktar = createContainer<Model>()
+      .addAcceptor("setHP", {
+        mutator: (data, hp: number) => {
+          data.hp = hp;
+        },
+      })
+      .addActions({ setHP: "setHP" })
+      .addStepReaction({
+        runOnInit: false,
+        do: () => {
+          Fraktar.reset({ hp: 10, inventory: [] });
+          stepIdDuringReaction = Fraktar.stepId;
+        },
+      })
+      .create({ hp: 10, inventory: [] });
+
+    Fraktar.actions.setHP(5);
+
+    // The reset was ignored, the model did not move under the reaction.
+    expect(stepIdDuringReaction).toBe(1);
+    expect(Fraktar.representationRef.current.hp).toBe(5);
+    jest.restoreAllMocks();
+  });
+});
+
+describe("a container which has no reaction", function () {
+  it("should jump as any other", function () {
+    const Fraktar = createContainer<Model>()
+      .addAcceptor("setHP", {
+        mutator: (data, hp: number) => {
+          data.hp = hp;
+        },
+      })
+      .addActions({ setHP: "setHP" })
+      .create({ hp: 10, inventory: [] });
+    Fraktar.actions.setHP(5);
+
+    // Nothing recorded the walked path: the step is written by hand.
+    Fraktar.rollback({
+      data: { hp: 7, inventory: ["sword"] },
+      delta: {
+        acceptedMutations: [],
+        proposal: Object.assign([], { stepId: 3 }),
+        controlStates: [],
+        previousControlStates: [],
+      },
+    });
+
+    expect(Fraktar.representationRef.current).toEqual({ hp: 7, inventory: ["sword"] });
+    expect(Fraktar.stepId).toBe(4);
+
+    Fraktar.reset({ hp: 10, inventory: [] });
+
+    expect(Fraktar.representationRef.current).toEqual({ hp: 10, inventory: [] });
+    expect(Fraktar.stepId).toBe(0);
+  });
+});

@@ -127,6 +127,16 @@ describe("3.2 function predicates", function () {
       })
     ).toThrowError(/control state ALIVE threw: no hp field/);
   });
+
+  it("should name the control state when what the predicate throws is not an error", function () {
+    const CURSED = () => {
+      throw "cursed";
+    };
+
+    expect(() => hero({ CURSED })).toThrowError(
+      /predicate of the control state CURSED threw: cursed/
+    );
+  });
 });
 
 describe("3.3 name leaf", function () {
@@ -222,6 +232,18 @@ describe("3.4 previous leaf", function () {
   it("should not see a self reference through previous as a cycle", function () {
     const Fraktar = hero({ STILL: { previous: "STILL" } });
     expect(Fraktar.controlStates.sort()).toEqual([]);
+  });
+
+  it("should refuse a number in place of the name", function () {
+    expect(() => hero({ ALIVE, WAS_ALIVE: { previous: 3 } })).toThrowError(
+      /WAS_ALIVE expects a control state name in previous, got number/
+    );
+  });
+
+  it("should refuse an array in place of the name", function () {
+    expect(() => hero({ ALIVE, WAS_ALIVE: { previous: ["ALIVE"] } })).toThrowError(
+      /WAS_ALIVE expects a control state name in previous, got an array/
+    );
   });
 });
 
@@ -569,5 +591,42 @@ describe("3.10 inside a container", function () {
     Fraktar.actions.setHP(9);
 
     expect(seen).toEqual([[], ["ALIVE", "WOUNDED"]]);
+  });
+});
+
+describe("3.11 a tree added once the container exists", function () {
+  /**
+   * A hero whose factory is given one more control state after he was
+   * created. Nothing checks that tree: the container meets it at its next
+   * step. It is read from a text, as a configuration is.
+   */
+  function createLate(tree: string) {
+    const factory = createContainer<Model>()
+      .addAcceptor("setHP", {
+        mutator: (data, hp: number) => {
+          data.hp = hp;
+        },
+      })
+      .addControlStatePredicate("ALIVE", ({ data }) => data.hp > 0)
+      .addActions({ setHP: "setHP" });
+    const Fraktar = factory.create({ hp: 10, mp: 5 });
+    factory.addControlStatePredicate("KICKING", JSON.parse(tree));
+    return Fraktar;
+  }
+
+  it("should throw on a malformed predicate instead of activating the control state", function () {
+    const Fraktar = createLate('{ "ors": ["ALIVE"] }');
+
+    expect(() => Fraktar.actions.setHP(3)).toThrowError(
+      /KICKING has a malformed predicate: object/
+    );
+  });
+
+  it("should throw on a name which is not a control state", function () {
+    const Fraktar = createLate('"NOPE"');
+
+    expect(() => Fraktar.actions.setHP(3)).toThrowError(
+      /KICKING refers to NOPE, which is not a control state/
+    );
   });
 });

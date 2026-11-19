@@ -1,85 +1,118 @@
 import { Mutation, MutationName } from "./acceptor";
 import { Proposal } from "./presentable";
 
-export enum ActionType {
-  update = "update",
-}
+export type Action<MUTATIONS extends Mutation<any, any> = any> =
+  | SyncAction<MUTATIONS>
+  | AsyncAction<MUTATIONS>;
 
-export type Intent<P> = {
-  type: ActionType;
-  payload: P;
-};
-
-export type Action<MUTATION extends Mutation<any, any> = any> =
-  | SyncAction<MUTATION>
-  | AsyncAction<MUTATION>;
-
-export type SyncAction<MUTATION extends Mutation<any, any>> = (
+export type SyncAction<MUTATIONS extends Mutation<any, any>> = (
   payload?: any
-) => Proposal<MUTATION>;
+) => Proposal<MUTATIONS>;
 
-export type AsyncAction<MUTATION extends Mutation<any, any>> = (
+export type AsyncAction<MUTATIONS extends Mutation<any, any>> = (
   payload?: any
-) => Promise<Proposal<MUTATION>>;
+) => Promise<Proposal<MUTATIONS>>;
 
+/**
+ * @deprecated Nothing uses it, and it has no replacement. It is removed in
+ * the next major version.
+ */
 export type ActionIntent = (payload: any) => void;
 
+/**
+ * The actions given to `addActions`, by name.
+ */
+export type ActionDeclarations<
+  CONTROL_STATES,
+  MUTATIONS extends Mutation<any, any>
+> = {
+  [key: string]: ActionDeclaration<ActionContext<CONTROL_STATES>, MUTATIONS>;
+};
+
+/**
+ * @deprecated Renamed `ActionDeclarations` in 1.8. The same type.
+ */
 export type PackagedActions<
   CONTROL_STATES,
-  MUTATION extends Mutation<any, any>
-> = {
-  [key: string]: ActionPackage<ActionContext<CONTROL_STATES>, MUTATION>;
-};
+  MUTATIONS extends Mutation<any, any>
+> = ActionDeclarations<CONTROL_STATES, MUTATIONS>;
 
 export type ActionContext<CONTROL_STATES = unknown> = {
   controlStates: CONTROL_STATES[];
 };
 
+/**
+ * @deprecated Nothing uses it, and it has no replacement: a step reaction is
+ * given a `StepDelta`. It is removed in the next major version.
+ */
 export type StepContext<
   MODEL = unknown,
-  MUTATION = unknown,
+  MUTATIONS = unknown,
   CONTROL_STATES = unknown
 > = {
   data: MODEL;
-  acceptedMutations: MUTATION;
+  acceptedMutations: MUTATIONS;
   controlState: CONTROL_STATES;
   previousControlState: CONTROL_STATES;
 };
 
-export type ConfigurableAction<
+/**
+ * An action with its options: when it is allowed, whether it is asynchronous,
+ * and whether a later proposal cancels it.
+ */
+export type ActionOptions<
   ACTION_CONTEXT extends ActionContext,
-  MUTATION extends Mutation<any, any>
+  MUTATIONS extends Mutation<any, any>
 > = {
   isAllowed?: (actionContext: ACTION_CONTEXT) => boolean;
   isCancelable?: boolean;
   isAsync?: boolean;
-  action: Action<MUTATION>;
+  action: Action<MUTATIONS>;
 };
 
+/**
+ * @deprecated Renamed `ActionOptions` in 1.8. The same type.
+ */
+export type ConfigurableAction<
+  ACTION_CONTEXT extends ActionContext,
+  MUTATIONS extends Mutation<any, any>
+> = ActionOptions<ACTION_CONTEXT, MUTATIONS>;
+
+/**
+ * One action given to `addActions`.
+ */
+export type ActionDeclaration<
+  ACTION_CONTEXT extends ActionContext,
+  MUTATIONS extends Mutation<any, any>
+> =
+  | ActionOptions<ACTION_CONTEXT, MUTATIONS> // An action with its options, when it is allowed for example
+  | SyncAction<MUTATIONS> // Just the action
+  | MutationName<MUTATIONS>; // A mutation name to bind it directly
+
+/**
+ * @deprecated Renamed `ActionDeclaration` in 1.8. The same type.
+ */
 export type ActionPackage<
   ACTION_CONTEXT extends ActionContext,
-  MUTATION extends Mutation<any, any>
-> =
-  | ConfigurableAction<ACTION_CONTEXT, MUTATION> // An action with a auth function to register it during the current step
-  | SyncAction<MUTATION> // Just the action
-  | MutationName<MUTATION>; // A mutation name to bind it directly
+  MUTATIONS extends Mutation<any, any>
+> = ActionDeclaration<ACTION_CONTEXT, MUTATIONS>;
 
 export type Actions<
   CONTROL_STATES,
-  MUTATION extends Mutation<any, any>,
-  I extends PackagedActions<CONTROL_STATES, MUTATION>
+  MUTATIONS extends Mutation<any, any>,
+  I extends ActionDeclarations<CONTROL_STATES, MUTATIONS>
 > = {
   [key in keyof I]: I[key] extends SyncAction<any>
     ? I[key]
-    : I[key] extends ConfigurableAction<any, any>
+    : I[key] extends ActionOptions<any, any>
     ? I[key]["action"]
     : // The action is the name of an acceptor.
-    I[key] extends MUTATION["type"]
+    I[key] extends MUTATIONS["type"]
     ? // Generate a function which takes the mutator payload if any
-      Extract<MUTATION, { type: I[key] }>["payload"] extends undefined
-      ? () => Proposal<Extract<MUTATION, { type: I[key] }>>
+      Extract<MUTATIONS, { type: I[key] }>["payload"] extends undefined
+      ? () => Proposal<Extract<MUTATIONS, { type: I[key] }>>
       : (
-          payload: Extract<MUTATION, { type: I[key] }>["payload"]
-        ) => Proposal<MUTATION>
+          payload: Extract<MUTATIONS, { type: I[key] }>["payload"]
+        ) => Proposal<MUTATIONS>
     : never;
 };

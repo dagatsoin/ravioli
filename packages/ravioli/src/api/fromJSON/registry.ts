@@ -1,6 +1,6 @@
 import { Acceptor } from "../../lib/api/acceptor";
-import { ActionPackage } from "../../lib/api/action";
-import { CSPredicate } from "../../lib/api/predicate";
+import { ActionDeclaration } from "../../lib/api/action";
+import { ControlStatePredicate } from "../../lib/api/predicate";
 import { StepReaction } from "../../lib/api/stepReaction";
 
 /**
@@ -9,8 +9,8 @@ import { StepReaction } from "../../lib/api/stepReaction";
  */
 interface ComponentRegistry {
   acceptors: Map<string, Acceptor<any, any>>;
-  controlStatePredicates: Map<string, CSPredicate<any, any, any>>;
-  actions: Map<string, ActionPackage<any, any>>;
+  controlStatePredicates: Map<string, ControlStatePredicate<any, any, any>>;
+  actions: Map<string, ActionDeclaration<any, any>>;
   stepReactions: Map<string, StepReaction<any, any, any, any, any>>;
 }
 
@@ -58,7 +58,7 @@ export function registerAcceptor(name: string, acceptor: Acceptor<any, any>): vo
  */
 export function registerControlStatePredicate(
   name: string,
-  predicate: CSPredicate<any, any, any>
+  predicate: ControlStatePredicate<any, any, any>
 ): void {
   if (registry.controlStatePredicates.has(name)) {
     throw new Error(`Control state predicate '${name}' is already registered. Use a different name or clear the registry first.`);
@@ -78,7 +78,7 @@ export function registerControlStatePredicate(
  * registerAction('heal', () => [{ type: 'setHP', payload: { hp: 100 } }]);
  * ```
  */
-export function registerAction(name: string, action: ActionPackage<any, any>): void {
+export function registerAction(name: string, action: ActionDeclaration<any, any>): void {
   if (registry.actions.has(name)) {
     throw new Error(`Action '${name}' is already registered. Use a different name or clear the registry first.`);
   }
@@ -133,7 +133,7 @@ export function getAcceptor(name: string): Acceptor<any, any> {
  * @returns The registered control state predicate
  * @throws Error if the predicate is not found in the registry
  */
-export function getControlStatePredicate(name: string): CSPredicate<any, any, any> {
+export function getControlStatePredicate(name: string): ControlStatePredicate<any, any, any> {
   const predicate = registry.controlStatePredicates.get(name);
   if (!predicate) {
     throw new Error(`Control state predicate '${name}' not found in registry. Did you forget to register it?`);
@@ -148,7 +148,7 @@ export function getControlStatePredicate(name: string): CSPredicate<any, any, an
  * @returns The registered action package
  * @throws Error if the action is not found in the registry
  */
-export function getAction(name: string): ActionPackage<any, any> {
+export function getAction(name: string): ActionDeclaration<any, any> {
   const action = registry.actions.get(name);
   if (!action) {
     throw new Error(`Action '${name}' not found in registry. Did you forget to register it?`);

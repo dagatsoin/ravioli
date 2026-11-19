@@ -1,4 +1,5 @@
-import { IContainerFactory, IInstance } from "..";
+import { untracked } from "mobx";
+import { Container, ContainerFactory } from "..";
 import {
   Acceptor,
   Mutation,
@@ -6,23 +7,31 @@ import {
 } from "./api/acceptor";
 import {
   ActionContext,
-  ActionPackage,
-  ConfigurableAction,
-  PackagedActions,
+  ActionDeclaration,
+  ActionOptions,
+  ActionDeclarations,
   SyncAction
 } from "./api/action";
 import { ToLiteral } from "./api/helpers.type";
-import { CSPredicate } from "./api/predicate";
+import { ControlStatePredicate } from "./api/predicate";
 import {
   Proposal,
   SAMLoop,
+  Step,
   TaggedProposal
 } from "./api/presentable";
+import { Origin } from "./origin";
 import { Instance } from "./instance"
 import { StepReaction } from "./api/stepReaction";
 import { StaticTransformation, Transformation } from "./api/transformer";
-import { RejectionCode } from "./api/rejection";
+import { ReasonCode } from "./api/rejection";
 import { validateControlStatePredicates } from "./controlState";
+
+/**
+ * What an action is bound to: the step it is called at, and the loop which
+ * presents its proposal.
+ */
+type Loop = Pick<Container<any, any, any, any>, "stepId" | "controlStates"> & SAMLoop;
 
 export interface ContainerOption {
   /**
@@ -33,15 +42,15 @@ export interface ContainerOption {
   initialStepId?: number;
 }
 
-export class ContainerFactory<
-  TYPE,
+export class Factory<
+  MODEL,
   MUTATIONS extends Mutation<any, any> = { type: never; payload: never },
   CONTROL_STATES extends string = never,
   ACTIONS = never,
-  REPRESENTATION = TYPE
+  REPRESENTATION = MODEL
 > implements
-    IContainerFactory<
-      TYPE,
+    ContainerFactory<
+      MODEL,
       MUTATIONS,
       CONTROL_STATES,
       ACTIONS,
@@ -51,18 +60,18 @@ export class ContainerFactory<
       
   public acceptors: Record<
     string,
-    Acceptor<TYPE, MUTATIONS>
+    Acceptor<MODEL, MUTATIONS>
     > = {};
   public controlStatePredicates: Array<
-    [CONTROL_STATES, CSPredicate<TYPE, MUTATIONS, CONTROL_STATES>]
+    [CONTROL_STATES, ControlStatePredicate<MODEL, MUTATIONS, CONTROL_STATES>]
   > = [];
-  public transformer?: Transformation<TYPE, CONTROL_STATES>;
-  public staticTransformer?: StaticTransformation<TYPE, ACTIONS>;
-  public wrapedActions: Record<keyof PackagedActions<CONTROL_STATES, MUTATIONS>, (instance: IInstance<any, any, any, any, any> & SAMLoop) => ActionPackage<ActionContext<CONTROL_STATES>, MUTATIONS>> = {};
-  public originalActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
+  public transformer?: Transformation<MODEL, CONTROL_STATES>;
+  public staticTransformer?: StaticTransformation<MODEL, ACTIONS>;
+  public wrapedActions: Record<keyof ActionDeclarations<CONTROL_STATES, MUTATIONS>, (instance: Loop, origin?: Origin) => (...args: any) => unknown> = {};
+  public originalActions: ActionDeclarations<CONTROL_STATES, MUTATIONS> = {};
 
-  private packagedActions: PackagedActions<CONTROL_STATES, MUTATIONS> = {};
-  private stepReactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>> = [];
+  private packagedActions: ActionDeclarations<CONTROL_STATES, MUTATIONS> = {};
+  private stepReactions: Array<StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>> = [];
   
   constructor() {}
 
@@ -70,7 +79,7 @@ export class ContainerFactory<
     throw new Error("Mutations property is for typing purpose only. Don't use it.")
   }
 
-  addAcceptor<N extends string, M extends Acceptor<TYPE, any>>(
+  addAcceptor<N extends string, M extends Acceptor<MODEL, any>>(
     name: N,
     acceptor: M
   ): any {
@@ -83,9 +92,19 @@ export class ContainerFactory<
     return this;
   }
 
+  /**
+   * @deprecated Renamed `addControlState` in 1.8.
+   */
   addControlStatePredicate<I extends string>(
     id: I,
-    predicate: CSPredicate<TYPE, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
+    predicate: ControlStatePredicate<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
+  ): any {
+    return this.addControlState(id, predicate);
+  }
+
+  addControlState<I extends string>(
+    id: I,
+    predicate: ControlStatePredicate<MODEL, MUTATIONS, CONTROL_STATES | ToLiteral<I>>
   ): any {
     if (this.controlStatePredicates.some(([_id]) => (id as any) === _id)) {
       throw new Error(
@@ -96,7 +115,7 @@ export class ContainerFactory<
     return this;
   }
 
-  addActions<P extends PackagedActions<CONTROL_STATES, MUTATIONS>>(
+  addActions<P extends ActionDeclarations<CONTROL_STATES, MUTATIONS>>(
     actions: P
   ): any {
     this.originalActions = {};
@@ -147,26 +166,40 @@ export class ContainerFactory<
     return this;
   }
 
-  addTransformation<C extends Transformation<TYPE, CONTROL_STATES>>(transformer: C): any {
+  setRepresentation<C extends Transformation<MODEL, CONTROL_STATES>>(transformer: C): any {
     this.transformer = transformer;
     return this;
   }
 
-  addStaticTransformation<C extends StaticTransformation<TYPE, ACTIONS>>(transformer: C): any {
-    this.staticTransformer = transformer;
-    return this  
+  /**
+   * @deprecated Renamed `setRepresentation` in 1.8.
+   */
+  addTransformation<C extends Transformation<MODEL, CONTROL_STATES>>(transformer: C): any {
+    return this.setRepresentation(transformer);
   }
 
-  addStepReaction(reaction: StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>): any {
+  setStaticRepresentation<C extends StaticTransformation<MODEL, ACTIONS>>(transformer: C): any {
+    this.staticTransformer = transformer;
+    return this
+  }
+
+  /**
+   * @deprecated Renamed `setStaticRepresentation` in 1.8.
+   */
+  addStaticTransformation<C extends StaticTransformation<MODEL, ACTIONS>>(transformer: C): any {
+    return this.setStaticRepresentation(transformer);
+  }
+
+  addStepReaction(reaction: StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>): any {
     this.stepReactions.push(reaction);
     return this;
   }
 
   create(
-    initialValue: TYPE,
+    initialValue: MODEL,
     options?: ContainerOption
-  ): IInstance<
-    TYPE,
+  ): Container<
+    MODEL,
     MUTATIONS,
     CONTROL_STATES,
     ACTIONS,
@@ -179,33 +212,41 @@ export class ContainerFactory<
 
     const instance = new Instance(initialValue, this.stepReactions, this, options)
 
+    // Called, not read, as an action is: an autorun which jumps does not
+    // come to depend on what the reactions which replay the jump read.
+    const restore = (step: Step<MODEL, MUTATIONS, CONTROL_STATES>) => untracked(() => instance.restore(step));
+
     return {
       get stepId() { return instance.stepId },
       get lastAttempt() { return instance.lastAttempt },
       actions: instance.actions,
       controlStates: instance.controlStates,
+      get representation() { return instance.representation },
       representationRef: instance.representationRef,
       compose: instance.compose,
-      rollback: (step) => instance.rollback(step),
-      reset: (state) => instance.reset(state),
+      attempt: instance.attempt,
+      restore,
+      // The same function: rollback is the name restore had before 1.8.
+      rollback: restore,
+      reset: (data) => untracked(() => instance.reset(data)),
     };
   }
 }
 
 function isSyncAction(
-  actionPackage: ActionPackage<any, any>
+  actionPackage: ActionDeclaration<any, any>
 ): actionPackage is SyncAction<any> {
   return typeof actionPackage === "function";
 }
 
 function isConfigurableAction(
-  actionPackage: ActionPackage<any, any>
-): actionPackage is ConfigurableAction<any, any> {
+  actionPackage: ActionDeclaration<any, any>
+): actionPackage is ActionOptions<any, any> {
   return typeof actionPackage === "object";
 }
 
 function isMutationShortcut<M extends Mutation<any, any>>(
-  actionPackage: ActionPackage<any, M>
+  actionPackage: ActionDeclaration<any, M>
 ): actionPackage is MutationName<M> {
   return typeof actionPackage === "string";
 }
@@ -217,17 +258,58 @@ function isMutationShortcut<M extends Mutation<any, any>>(
  * to the model. Report it on the instance so the refusal is not console only.
  */
 function reportUnauthorized(
-  instance: IInstance<any, any, any, any> & SAMLoop,
-  actionName: string
+  instance: Loop,
+  actionName: string,
+  origin?: Origin
 ) {
   instance.discardProposal({
-    code: RejectionCode.unauthorized,
+    code: ReasonCode.unauthorized,
     message: `Unauthorized action ${actionName} at step ${instance.stepId}.`,
     meta: {
       action: actionName,
       controlStates: instance.controlStates.slice(),
     },
-  });
+  }, origin);
+}
+
+/**
+ * An action is presented only if it is allowed in the state it is presented
+ * in. The same check is made when it is called, once it resolved when it is
+ * asynchronous, and when its turn comes when its proposal had to wait: it goes
+ * with the proposal.
+ */
+function toGate(
+  instance: Loop,
+  actionName: string,
+  authPredicate: ((actionContext: ActionContext) => boolean) | undefined,
+  origin?: Origin
+) {
+  const isAllowed = function () {
+    // No action is called from inside the presentation of a proposal.
+    if (instance.refuseIfLocked(origin)) {
+      return false;
+    }
+    if (!authPredicate || authPredicate({ controlStates: instance.controlStates })) {
+      return true;
+    }
+    console.warn(
+        `Unauthorized action ${actionName} at step ${instance.stepId} with control states: ${instance.controlStates}`
+    );
+    reportUnauthorized(instance, actionName, origin);
+    return false;
+  };
+  return { isAllowed, origin: { ...origin, isAllowed } };
+}
+
+/**
+ * An action is called, it is not read. Calling one reads the step id, to tag
+ * its proposal, and the control states, to know whether it is allowed:
+ * whoever calls it from an autorun of MobX must not come to depend on them,
+ * and run again at each step.
+ */
+function unobserved<F extends (...args: any[]) => any>(call: F): F {
+  const unobservedCall = (...args: any[]) => untracked(() => call(...args));
+  return unobservedCall as F;
 }
 
 function toSyncAction<A extends (...args: any[]) => any>(
@@ -235,23 +317,18 @@ function toSyncAction<A extends (...args: any[]) => any>(
   action: A,
   authPredicate?: (actionContext: ActionContext) => boolean
 ) {
-  return function(instance: IInstance<any, any, any, any> & SAMLoop) {
-      return function (...args: Parameters<A>): Proposal<any> | undefined {
+  return function(instance: Loop, origin?: Origin) {
+      return unobserved(function (...args: Parameters<A>): Proposal<any> | undefined {
+          const gate = toGate(instance, name, authPredicate, origin);
           // Check auth
-          if (authPredicate) {
-              if (!authPredicate({ controlStates: instance.controlStates })) {
-              console.warn(
-                  `Unauthorized action ${name} at step ${instance.stepId} with control states: ${instance.controlStates}`
-              );
-              reportUnauthorized(instance, name);
+          if (!gate.isAllowed()) {
               return;
-              }
           }
           const proposal: TaggedProposal = Object.assign(action(...args), {
               stepId: instance.stepId,
           });
-          instance.startStep(proposal);
-      }
+          instance.startStep(proposal, gate.origin);
+      })
   }
 }
 
@@ -265,17 +342,12 @@ function toAsyncAction<A extends (...args: any[]) => any>(
   action: A,
   authPredicate?: (actionContext: ActionContext) => boolean
 ) {
-  return function(instance: IInstance<any, any, any, any> & SAMLoop) {
-      return async function (...args: Parameters<A>): Promise<void> {
+  return function(instance: Loop, origin?: Origin) {
+      return unobserved(async function (...args: Parameters<A>): Promise<void> {
+      const gate = toGate(instance, name, authPredicate, origin);
       // Check auth
-      if (authPredicate) {
-          if (!authPredicate({ controlStates: instance.controlStates })) {
-          console.warn(
-              `Unauthorized action ${name} at step ${instance.stepId} with control states: ${instance.controlStates}`
-          );
-          reportUnauthorized(instance, name);
+      if (!gate.isAllowed()) {
           return;
-          }
       }
       const proposal: TaggedProposal = Object.assign(await action(...args), {
           stepId: instance.stepId,
@@ -283,18 +355,11 @@ function toAsyncAction<A extends (...args: any[]) => any>(
       // Check auth again
       // Maybe the app as reached a step where this action is
       // no more allowed
-  
-      if (authPredicate) {
-          if (!authPredicate({ controlStates: instance.controlStates })) {
-          console.warn(
-              `Unauthorized action ${name} at step ${instance.stepId} with control states: ${instance.controlStates}`
-          );
-          reportUnauthorized(instance, name);
+      if (!gate.isAllowed()) {
           return;
-          }
       }
-      instance.startStep(proposal);
-      };
+      instance.startStep(proposal, gate.origin);
+      });
   }
 }
 
@@ -309,25 +374,23 @@ function toCancelableAsyncAction<A extends (...args: any[]) => any>(
   action: A,
   authPredicate?: (actionContext: ActionContext) => boolean
 ) {
-  return function(instance: IInstance<any, any, any, any> & SAMLoop) {
-      return async function (...args: Parameters<A>): Promise<void> {
+  return function(instance: Loop, origin?: Origin) {
+      return unobserved(async function (...args: Parameters<A>): Promise<void> {
+      const gate = toGate(instance, action.name, authPredicate, origin);
       // Check auth
-      if (authPredicate) {
-          if (!authPredicate({ controlStates: instance.controlStates })) {
-          console.warn(
-              `Unauthorized action ${action.name} at step ${instance.stepId} with control states: ${instance.controlStates}`
-          );
-          reportUnauthorized(instance, action.name);
+      if (!gate.isAllowed()) {
           return;
-          }
       }
       // Preserve the step id during which the action call occured.
       // It will be used to determinate, after the action resolving, if this proposal is still valid.
       const stepId = instance.stepId;
+      // A step id comes back when a step is taken back. The moment does not:
+      // it tells whether anything happened since the call, a return included.
+      const calledAt = instance.moment;
       const proposal: TaggedProposal = Object.assign(await action(...args), {
           stepId,
       });
-      instance.startStep(proposal);
-      };
+      instance.startStep(proposal, { ...gate.origin, calledAt });
+      });
   }
 }

@@ -1,0 +1,305 @@
+// The names of 1.8 and the names they replace. A program written with the old
+// ones keeps working: each old name is the new one, or does what it does.
+import {
+  ActionDeclaration,
+  ActionDeclarations,
+  ActionOptions,
+  Container,
+  ContainerFactory,
+  ControlStatePredicate,
+  IAttempt,
+  IContainerFactory,
+  IInstance,
+  ReasonCode,
+  RejectionCode,
+  createContainer,
+} from "../..";
+import { ActionPackage, ConfigurableAction, PackagedActions } from "../../lib/api/action";
+import { CSPredicate } from "../../lib/api/predicate";
+import { asAccepted, asDiscarded, asRejected, settle } from "./helpers";
+
+// Each old type is the new one: a value of one is a value of the other.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+function same<A, B>(proof: Same<A, B>) {
+  return proof;
+}
+
+type Mutations = { type: "setHP"; payload: number };
+
+beforeEach(function () {
+  jest.spyOn(console, "warn").mockImplementation(() => {});
+  jest.spyOn(console, "info").mockImplementation(() => {});
+});
+
+afterEach(function () {
+  jest.restoreAllMocks();
+});
+
+describe("ReasonCode, was RejectionCode", function () {
+  test("RejectionCode is ReasonCode", function () {
+    expect(RejectionCode).toBe(ReasonCode);
+  });
+
+  test("a reason is given one of its codes", function () {
+    const container = createContainer<{ hp: number }>()
+      .addAcceptor("setHP", { mutator: (data, hp: number) => { data.hp = hp; } })
+      .addActions({
+        setHP: { action: (hp: number) => [{ type: "setHP", payload: hp }], isAllowed: () => false },
+      })
+      .create({ hp: 1 });
+    container.actions.setHP(2);
+    expect(asDiscarded(container.lastAttempt).reason.code).toBe(ReasonCode.unauthorized);
+  });
+});
+
+describe("the types renamed", function () {
+  test("ControlStatePredicate, was CSPredicate", function () {
+    expect(
+      same<ControlStatePredicate<{ hp: number }, Mutations, "ALIVE">, CSPredicate<{ hp: number }, Mutations, "ALIVE">>(true)
+    ).toBe(true);
+  });
+
+  test("ActionDeclarations, ActionDeclaration and ActionOptions, were PackagedActions, ActionPackage and ConfigurableAction", function () {
+    expect(same<ActionDeclarations<"ALIVE", Mutations>, PackagedActions<"ALIVE", Mutations>>(true)).toBe(true);
+    expect(
+      same<ActionDeclaration<{ controlStates: "ALIVE"[] }, Mutations>, ActionPackage<{ controlStates: "ALIVE"[] }, Mutations>>(true)
+    ).toBe(true);
+    expect(
+      same<ActionOptions<{ controlStates: "ALIVE"[] }, Mutations>, ConfigurableAction<{ controlStates: "ALIVE"[] }, Mutations>>(true)
+    ).toBe(true);
+  });
+
+  test("actions declared with the new types are those addActions takes", function () {
+    const options: ActionOptions<{ controlStates: "ALIVE"[] }, Mutations> = {
+      action: (hp: number) => [{ type: "setHP", payload: hp }],
+      isAllowed: ({ controlStates }) => controlStates.includes("ALIVE"),
+    };
+    const isAlive: ControlStatePredicate<{ hp: number }, Mutations, "ALIVE"> = ({ data }) => data.hp > 0;
+    const container = createContainer<{ hp: number }>()
+      .addAcceptor("setHP", { mutator: (data, hp: number) => { data.hp = hp; } })
+      .addControlStatePredicate("ALIVE", isAlive)
+      .addActions({ setHP: options, hurt: "setHP" })
+      .create({ hp: 1 });
+    container.actions.setHP(0);
+    expect(container.controlStates.slice()).toEqual([]);
+    container.actions.setHP(5);
+    expect(asDiscarded(container.lastAttempt).reason.code).toBe(ReasonCode.unauthorized);
+  });
+});
+
+describe("the factory", function () {
+  test("ContainerFactory, was IContainerFactory", function () {
+    expect(
+      same<ContainerFactory<{ hp: number }, Mutations, "ALIVE">, IContainerFactory<{ hp: number }, Mutations, "ALIVE">>(true)
+    ).toBe(true);
+    const factory: IContainerFactory<{ hp: number }> = createContainer<{ hp: number }>();
+    expect(factory).toBeDefined();
+  });
+
+  function hero() {
+    return createContainer<{ hp: number }>()
+      .addAcceptor("setHP", { mutator: (data, hp: number) => { data.hp = hp; } })
+      .addActions({ setHP: "setHP" });
+  }
+
+  test("addControlState, was addControlStatePredicate", function () {
+    // Before addActions: a control state added after it loses the type of the
+    // actions, as addControlStatePredicate always did.
+    const container = createContainer<{ hp: number }>()
+      .addAcceptor("setHP", { mutator: (data, hp: number) => { data.hp = hp; } })
+      .addControlState("ALIVE", ({ data }) => data.hp > 0)
+      .addControlStatePredicate("DEAD", ({ data }) => data.hp <= 0)
+      .addActions({ setHP: "setHP" })
+      .create({ hp: 1 });
+    expect(container.controlStates.slice()).toEqual(["ALIVE"]);
+    container.actions.setHP(0);
+    expect(container.controlStates.slice()).toEqual(["DEAD"]);
+  });
+
+  test("addControlState and addControlStatePredicate declare in the same place", function () {
+    expect(() =>
+      hero()
+        .addControlState("ALIVE", ({ data }) => data.hp > 0)
+        .addControlStatePredicate("ALIVE", ({ data }) => data.hp > 0)
+    ).toThrow("This component has already a control state called ALIVE");
+  });
+
+  test("setRepresentation, was addTransformation", function () {
+    const renamed = hero().setRepresentation(({ data }) => ({ health: data.hp })).create({ hp: 3 });
+    const old = hero().addTransformation(({ data }) => ({ health: data.hp })).create({ hp: 3 });
+    renamed.actions.setHP(4);
+    old.actions.setHP(4);
+    expect(renamed.representationRef.current).toEqual({ health: 4 });
+    expect(old.representationRef.current).toEqual({ health: 4 });
+  });
+
+  test("setStaticRepresentation, was addStaticTransformation", function () {
+    const renamed = hero()
+      .setStaticRepresentation(({ data, actions }) => ({ health: () => data.hp, setHP: actions.setHP }))
+      .create({ hp: 3 });
+    const old = hero()
+      .addStaticTransformation(({ data, actions }) => ({ health: () => data.hp, setHP: actions.setHP }))
+      .create({ hp: 3 });
+    renamed.representationRef.current.setHP(4);
+    old.representationRef.current.setHP(4);
+    expect(renamed.representationRef.current.health()).toBe(4);
+    expect(old.representationRef.current.health()).toBe(4);
+  });
+});
+
+describe("awaited, was awaitAsync", function () {
+  // A counter whose step reaction writes somewhere, and is done when the test says.
+  function counter(options: { awaited?: boolean; awaitAsync?: boolean }) {
+    const writes: Array<() => void> = [];
+    const container = createContainer<{ n: number }>()
+      .addAcceptor("inc", { mutator: (data) => { data.n++; } })
+      .addActions({ inc: "inc" })
+      .addStepReaction({
+        runOnInit: false,
+        do: () => new Promise<void>((done) => { writes.push(done); }),
+        ...options,
+      })
+      .create({ n: 0 });
+    return { container, writes };
+  }
+
+  test.each([
+    ["awaited", { awaited: true }, true],
+    ["awaitAsync", { awaitAsync: true }, true],
+    ["awaited false over awaitAsync true", { awaited: false, awaitAsync: true }, false],
+    ["awaited true over awaitAsync false", { awaited: true, awaitAsync: false }, true],
+  ])("%s", async function (_, options, waits) {
+    const { container, writes } = counter(options);
+    container.actions.inc();
+    container.actions.inc();
+    // An awaited reaction keeps the next step waiting until it is done.
+    expect(container.stepId).toBe(waits ? 1 : 2);
+    writes.forEach((done) => done());
+    await settle();
+    writes.forEach((done) => done());
+    await settle();
+    expect(container.stepId).toBe(2);
+  });
+});
+
+describe("the container", function () {
+  type Hero = { hp: number };
+  function hero() {
+    return createContainer<Hero>()
+      .addAcceptor("setHP", { mutator: (data, hp: number) => { data.hp = hp; } })
+      .addActions({ setHP: "setHP" });
+  }
+
+  test("Container is what create makes, and still an IInstance with IAttempt", function () {
+    const factory = hero();
+    type Mutations = typeof factory.Mutations;
+    type Actions = ReturnType<typeof factory.create>["actions"];
+    const container: Container<Hero, Mutations, never, Actions> = factory.create({ hp: 1 });
+    const old: IInstance<Hero, Mutations, never, Actions> & IAttempt<Actions, Mutations> = factory.create({ hp: 1 });
+    expect(container.representation).toEqual({ hp: 1 });
+    expect(old.representationRef.current).toEqual({ hp: 1 });
+  });
+
+  test.each([
+    ["the model", () => hero().create({ hp: 1 })],
+    ["a representation", () => hero().setRepresentation(({ data }) => ({ health: data.hp })).create({ hp: 1 })],
+    ["a static representation", () => hero().setStaticRepresentation(({ data }) => ({ health: () => data.hp })).create({ hp: 1 })],
+  ])("representation is representationRef.current, for %s", function (_, create) {
+    const container = create();
+    expect(container.representation).toBeDefined();
+    expect(container.representation).toBe(container.representationRef.current);
+    container.actions.setHP(2);
+    expect(container.representation).toBe(container.representationRef.current);
+  });
+
+  test("a step reaction is given the representation", function () {
+    const given: unknown[] = [];
+    const container = hero()
+      .setRepresentation(({ data }) => ({ health: data.hp }))
+      .addStepReaction({ do: ({ representation }) => { given.push(representation); } })
+      .create({ hp: 1 });
+    container.actions.setHP(2);
+    expect(given).toEqual([container.representation, container.representation]);
+    expect(given[1]).toBe(container.representation);
+  });
+
+  test("rollback is restore", function () {
+    const container = hero().create({ hp: 1 });
+    expect(container.rollback).toBe(container.restore);
+  });
+
+  test.each(["restore", "rollback"] as const)("%s jumps to a step", function (jump) {
+    const steps: Array<{ data: Hero; delta: any }> = [];
+    const container = hero()
+      .addStepReaction({ do: ({ data, delta }) => { steps.push({ data: { hp: data.hp }, delta: { ...delta, controlStates: delta.controlStates.slice() } }); } })
+      .create({ hp: 1 });
+    container.actions.setHP(2);
+    container.actions.setHP(3);
+    container[jump](steps[1]);
+    expect(container.representation).toEqual({ hp: 2 });
+    expect(container.stepId).toBe(1);
+  });
+
+  test("reset is given the data the container was created with", function () {
+    const container = hero().create({ hp: 1 });
+    container.actions.setHP(2);
+    container.reset({ hp: 1 });
+    expect(container.representation).toEqual({ hp: 1 });
+    expect(container.stepId).toBe(0);
+  });
+});
+
+describe("stepId, was attemptedAt", function () {
+  function hero() {
+    return createContainer<{ hp: number }>()
+      .addAcceptor("setHP", {
+        condition: (_, hp: number) => hp >= 0,
+        mutator: (data, hp: number) => { data.hp = hp; },
+      })
+      .addActions({
+        setHP: "setHP",
+        never: { action: (hp: number) => [{ type: "setHP", payload: hp }], isAllowed: () => false },
+      });
+  }
+
+  test("an accepted attempt", async function () {
+    const container = hero().create({ hp: 1 });
+    container.actions.setHP(2);
+    const attempt = asAccepted(await container.attempt.setHP(3));
+    expect(attempt.stepId).toBe(1);
+    expect(attempt.attemptedAt).toBe(1);
+    expect(asAccepted(container.lastAttempt).stepId).toBe(1);
+  });
+
+  test("a rejected attempt", async function () {
+    const container = hero().create({ hp: 1 });
+    const attempt = asRejected(await container.attempt.setHP(-1));
+    expect(attempt.stepId).toBe(0);
+    expect(attempt.attemptedAt).toBe(0);
+  });
+
+  test("a discarded attempt", async function () {
+    const container = hero().create({ hp: 1 });
+    const attempt = asDiscarded(await container.attempt.never(2));
+    expect(attempt.stepId).toBe(0);
+    expect(attempt.attemptedAt).toBe(0);
+  });
+
+  test("a step taken back keeps both", async function () {
+    const container = hero()
+      .addStepReaction({ runOnInit: false, awaited: true, do: () => Promise.reject(new Error("down")) })
+      .create({ hp: 1 });
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    const attempt = asAccepted(await container.attempt.setHP(2));
+    expect(attempt.undone).toBe(true);
+    expect(attempt.stepId).toBe(0);
+    expect(attempt.attemptedAt).toBe(0);
+  });
+
+  test("both are plain fields: a copy has them", async function () {
+    const container = hero().create({ hp: 1 });
+    const attempt = await container.attempt.setHP(2);
+    expect({ ...attempt }).toEqual(attempt);
+    expect(JSON.parse(JSON.stringify(attempt))).toMatchObject({ stepId: 0, attemptedAt: 0 });
+  });
+});
