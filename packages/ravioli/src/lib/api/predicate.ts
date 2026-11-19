@@ -23,7 +23,7 @@ export type ControlStatePredicate<
 >;
 
 /**
- * @deprecated Renamed `ControlStatePredicate` in 1.9. The same type.
+ * @deprecated Renamed `ControlStatePredicate` in 1.8. The same type.
  */
 export type CSPredicate<
   MODEL,

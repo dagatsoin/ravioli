@@ -28,7 +28,7 @@ export type StepReaction<
    */
   awaited?: boolean;
   /**
-   * @deprecated Renamed `awaited` in 1.9. It does the same; when both are
+   * @deprecated Renamed `awaited` in 1.8. It does the same; when both are
    * given, `awaited` counts.
    */
   awaitAsync?: boolean;

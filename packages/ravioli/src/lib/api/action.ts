@@ -30,7 +30,7 @@ export type ActionDeclarations<
 };
 
 /**
- * @deprecated Renamed `ActionDeclarations` in 1.9. The same type.
+ * @deprecated Renamed `ActionDeclarations` in 1.8. The same type.
  */
 export type PackagedActions<
   CONTROL_STATES,
@@ -71,7 +71,7 @@ export type ActionOptions<
 };
 
 /**
- * @deprecated Renamed `ActionOptions` in 1.9. The same type.
+ * @deprecated Renamed `ActionOptions` in 1.8. The same type.
  */
 export type ConfigurableAction<
   ACTION_CONTEXT extends ActionContext,
@@ -90,7 +90,7 @@ export type ActionDeclaration<
   | MutationName<MUTATIONS>; // A mutation name to bind it directly
 
 /**
- * @deprecated Renamed `ActionDeclaration` in 1.9. The same type.
+ * @deprecated Renamed `ActionDeclaration` in 1.8. The same type.
  */
 export type ActionPackage<
   ACTION_CONTEXT extends ActionContext,

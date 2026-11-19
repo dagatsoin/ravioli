@@ -93,7 +93,7 @@ export class Factory<
   }
 
   /**
-   * @deprecated Renamed `addControlState` in 1.9.
+   * @deprecated Renamed `addControlState` in 1.8.
    */
   addControlStatePredicate<I extends string>(
     id: I,
@@ -172,7 +172,7 @@ export class Factory<
   }
 
   /**
-   * @deprecated Renamed `setRepresentation` in 1.9.
+   * @deprecated Renamed `setRepresentation` in 1.8.
    */
   addTransformation<C extends Transformation<MODEL, CONTROL_STATES>>(transformer: C): any {
     return this.setRepresentation(transformer);
@@ -184,7 +184,7 @@ export class Factory<
   }
 
   /**
-   * @deprecated Renamed `setStaticRepresentation` in 1.9.
+   * @deprecated Renamed `setStaticRepresentation` in 1.8.
    */
   addStaticTransformation<C extends StaticTransformation<MODEL, ACTIONS>>(transformer: C): any {
     return this.setStaticRepresentation(transformer);
@@ -226,7 +226,7 @@ export class Factory<
       compose: instance.compose,
       attempt: instance.attempt,
       restore,
-      // The same function: rollback is the name restore had before 1.9.
+      // The same function: rollback is the name restore had before 1.8.
       rollback: restore,
       reset: (data) => untracked(() => instance.reset(data)),
     };
