@@ -65,11 +65,11 @@ const user = createContainer<{ name: string }>()
     })
     // Map an action will be trigger the mutation (with the same argument)
     .addActions({ rename: "setName" })
-    // Create an instance
+    // Create a container
     .create({ name: "Fraktos" });
 
 // You can use it with MobX
-autorun(() => console.log(user.representationRef.current.name))
+autorun(() => console.log(user.representation.name))
 
 // Trigger a "rename" action
 user.actions.rename({ name: "Fraktar" });
@@ -81,6 +81,28 @@ user.actions.rename({ name: "Fraktar" });
 # API
 
 API documentation is auto generated and available in a [separate doc](https://github.com/dagatsoin/ravioli/tree/master/doc)
+
+## Renamed in 1.9
+
+The old names still work: each one is marked `@deprecated` and does what the new one does.
+
+| Before 1.9 | Since 1.9 |
+|---|---|
+| `container.representationRef.current` | `container.representation` |
+| `container.rollback(step)` | `container.restore(step)` |
+| `container.reset(state)` | `container.reset(data)` (the parameter only) |
+| `attempt.attemptedAt` | `attempt.stepId` (both are written) |
+| `IInstance` and `IAttempt` | `Container` |
+| `addControlStatePredicate` | `addControlState` |
+| `addTransformation` | `setRepresentation` |
+| `addStaticTransformation` | `setStaticRepresentation` |
+| `awaitAsync` (step reaction) | `awaited` |
+| `IContainerFactory` | `ContainerFactory` |
+| `RejectionCode` | `ReasonCode` |
+| `CSPredicate` | `ControlStatePredicate` |
+| `PackagedActions`, `ActionPackage`, `ConfigurableAction` | `ActionDeclarations`, `ActionDeclaration`, `ActionOptions` |
+
+`StepContext`, `ActionIntent`, `RepresentationPredicate`, `MapToProposal` and `ToUnion` are marked `@deprecated` with no replacement: nothing uses them. The generic parameters are named `MODEL`, `MUTATIONS` and `CONTROL_STATES` everywhere.
 
 # Examples
 
@@ -282,6 +304,11 @@ A control state predicate is a pure function of the model.
 ```ts
 const isAlive = data => data.health > 0
 ```
+It is declared with `addControlState`, and given the data, the accepted mutations and the previous control states:
+```ts
+createContainer<{ health: number }>()
+  .addControlState('ALIVE', ({ data }) => data.health > 0)
+```
 The component state exposes the current control states of the model in an array. `myApp.state.controlStates // ['STARTED', 'RUNNING_ONLINE', 'FETCHING']`
 
 ## Action
@@ -367,14 +394,14 @@ by turn game logic, or basic AI. For exemple:
 })
 ```
 
-### Async Step Reactions with `awaitAsync`
+### Async Step Reactions with `awaited`
 
-When step reactions perform async operations (like database persistence), they can complete out of order if latency varies. Use `awaitAsync: true` to ensure async operations complete sequentially:
+When step reactions perform async operations (like database persistence), they can complete out of order if latency varies. Use `awaited: true` to ensure async operations complete sequentially:
 
 ```ts
 .addStepReaction({
   debugName: 'persist',
-  awaitAsync: true,  // Wait for this reaction before allowing next step
+  awaited: true,  // Wait for this reaction before allowing next step
   runOnInit: false,
   do: async ({ data }) => {
     await repository.save(data.id, data.count);
@@ -383,15 +410,15 @@ When step reactions perform async operations (like database persistence), they c
 ```
 
 **How it works:**
-- With `awaitAsync: true`, the library awaits the `do()` promise before proceeding
+- With `awaited: true`, the library awaits the `do()` promise before proceeding
 - Actions called during an async NAP wait in a queue and are processed after completion
 - Each action is still processed in its own step (stepId increments for each), in the order it was called
 - What the reactions of the step propose goes first, composed in one step, then the actions which waited
 - An action which waited is checked again when its turn comes: if it is not allowed anymore, it is discarded as `UNAUTHORIZED`
 - Saves complete in order: step 1 finishes before step 2 starts
-- `rollback` and `reset` are refused while the container is busy with a step: while its reactions run, and while the queue is being emptied
+- `restore` and `reset` are refused while the container is busy with a step: while its reactions run, and while the queue is being emptied
 
-**Without `awaitAsync` (race condition):**
+**Without `awaited` (race condition):**
 ```
 Action 1 → save(1) starts [SLOW: 1000ms]
 Action 2 → save(2) starts [FAST: 5ms]
@@ -399,7 +426,7 @@ save(2) completes → DB=2 ✓
 save(1) completes → DB=1 ✗ OVERWRITES!
 ```
 
-**With `awaitAsync: true` (sequential):**
+**With `awaited: true` (sequential):**
 ```
 Action 1 → save(1) starts, Action 2 and Action 3 WAIT
 save(1) completes → DB=1 ✓
@@ -409,7 +436,7 @@ Action 3 processed → save(3) starts
 save(3) completes → DB=3 ✓
 ```
 
-A cancelable action is the exception. It is accepted only if nothing happened since it was called: a step, a step which was taken back, a rollback or a reset cancels it, in the queue as anywhere else.
+A cancelable action is the exception. It is accepted only if nothing happened since it was called: a step, a step which was taken back, a restore or a reset cancels it, in the queue as anywhere else.
 
 #### Who presents a proposal
 
@@ -420,11 +447,11 @@ In SAM a proposal is presented between two steps, by the view or by a step react
 - `attempt` resolves `discarded` with that reason. `lastAttempt` holds it for an instant only: the proposal which is being presented writes its own outcome right after, once its control states are computed too. So does a step which is taken back, or which stands because it can not be. It stays when that presentation throws
 - A cancelable action is therefore presented against the very state it was checked in: no step can be taken between that check and its mutators
 - 1.7.0 let a presentation run inside another: the second step was taken in the middle of the first. 1.8 refuses it
-- The container is locked the same way while a `rollback` or a `reset` puts its state in the model: what is sent then, by whoever listens to the model with `observe` or `intercept` or by a control state predicate, is discarded with `STEP_LOCKED`, and a cancelable action can not slip in around the jump. The step reactions which replay the jump are not locked: they are next actions and propose as usual. An `autorun` which acts once the state is in goes after them
+- The container is locked the same way while a `restore` or a `reset` puts its state in the model: what is sent then, by whoever listens to the model with `observe` or `intercept` or by a control state predicate, is discarded with `STEP_LOCKED`, and a cancelable action can not slip in around the jump. The step reactions which replay the jump are not locked: they are next actions and propose as usual. An `autorun` which acts once the state is in goes after them
 - And while a step is taken back because its save failed: what is sent by whoever listens to the model or to the control states as they come back is discarded with `STEP_LOCKED`, `"A step is being taken back."`. An `autorun` which acts once the model is back is not: what it sends is presented once the step is over
 - A proposal which arrives after `present` but before the step reactions of the step, from an `autorun` or a `reaction` on the representation for example, is not refused: it is presented after the next-action predicates of that step. The NAP always goes before any other action. In 1.7.0 it was taken at once, ahead of them
 - An action built on a representation which is no longer the right one when it is presented is judged by the acceptors against the current model. If it must not be, it declares itself `isCancelable`
-- Calling an action is not reading. An `autorun` which calls one depends on what it reads itself, not on the step id nor on the control states the call reads. One which reads again the data its own action changes runs again each time, as any `autorun` which writes what it reads. The same for `rollback` and `reset`: an `autorun` which calls one does not depend on what the step reactions which replay it read
+- Calling an action is not reading. An `autorun` which calls one depends on what it reads itself, not on the step id nor on the control states the call reads. One which reads again the data its own action changes runs again each time, as any `autorun` which writes what it reads. The same for `restore` and `reset`: an `autorun` which calls one does not depend on what the step reactions which replay it read
 
 #### What an observer sees meanwhile
 
@@ -435,7 +462,7 @@ In SAM a proposal is presented between two steps, by the view or by a step react
 
 #### When the save fails
 
-If an `awaitAsync` reaction rejects, or throws, the step is **taken back**: the model, the `stepId` and the control states are again what they were before the step. The model is never left ahead of a save which did not happen.
+If an `awaited` reaction rejects, or throws, the step is **taken back**: the model, the `stepId` and the control states are again what they were before the step. The model is never left ahead of a save which did not happen.
 
 ```
 Action 1 → save(1) starts, Action 2 WAITS
@@ -473,10 +500,10 @@ A container takes back every write made in its model during the step, whoever ma
 
 What it does not do:
 - **A reaction which already ran is not undone.** If a mail left before the save failed, it left
-- **A save which succeeded is not undone either.** With two `awaitAsync` reactions, if the save succeeds and the next one fails, the model goes back and the save stays. The reaction which persists the step must be the last `awaitAsync` one, or the only one
-- A reaction which is not `awaitAsync` and throws does not undo the step: the step stands, `settled` is false, its consequences did not happen
-- A `rollback` or a `reset` is not a step: it is not taken back when the save which follows it fails
-- An `awaitAsync` reaction which never ends keeps the container closed: there is no time limit
+- **A save which succeeded is not undone either.** With two `awaited` reactions, if the save succeeds and the next one fails, the model goes back and the save stays. The reaction which persists the step must be the last `awaited` one, or the only one
+- A reaction which is not `awaited` and throws does not undo the step: the step stands, `settled` is false, its consequences did not happen
+- A `restore` or a `reset` is not a step: it is not taken back when the save which follows it fails
+- An `awaited` reaction which never ends keeps the container closed: there is no time limit
 
 #### Knowing what became of an action
 
@@ -506,9 +533,9 @@ if (attempt.status === 'rejected') {
 - You are told of your own step only. The failure of a reaction of another step is not yours
 - A refusal is an outcome, the promise does not reject for it. It rejects when the action, an acceptor or a control state predicate throws
 - The actions themselves stay fire and forget and still return nothing
-- `attempt` is on the container `create()` returns. Its type is `IAttempt`, apart from `IInstance`: an object written by hand as an `IInstance` does not need it
-- Work which must be done before the next step belongs in an `awaitAsync` reaction: when the outcome reaches you, the container may already be at the next action of the queue
-- Do not `await` it inside an `awaitAsync` reaction of the same container: the step would wait for an attempt which waits for the step. Two containers which each await an attempt on the other from an `awaitAsync` reaction wait for ever the same way, and nothing cuts it
+- `attempt` is on the container `create()` returns, a `Container`. An object written by hand as an `IInstance`, the type of 1.8 and before, does not need it
+- Work which must be done before the next step belongs in an `awaited` reaction: when the outcome reaches you, the container may already be at the next action of the queue
+- Do not `await` it inside an `awaited` reaction of the same container: the step would wait for an attempt which waits for the step. Two containers which each await an attempt on the other from an `awaited` reaction wait for ever the same way, and nothing cuts it
 - A reaction which keeps a chain of steps going without ever letting it end is cut after 50 steps in a row. What it proposed through `attempt` is discarded as `REACTIONS_DID_NOT_SETTLE`. Through its `actions`, the last step stays `accepted`, with `settled: false` and that reason
 - A reaction which proposes later, after a timer for example, starts a new chain each time: a countdown or a poll is not cut
 
@@ -519,7 +546,7 @@ A step reaction receives what the step did to the model data, as JSON patches ([
 ```ts
 .addStepReaction({
   debugName: 'journal',
-  awaitAsync: true,
+  awaited: true,
   runOnInit: false,
   do: async ({ delta }) => {
     await journal.write({
@@ -546,11 +573,11 @@ A step reaction receives what the step did to the model data, as JSON patches ([
 - They are written from the record the step is undone from when the save fails
 - They are written when they are first read: a step whose patches nobody reads copies nothing, and a container without any reaction is not even listened to
 - They are not listed in the delta: `JSON.stringify(delta)`, `{ ...delta }` and a comparison of two deltas see the delta as it was in 1.7. Read them by name
-- The delta a step reaction is given is a `StepDelta`: the `Delta` of 1.7, which the `Step` given to `rollback` still holds, plus `patches` and `inversePatches`. A test which calls the `do` of a reaction with a delta built by hand gives it `patches: []` and `inversePatches: []`
+- The delta a step reaction is given is a `StepDelta`: the `Delta` of 1.7, which the `Step` given to `restore` still holds, plus `patches` and `inversePatches`. A test which calls the `do` of a reaction with a delta built by hand gives it `patches: []` and `inversePatches: []`
 - A 1.7 program which writes its own `delta.patches` for the reaction which follows still can: what it wrote is what is read from then on, and it is listed in the delta as any field it adds
-- **Read them while the reactions of the step run.** An `awaitAsync` reaction can read them after it waited. A reaction which is not awaited reads them before it waits on anything: once the step is over the model has moved on, and patches nobody read until then can not be written anymore. Reading them then throws. Those which were read stay what they are
+- **Read them while the reactions of the step run.** An `awaited` reaction can read them after it waited. A reaction which is not awaited reads them before it waits on anything: once the step is over the model has moved on, and patches nobody read until then can not be written anymore. Reading them then throws. Those which were read stay what they are
 - **They are not read while the model holds something MobX does not observe**: a `Date`, an object which is not observable, a field MobX was not told of, an object used as the key of a `Map` (the list given for a save which fails, above). A write in it would be missing from the journal and nothing would say so: reading the patches of a step throws instead, as long as the model holds one. The error names the first one and where it is, as the reason of a step which stands does. The same when a listener which was there before the container made it hear two writes in the wrong order
-- **A `rollback` is not a step, and its patches are not what it did to the model.** Its reactions are given the delta of the step it goes back to. When the history kept the very delta a reaction was given, its patches are those of that step, if they were read then; reading them throws if nobody did. A copy of the delta (`{ ...delta }`, a JSON copy) has none: `[]`. Either way a journal which appends them does not replay to the model: after a `rollback` or a `reset`, start the journal again from `jsonCopy(data)`
+- **A `restore` is not a step, and its patches are not what it did to the model.** Its reactions are given the delta of the step it goes back to. When the history kept the very delta a reaction was given, its patches are those of that step, if they were read then; reading them throws if nobody did. A copy of the delta (`{ ...delta }`, a JSON copy) has none: `[]`. Either way a journal which appends them does not replay to the model: after a `restore` or a `reset`, start the journal again from `jsonCopy(data)`
 
 **Replaying a journal:**
 
@@ -607,7 +634,7 @@ With `initialStepId`, you can use request-scoped containers:
 - Fresh container per request (simpler, no lifecycle management)
 - No memory growth - containers are garbage collected after request
 - Server restarts don't affect temporal logic (stepId hydrated from DB)
-- Combine with `awaitAsync` to persist stepId with each action
+- Combine with `awaited` to persist stepId with each action
 
 **Example: Request-scoped server pattern:**
 
@@ -632,7 +659,7 @@ async function handleRequest(counterId: string) {
   counter.actions.increment();
   // NAP persists count AND stepId to DB
 
-  return counter.representationRef.current;
+  return counter.representation;
 }
 ```
 
@@ -686,6 +713,15 @@ const transformerHTML = ({data}) => `
   `;
 ```
 
+A container is given its representation with `setRepresentation`. It is derived again after each step, and read as `container.representation`:
+```ts
+const player = createContainer<{ name: string, inventory: { id: string }[] }>()
+  .setRepresentation(({ data }) => ({ name: data.name, loot: data.inventory }))
+  .create({ name: "Fraktar", inventory: [] });
+
+player.representation.loot // []
+```
+
 ### Static representation
 Representation is computed at each step. It could be expensive in some case. Plus, transformation does not support function as a result.
 
@@ -699,7 +735,7 @@ Here is how to solve this:
 const container = createContainer<{ hp: number }>()
   .addAcceptor("setHealth", { mutator: (data, hp: number) => data.hp = hp})
   .addActions({setHealth: "setHealth"})
-  .addStaticTransformation(({data, actions}) => {
+  .setStaticRepresentation(({data, actions}) => {
       nbOfComputation++
       return {
           useHealth: () => data.hp
@@ -724,7 +760,7 @@ Each component is instantiated with a default representation which is an exact s
 
 ```ts
 const container = createContainer<{ hp: number }>().create({ hp: 3 });
-console.log(container.representationRef.current.hp) // 3
+console.log(container.representation.hp) // 3
 ```
 
 # JSON-Based Container Configuration
@@ -815,7 +851,7 @@ const player2 = playerFactory.create({ hp: 50 });
 
 // Use them like any Ravioli container
 player1.actions.damage({ amount: 30 });
-console.log(player1.representationRef.current.hp); // 0 (damaged, then auto-healed to 100)
+console.log(player1.representation.hp); // 0 (damaged, then auto-healed to 100)
 ```
 
 ## Registry API
@@ -825,8 +861,8 @@ console.log(player1.representationRef.current.hp); // 0 (damaged, then auto-heal
 ```ts
 // Register components with unique names
 registerAcceptor(name: string, acceptor: Acceptor): void
-registerControlStatePredicate(name: string, predicate: CSPredicate): void
-registerAction(name: string, action: ActionPackage): void
+registerControlStatePredicate(name: string, predicate: ControlStatePredicate): void
+registerAction(name: string, action: ActionDeclaration): void
 registerStepReaction(name: string, reaction: StepReaction): void
 
 // Clear all registered components (useful for testing)
@@ -839,8 +875,8 @@ clearRegistry(): void
 // Retrieve registered components by name
 // All throw errors if component not found
 getAcceptor(name: string): Acceptor
-getControlStatePredicate(name: string): CSPredicate
-getAction(name: string): ActionPackage
+getControlStatePredicate(name: string): ControlStatePredicate
+getAction(name: string): ActionDeclaration
 getStepReaction(name: string): StepReaction
 ```
 
@@ -934,14 +970,14 @@ const hero = characterFactory.create({
 });
 
 hero.actions.takeDamage({ amount: 50 });
-console.log(hero.representationRef.current.hp); // 50
+console.log(hero.representation.hp); // 50
 
 hero.actions.takeDamage({ amount: 30 });
 // HP drops to 20 (< 30%), auto-heal triggers, HP becomes 30
-console.log(hero.representationRef.current.hp); // 30
+console.log(hero.representation.hp); // 30
 
 hero.actions.pickupItem({ item: 'sword' });
-console.log(hero.representationRef.current.inventory); // ['sword']
+console.log(hero.representation.inventory); // ['sword']
 ```
 
 ## Benefits
