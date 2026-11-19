@@ -11,7 +11,7 @@ import { IProposalQueue, WaitingProposal, createNAPProposalBuffer, createProposa
 import { Patch } from "./api/patch";
 import { IStepRecorder, StepPatches, createStepRecorder } from "./stepRecorder";
 import { AttemptCall, Compose } from "./api/composer";
-import { Attempt, Reason, Rejection, RejectionCode, toReason } from "./api/rejection";
+import { Attempt, Reason, Rejection, ReasonCode, toReason } from "./api/rejection";
 
 export class Instance<
     MODEL,
@@ -308,7 +308,7 @@ export class Instance<
       return false;
     }
     console.info(`[RAVIOLI] Tried to present a proposal while it is locked. ${message}`);
-    this.discardProposal({ code: RejectionCode.stepLocked, message }, origin);
+    this.discardProposal({ code: ReasonCode.stepLocked, message }, origin);
     return true;
   }
 
@@ -381,7 +381,7 @@ export class Instance<
         proposal
       );
       this.discardProposal({
-        code: RejectionCode.staleProposal,
+        code: ReasonCode.staleProposal,
         // A cancelable action can be at the very step id it was called at,
         // in another story.
         message: proposal.stepId === attemptedAt
@@ -839,7 +839,7 @@ export class Instance<
 
     if (refused === undefined) {
       this.reportUnsettled(pass, {
-        code: RejectionCode.stepNotUndone,
+        code: ReasonCode.stepNotUndone,
         message: `An awaited reaction failed and the step ${stepId + 1} could not be taken back: ${toUnsettledReason(failure).message}.`,
         meta: { reason, error: failure },
       });
@@ -856,7 +856,7 @@ export class Instance<
     for (let waiting = refused.shift(); waiting !== undefined; waiting = refused.shift()) {
       const { origin } = waiting;
       this.quietly(() => this.discardProposal({
-        code: RejectionCode.precedingStepUndone,
+        code: ReasonCode.precedingStepUndone,
         message: `The step ${stepId + 1} was undone: what waited behind it was not presented.`,
         meta: { stepId: stepId + 1, reason },
       }, origin));
@@ -975,7 +975,7 @@ export class Instance<
         rejected.push({
           mutation,
           reason: {
-            code: RejectionCode.unknownAcceptor,
+            code: ReasonCode.unknownAcceptor,
             message: `No acceptor is bound to "${type}".`,
           },
         });
@@ -1127,7 +1127,7 @@ const MAX_NAP_CASCADE = 50;
 
 function toRunawayReason(): Reason {
   return {
-    code: RejectionCode.reactionsDidNotSettle,
+    code: ReasonCode.reactionsDidNotSettle,
     message: `The step reactions did not settle after ${MAX_NAP_CASCADE} steps.`,
     meta: { steps: MAX_NAP_CASCADE },
   };
@@ -1148,7 +1148,7 @@ function isSameList<T>(one: T[], other: T[]): boolean {
 
 function toUnsettledReason(error: unknown): Reason {
   return {
-    code: RejectionCode.reactionThrew,
+    code: ReasonCode.reactionThrew,
     message: error instanceof Error ? error.message : String(error),
     meta: { error },
   };

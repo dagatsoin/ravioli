@@ -1,6 +1,6 @@
 /**
  * Why a mutation, or a whole proposal, was not applied to the model.
- * `code` is free. Use one of the built in `RejectionCode` or your own.
+ * `code` is free. Use one of the built in `ReasonCode` or your own.
  */
 export type Reason = {
   code: string;
@@ -17,10 +17,11 @@ export type Rejection<MUTATIONS> = {
 };
 
 /**
- * The built in rejection codes.
+ * The built in codes of a `Reason`: why a mutation was rejected, a proposal
+ * discarded, or the reactions of a step did not settle.
  * An acceptor condition can return any other code of your own.
  */
-export const RejectionCode = {
+export const ReasonCode = {
   /** The acceptor condition returned false. */
   conditionFailed: "CONDITION_FAILED",
   /** No acceptor is bound to this mutation type. */
@@ -51,6 +52,12 @@ export const RejectionCode = {
   /** The proposal waited behind a step which was undone. It was not presented. */
   precedingStepUndone: "PRECEDING_STEP_UNDONE",
 } as const;
+
+/**
+ * @deprecated Renamed `ReasonCode` in 1.9: the codes are those of a `Reason`,
+ * which a rejection is not the only one to give. The same object.
+ */
+export const RejectionCode = ReasonCode;
 
 /**
  * The outcome of a step attempt.
@@ -108,13 +115,13 @@ export type Attempt<MUTATIONS> =
  */
 export function toReason(verdict: boolean | Reason): Reason | undefined {
   if (verdict === false) {
-    return { code: RejectionCode.conditionFailed };
+    return { code: ReasonCode.conditionFailed };
   }
   // A condition can return a reason instead of false to explain its refusal.
   if (typeof verdict === "object" && verdict !== null) {
     return typeof verdict.code === "string"
       ? verdict
-      : { ...verdict, code: RejectionCode.conditionFailed };
+      : { ...verdict, code: ReasonCode.conditionFailed };
   }
   return undefined;
 }

@@ -23,7 +23,7 @@ import { Origin } from "./origin";
 import { Instance } from "./instance"
 import { StepReaction } from "./api/stepReaction";
 import { StaticTransformation, Transformation } from "./api/transformer";
-import { RejectionCode } from "./api/rejection";
+import { ReasonCode } from "./api/rejection";
 import { validateControlStatePredicates } from "./controlState";
 
 export interface ContainerOption {
@@ -227,7 +227,7 @@ function reportUnauthorized(
   origin?: Origin
 ) {
   instance.discardProposal({
-    code: RejectionCode.unauthorized,
+    code: ReasonCode.unauthorized,
     message: `Unauthorized action ${actionName} at step ${instance.stepId}.`,
     meta: {
       action: actionName,

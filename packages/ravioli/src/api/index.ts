@@ -207,7 +207,7 @@ export type { Delta, Proposal, Step, StepDelta, TaggedProposal } from '../lib/ap
 
 // Rejection types
 export type { Attempt, Reason, Rejection } from '../lib/api/rejection';
-export { RejectionCode } from '../lib/api/rejection';
+export { ReasonCode, RejectionCode } from '../lib/api/rejection';
 
 
 // The patches of a step, and what reads them
