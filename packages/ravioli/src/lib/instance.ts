@@ -231,6 +231,9 @@ export class Instance<
         // never resolve.
         .filter((name) => name !== "then")
         .forEach((name) => {
+          // The action the container was created with, as on `actions`: the
+          // factory can be given another one under that name later.
+          const action = this.factory.wrapedActions[name];
           // Defined, not assigned: an action can be called `name` or
           // `length`, which a function has already and does not let be
           // written.
@@ -239,7 +242,7 @@ export class Instance<
             configurable: true,
             writable: true,
             value: (...args: any[]) =>
-              this.ask((origin) => this.factory.wrapedActions[name](this, origin)(...args)),
+              this.ask((origin) => action(this, origin)(...args)),
           });
         });
       return attempt as AttemptCall<ACTIONS, MUTATIONS>;

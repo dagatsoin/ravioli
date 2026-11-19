@@ -1356,6 +1356,33 @@ describe("an action which is called as something every function has", function (
   });
 });
 
+describe("an action given to the factory once a container was created", function () {
+  it("should be attempted as the container calls it: the one it was created with", async function () {
+    const factory = createContainer<{ log: string[] }>()
+      .addAcceptor("write", {
+        mutator: (data, line: string) => {
+          data.log.push(line);
+        },
+      })
+      .addActions({ shout: () => [{ type: "write", payload: "old shout" }] });
+    const Fraktar = factory.create({ log: [] });
+    // The factory is one object: what it is given later is given to it.
+    factory.addActions({
+      shout: () => [{ type: "write", payload: "new shout" }],
+      whisper: () => [{ type: "write", payload: "whisper" }],
+    });
+
+    Fraktar.actions.shout();
+    await Fraktar.attempt.shout();
+
+    expect(Fraktar.representationRef.current.log).toEqual([
+      "old shout",
+      "old shout",
+    ]);
+    expect(Object.keys(Fraktar.attempt)).toEqual(Object.keys(Fraktar.actions));
+  });
+});
+
 describe("an autorun which asks what becomes of an action", function () {
   /**
    * A hero somebody watches, and who is given a sword each time his health
