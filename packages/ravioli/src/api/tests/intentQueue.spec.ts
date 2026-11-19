@@ -2267,6 +2267,76 @@ describe("an action called while a proposal is presented", function () {
     expect(asAccepted(Fraktar.lastAttempt).attemptedAt).toBe(0);
   });
 
+  it("should leave the last attempt to the proposal which is presented, when a control state predicate calls it", function () {
+    let isHit = false;
+    const Fraktar = createDrinker({
+      predicate: () => isHit && Fraktar.actions.drink(),
+    });
+
+    isHit = true;
+    Fraktar.actions.hit(8);
+
+    // The predicates run once the step is accepted: the potion is refused
+    // after the blow is, and the blow has the last word all the same.
+    expect(asAccepted(Fraktar.lastAttempt).attemptedAt).toBe(0);
+    expect(Fraktar.controlStates).toEqual(["IS_WEAK"]);
+  });
+
+  it("should leave the last attempt to the proposal which is presented, when who listens to the control states calls it", function () {
+    const Fraktar = createDrinker();
+    const dispose = observe(Fraktar.controlStates, () => {
+      Fraktar.actions.drink();
+    });
+
+    Fraktar.actions.hit(8);
+
+    expect(asAccepted(Fraktar.lastAttempt).attemptedAt).toBe(0);
+    expect(Fraktar.representationRef.current.potions).toBe(3);
+    dispose();
+  });
+
+  it("should leave the last attempt to say the step did not settle, when a reaction of it throws", async function () {
+    let isHit = false;
+    const Fraktar = createContainer<Hero>()
+      .addAcceptor("addHP", {
+        mutator: (data, hp: number) => {
+          data.hp += hp;
+        },
+      })
+      .addAcceptor("drink", {
+        mutator: (data) => {
+          data.potions--;
+        },
+      })
+      .addControlStatePredicate("IS_WEAK", ({ data }) => {
+        if (isHit) {
+          Fraktar.actions.drink();
+        }
+        return data.hp < 5;
+      })
+      .addActions({
+        hit: (hp: number) => [{ type: "addHP", payload: -hp }],
+        drink: "drink",
+      })
+      .addStepReaction({
+        runOnInit: false,
+        do: () => {
+          throw new Error("The bard fell silent.");
+        },
+      })
+      .create({ hp: 10, potions: 3, log: [] });
+
+    isHit = true;
+    const outcome = Fraktar.attempt.hit(8);
+    await outcome;
+
+    const attempt = asAccepted(Fraktar.lastAttempt);
+    expect(attempt.attemptedAt).toBe(0);
+    expect(attempt.settled).toBe(false);
+    expect(attempt.reason?.code).toBe(RejectionCode.reactionThrew);
+    expect(attempt).toEqual(await outcome);
+  });
+
   it("should not be presented later either when it takes a while", async function () {
     const steps: string[][] = [];
     const Fraktar = createDrinker(

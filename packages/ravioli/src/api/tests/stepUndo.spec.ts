@@ -1545,6 +1545,35 @@ describe("an action sent while the step is taken back", function () {
       inventory: ["shield"],
     });
   });
+
+  it("should leave the last attempt to say the step stands, when it can not be taken back", async function () {
+    const writes: Write[] = [];
+    const Fraktar = createAdventurer({ hp: 10, inventory: ["sword"] }, writes);
+    const hero = Fraktar.representationRef.current;
+    // Who listens to the inventory asks for an adventure each time it moves.
+    const disposeObserver = observe(hero.inventory, () => {
+      Fraktar.actions.live((later) => later.inventory.push("shield"));
+    });
+    Fraktar.actions.live((data) => {
+      data.hp = 3;
+      data.inventory.push("potion");
+    });
+    // Nobody heals the hero: the way back is refused half way.
+    const disposeInterceptor = intercept(hero, "hp", (change) =>
+      change.newValue === 10 ? null : change
+    );
+
+    writes[0].fail(new Error("The database is down."));
+    await settle();
+    disposeObserver();
+    disposeInterceptor();
+
+    const attempt = asAccepted(Fraktar.lastAttempt);
+    expect(attempt.attemptedAt).toBe(0);
+    expect(attempt.undone).toBeUndefined();
+    expect(attempt.reason?.code).toBe(RejectionCode.stepNotUndone);
+    expect(toJS(hero)).toEqual({ hp: 3, inventory: ["sword", "potion"] });
+  });
 });
 
 describe("a step taken back while who listens to the control states throws", function () {

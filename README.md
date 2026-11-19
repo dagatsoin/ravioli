@@ -417,7 +417,7 @@ In SAM a proposal is presented between two steps, by the view or by a step react
 
 - A `condition`, a `mutator` or a control state predicate does not send an action. Neither does whoever listens to the model with `observe` or `intercept` and is told during the presentation
 - What they send is discarded with the reason `STEP_LOCKED`, through an action, `compose` or `attempt`, cancelable or not: none of its acceptors runs, it takes no step, it does not wait in the queue
-- `attempt` resolves `discarded` with that reason. `lastAttempt` holds it for an instant only: the proposal which is being presented writes its own outcome right after. It stays when that presentation throws
+- `attempt` resolves `discarded` with that reason. `lastAttempt` holds it for an instant only: the proposal which is being presented writes its own outcome right after, once its control states are computed too. So does a step which is taken back, or which stands because it can not be. It stays when that presentation throws
 - A cancelable action is therefore presented against the very state it was checked in: no step can be taken between that check and its mutators
 - 1.7.0 let a presentation run inside another: the second step was taken in the middle of the first. 1.8 refuses it
 - The container is locked the same way while a `rollback` or a `reset` puts its state in the model: what is sent then, by whoever listens to the model with `observe` or `intercept` or by a control state predicate, is discarded with `STEP_LOCKED`, and a cancelable action can not slip in around the jump. The step reactions which replay the jump are not locked: they are next actions and propose as usual. An `autorun` which acts once the state is in goes after them

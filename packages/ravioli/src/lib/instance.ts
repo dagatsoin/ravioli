@@ -468,6 +468,10 @@ export class Instance<
         controlStatePredicates: this.factory.controlStatePredicates,
       })
     );
+    // Once more: a control state predicate, or whoever listens to the
+    // control states, may have sent an action meanwhile, which was refused
+    // and said so. The step has the last word.
+    this._lastAttempt.set(attempt);
     pass.step = { attempt, previousControlStates };
     // A step the reactions started has no author: the one of the step
     // which started the chain waits for it too.
@@ -785,6 +789,7 @@ export class Instance<
     // state: what whoever listens to it sends meanwhile is discarded.
     const before = this.pass;
     this.pass = TAKING_BACK;
+    const last = this._lastAttempt.get();
 
     // One transaction: the observers see it all come back at once. What one
     // of them throws once it is told is said on the console, and the author
@@ -805,6 +810,9 @@ export class Instance<
           failure = error;
           // All or nothing: the step stands, with the control states it has.
           this.quietly(() => this.currentControlStates.replace(states));
+          // And with the last attempt it had: what was sent meanwhile was
+          // refused, and said so.
+          this._lastAttempt.set(last);
           return;
         }
         // A one shot reaction which ran in it has not had its run.
