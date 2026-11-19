@@ -32,7 +32,8 @@ export const RejectionCode = {
   /**
    * A proposal was already being presented. Nothing else is presented
    * meanwhile: neither a condition, a mutator, a control state predicate nor
-   * whoever listens to the model sends an action.
+   * whoever listens to the model sends an action. The same while a rollback
+   * or a reset puts its state in the model, and while a step is taken back.
    */
   stepLocked: "STEP_LOCKED",
   /**

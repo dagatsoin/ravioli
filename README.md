@@ -421,6 +421,7 @@ In SAM a proposal is presented between two steps, by the view or by a step react
 - A cancelable action is therefore presented against the very state it was checked in: no step can be taken between that check and its mutators
 - 1.7.0 let a presentation run inside another: the second step was taken in the middle of the first. 1.8 refuses it
 - The container is locked the same way while a `rollback` or a `reset` puts its state in the model: what is sent then, by whoever listens to the model with `observe` or `intercept` or by a control state predicate, is discarded with `STEP_LOCKED`, and a cancelable action can not slip in around the jump. The step reactions which replay the jump are not locked: they are next actions and propose as usual. An `autorun` which acts once the state is in goes after them
+- And while a step is taken back because its save failed: what is sent by whoever listens to the model or to the control states as they come back is discarded with `STEP_LOCKED`, `"A step is being taken back."`. An `autorun` which acts once the model is back is not: what it sends is presented once the step is over
 - A proposal which arrives after `present` but before the step reactions of the step, from an `autorun` or a `reaction` on the representation for example, is not refused: it is presented after the next-action predicates of that step. The NAP always goes before any other action. In 1.7.0 it was taken at once, ahead of them
 - An action built on a representation which is no longer the right one when it is presented is judged by the acceptors against the current model. If it must not be, it declares itself `isCancelable`
 - Calling an action is not reading. An `autorun` which calls one depends on what it reads itself, not on the step id nor on the control states the call reads. One which reads again the data its own action changes runs again each time, as any `autorun` which writes what it reads
@@ -443,7 +444,7 @@ Action 2 is refused: it waited behind a step which did not happen
 ```
 
 - `lastAttempt` tells it: the attempt is still `accepted`, with `settled: false`, the `reason` and `undone: true`
-- The actions which waited behind it are discarded with the reason `PRECEDING_STEP_UNDONE`. An action called after the return is processed as usual
+- The actions which waited behind it are discarded with the reason `PRECEDING_STEP_UNDONE`. One sent during the return, by whoever listens to the model, is discarded with `STEP_LOCKED`. An action called after the return is processed as usual
 - Going back does not copy the model. Each write leaves what is needed to undo it, so a step and its return cost what the step changes. With one exception: a key removed from a `Map`, a `Set` or an object costs one pass over its keys, whose order is kept, and its return puts the keys which stood behind it back behind it. `yarn measure` gives the figures
 - What comes back is the very node which was removed, not a copy, at the place it had: its observers are still attached
 - A `once` reaction which ran in the step gets its run back

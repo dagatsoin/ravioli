@@ -296,15 +296,14 @@ export class Instance<
    * mutator, a control state predicate, or whoever listens to the model
    * meanwhile, does not send an action. What they propose is discarded.
    *
-   * The same while a rollback or a reset puts its state in the model.
+   * The same while a rollback or a reset puts its state in the model, and
+   * while a step is taken back.
    */
   public refuseIfLocked(origin?: Origin<MUTATIONS>): boolean {
-    if (this.pass !== PRESENTING && this.pass !== LANDING) {
+    const message = LOCKS.get(this.pass);
+    if (message === undefined) {
       return false;
     }
-    const message = this.pass === PRESENTING
-      ? "A proposal is already being presented."
-      : "The container is being rolled back or reset.";
     console.info(`[RAVIOLI] Tried to present a proposal while it is locked. ${message}`);
     this.discardProposal({ code: RejectionCode.stepLocked, message }, origin);
     return true;
@@ -782,34 +781,45 @@ export class Instance<
     let failure: unknown;
     console.error(`[RAVIOLI] ${reason.message}`);
 
+    // Locked while the model comes back, as while it is put on another
+    // state: what whoever listens to it sends meanwhile is discarded.
+    const before = this.pass;
+    this.pass = TAKING_BACK;
+
     // One transaction: the observers see it all come back at once. What one
     // of them throws once it is told is said on the console, and the author
     // is told all the same.
     this.quietly(() => runInAction(() => {
-      // The control states first, and not computed again: one which depends
-      // on the past could not be. Should whoever is asked refuse them,
-      // nothing of the model has moved yet.
-      const states = this.currentControlStates.slice();
       try {
-        this.quietly(() => this.currentControlStates.replace(previousControlStates));
-        if (!isSameList(this.currentControlStates, previousControlStates)) {
-          throw new Error("the control states were kept from coming back");
+        // The control states first, and not computed again: one which
+        // depends on the past could not be. Should whoever is asked refuse
+        // them, nothing of the model has moved yet.
+        const states = this.currentControlStates.slice();
+        try {
+          this.quietly(() => this.currentControlStates.replace(previousControlStates));
+          if (!isSameList(this.currentControlStates, previousControlStates)) {
+            throw new Error("the control states were kept from coming back");
+          }
+          recorder.undo();
+        } catch (error) {
+          failure = error;
+          // All or nothing: the step stands, with the control states it has.
+          this.quietly(() => this.currentControlStates.replace(states));
+          return;
         }
-        recorder.undo();
-      } catch (error) {
-        failure = error;
-        // All or nothing: the step stands, with the control states it has.
-        this.quietly(() => this.currentControlStates.replace(states));
-        return;
+        // A one shot reaction which ran in it has not had its run.
+        pass.disposed.reverse().forEach(([index, reaction]) => {
+          this.stepReactions.splice(index, 0, reaction);
+        });
+        refused = this.waitingProposals;
+        this.waitingProposals = createProposalQueue<MUTATIONS>();
+        this._stepId.set(stepId);
+        this._lastAttempt.set(undone);
+      } finally {
+        // Lifted before the transaction ends: an observer which acts at its
+        // end finds the model back, and waits for the step to be over.
+        this.pass = before;
       }
-      // A one shot reaction which ran in it has not had its run.
-      pass.disposed.reverse().forEach(([index, reaction]) => {
-        this.stepReactions.splice(index, 0, reaction);
-      });
-      refused = this.waitingProposals;
-      this.waitingProposals = createProposalQueue<MUTATIONS>();
-      this._stepId.set(stepId);
-      this._lastAttempt.set(undone);
     }));
 
     if (refused === undefined) {
@@ -1008,6 +1018,20 @@ const PRESENTING: Pass<any, any> = toPass(0);
  * same lock, for another reason.
  */
 const LANDING: Pass<any, any> = toPass(0);
+
+/**
+ * What it holds while a step is taken back.
+ */
+const TAKING_BACK: Pass<any, any> = toPass(0);
+
+/**
+ * Why the container is locked, by what it holds.
+ */
+const LOCKS = new Map<Pass<any, any> | undefined, string>([
+  [PRESENTING, "A proposal is already being presented."],
+  [LANDING, "The container is being rolled back or reset."],
+  [TAKING_BACK, "A step is being taken back."],
+]);
 
 /**
  * A pass which reacts to no step yet. It is of the chain of steps it is

@@ -11,7 +11,7 @@ import {
 } from "mobx";
 import { setFlagsFromString } from "v8";
 import { runInNewContext } from "vm";
-import { RejectionCode, createContainer } from "../..";
+import { Attempt, RejectionCode, createContainer } from "../..";
 import { Write, asAccepted, asDiscarded, persist, settle } from "./helpers";
 
 type Model = { hp: number; inventory: string[] };
@@ -1449,6 +1449,101 @@ describe("an action called while the step which is taken back was presented", fu
       inventory: ["sword"],
     });
     expect(writes.length).toBe(1);
+  });
+});
+
+describe("an action sent while the step is taken back", function () {
+  /**
+   * A hero whose blow is written to a database, and who picks up a shield
+   * as soon as he is seen whole again: `pick` is how he asks for it.
+   */
+  function createShielded(writes: Write[]) {
+    const Fraktar = createContainer<Model>()
+      .addAcceptor("setHP", {
+        mutator: (data, hp: number) => {
+          data.hp = hp;
+        },
+      })
+      .addAcceptor("addItem", {
+        mutator: (data, item: string) => {
+          data.inventory.push(item);
+        },
+      })
+      .addActions({
+        setHP: "setHP",
+        addItem: "addItem",
+        fetch: {
+          isAsync: true,
+          action: async (item: string) => [{ type: "addItem", payload: item }],
+        },
+        forge: {
+          isAsync: true,
+          isCancelable: true,
+          action: async (item: string) => [{ type: "addItem", payload: item }],
+        },
+      })
+      .addStepReaction(persist(writes))
+      .create({ hp: 10, inventory: [] });
+    return Fraktar;
+  }
+
+  (["addItem", "fetch", "forge"] as const).forEach(function (action) {
+    it(`should be discarded, the container being locked, when it is ${action}`, async function () {
+      const writes: Write[] = [];
+      const Fraktar = createShielded(writes);
+      const asked: Array<Promise<Attempt<any>>> = [];
+      const dispose = observe(
+        Fraktar.representationRef.current,
+        "hp",
+        ({ newValue }) => {
+          if (newValue === 10) {
+            asked.push(Fraktar.attempt[action]("shield"));
+          }
+        }
+      );
+
+      const outcome = Fraktar.attempt.setHP(3);
+      writes[0].fail(new Error("The database is down."));
+      await settle();
+      dispose();
+
+      expect(asAccepted(await outcome).undone).toBe(true);
+      expect(asDiscarded(await asked[0]).reason).toEqual({
+        code: RejectionCode.stepLocked,
+        message: "A step is being taken back.",
+      });
+      expect(Fraktar.representationRef.current).toEqual({
+        hp: 10,
+        inventory: [],
+      });
+      expect(Fraktar.stepId).toBe(0);
+      expect(writes.length).toBe(1);
+    });
+  });
+
+  it("should be presented when it is sent once the step is back", async function () {
+    const writes: Write[] = [];
+    const Fraktar = createShielded(writes);
+    const asked: Array<Promise<Attempt<any>>> = [];
+    // An autorun acts at the end of the transaction: the model is back.
+    const dispose = autorun(() => {
+      if (Fraktar.representationRef.current.hp === 10 && Fraktar.stepId === 0 && writes.length) {
+        asked.push(Fraktar.attempt.addItem("shield"));
+      }
+    });
+
+    Fraktar.actions.setHP(3);
+    writes[0].fail(new Error("The database is down."));
+    await settle();
+    writes[1].done();
+    await settle();
+    dispose();
+
+    expect(asAccepted(await asked[0]).settled).toBe(true);
+    expect(Fraktar.representationRef.current).toEqual({
+      hp: 10,
+      inventory: ["shield"],
+    });
   });
 });
 
