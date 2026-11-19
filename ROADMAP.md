@@ -162,8 +162,9 @@ which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 abo
   those which are gone is dropped at the next write in that node.
 - **A listener which was there before the container, and writes in the node it listens to.** Its
   write is heard before the one it answers. The recorder sees it and refuses from then on: steps
-  stand, patches are not read. Hearing them in order would need to be told before each write of
-  every node, lists included, and to match each with what follows it.
+  stand, patches are not read. The recorder is now asked before each write of every node, lists
+  included, to cancel what somebody else writes while a step is taken back; hearing them in order
+  would still need to match each write with what follows it.
 - **A model nested more than a thousand levels deep.** Listening to a model goes down it by
   recursion, one more call per level than MobX itself: about 1 100 nested levels are taken where
   1.7 took 1 300 to 1 400 (node 22, default stack size). Beyond, creating the container throws
@@ -198,6 +199,24 @@ which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 abo
   list.actions.hide(1);
   // model.items, the model itself, now holds the ids 2, 3, 3
   ```
+- **The types of the actions, and of `attempt`.** At run time each case below works; TypeScript
+  does not follow:
+  - An action called `name` or `length` is typed on `attempt` as the action and as the text or the
+    number every function has, both at once: `const s: string = container.attempt.name` compiles.
+    Calling it is typed right. `attempt` could be typed as an object which can be called, without
+    what a function has.
+  - After two `addActions` on one factory, `ACTIONS` is a union of the two sets: neither
+    `actions.x` nor `attempt.x` compiles, whichever set `x` is in. Already so in 1.7 for `actions`.
+    The second set could be merged into the first.
+  - A container made by `createContainerFromJSON` has no action typed, neither on `actions` nor on
+    `attempt`: the registry knows the actions by name only. Already so in 1.7.
+- **The refresh of a custom representation is not locked.** A representation made by
+  `addTransformation` is refreshed once the step is over, outside of any presentation. Whoever
+  listens to it with `mobx.observe` and sends an action is told in the middle of the refresh: the
+  step of that action is taken then, and the representation, half refreshed, stays one step
+  behind the model until the next step (`hp` written, `log` not). An `autorun` or a `reaction` on
+  it are told at the end of the refresh and are right. Already so in 1.7. Locking the refresh as a
+  presentation is, or giving its listeners their turn once it is done, would close it.
 - **The creation is not a step.** The reactions which run at creation do so while the container is
   open: what they propose is presented at once, and an awaited one keeps nothing waiting.
 - **A one shot reaction which starts a step at creation runs twice.** It is disposed of once its
@@ -234,8 +253,8 @@ which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 abo
 - **A step is locked while its proposal is presented** (1.8). An action sent by a condition, a
   mutator, a control state predicate or whoever listens to the model meanwhile is discarded with
   `STEP_LOCKED`: in 1.7 it was presented inside the presentation, and its step taken in the middle
-  of the first. The same while a `rollback` or a `reset` puts its state in the model; the reactions
-  which replay the jump are not locked.
+  of the first. The same while a `rollback` or a `reset` puts its state in the model, and while a
+  step is taken back; the reactions which replay the jump are not locked.
 - **A step-end signal** (1.8). `attempt.<action>(…)`, on the container `create()` returns,
   resolves with the attempt of one proposal once nothing can change it anymore: the reactions of
   its step ran, and the steps they started.
