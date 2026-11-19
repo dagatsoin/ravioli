@@ -89,6 +89,13 @@ type Watched = {
  */
 type Place = { holder: Watched; key: any };
 
+/**
+ * The write the way back is making: in which node, under which key for an
+ * entry, and how many more writes it takes there. Whatever else is written
+ * in the model meanwhile is somebody else's.
+ */
+type Rewrite = { object: any; name?: any; left: number };
+
 type Running = {
   /**
    * Which record it is: who reads the patches of a step later on tells by it
@@ -158,6 +165,12 @@ class StepRecorder implements IStepRecorder {
    * knows of the model is not sure from then on.
    */
   private isDisordered = false;
+  /**
+   * While a step is taken back: the write it is making, and whether
+   * somebody else wrote in the model meanwhile.
+   */
+  private rewriting?: Rewrite;
+  private isIntruded = false;
   private blind: Map<string, number> = new Map();
   /**
    * For a map: how many of its keys which are not texts read as each text.
@@ -274,17 +287,47 @@ class StepRecorder implements IStepRecorder {
       let left = changes.length;
       try {
         while (left > 0) {
-          write(invert(changes[left - 1]));
+          this.rewrite(invert(changes[left - 1]));
           left--;
+          this.refuseIntruder();
         }
-        orders.forEach(order);
+        orders.forEach((keys, node) => {
+          // However many writes it takes, all in that node.
+          this.rewriting = { object: node, left: Infinity };
+          order(keys, node);
+          this.refuseIntruder();
+        });
       } catch (error) {
         // All or nothing. What was taken back is done again, so the model
         // is the step and not something which never existed.
-        changes.slice(left).forEach(write);
+        changes.slice(left).forEach((change) => this.rewrite(change));
         throw error;
+      } finally {
+        this.rewriting = undefined;
+        this.isIntruded = false;
       }
     });
+  }
+
+  /**
+   * Make one write of the way back. Somebody else who writes in the model
+   * meanwhile, a listener told of it for example, is cancelled: the way back
+   * would leave the model where it never was, and so would doing the step
+   * again.
+   */
+  private rewrite(change: Change): void {
+    this.rewriting = {
+      object: change.object,
+      name: change.type === "entry" ? change.name : undefined,
+      left: 1,
+    };
+    write(change);
+  }
+
+  private refuseIntruder(): void {
+    if (this.isIntruded) {
+      throw new Error(INTRUDED);
+    }
   }
 
   /**
@@ -549,7 +592,11 @@ class StepRecorder implements IStepRecorder {
     this.seeTwins(node);
   }
 
-  public onWillChange(node: any, event: any): void {
+  public onWillChange(node: any, event: any): boolean {
+    if (this.rewriting !== undefined && !this.isRewrite(node, event)) {
+      this.isIntruded = true;
+      return false;
+    }
     const watched = this.watched.get(node) as Watched;
     if (event.type === "remove" || event.type === "delete") {
       // The members a set was given are its last ones until it loses one.
@@ -563,6 +610,22 @@ class StepRecorder implements IStepRecorder {
         watched.dropping.push(event.name);
       }
     }
+    return true;
+  }
+
+  /**
+   * Says whether a write is the one the way back is making, and counts it.
+   */
+  private isRewrite(node: any, event: any): boolean {
+    const rewriting = this.rewriting as Rewrite;
+    const isIt =
+      node === rewriting.object &&
+      rewriting.left > 0 &&
+      (rewriting.name === undefined || isSameKey(event.name, rewriting.name));
+    if (isIt) {
+      rewriting.left--;
+    }
+    return isIt;
   }
 
   /**
@@ -674,13 +737,15 @@ function listenTo(node: any, heard: Array<Weak<StepRecorder>>): void {
   observe(node, (event: any) => {
     tell(heard, (recorder) => recorder.onDidChange(node, event));
   });
-  // Only what has keys can lose one.
-  if (!isObservableArray(node) && !isBoxedObservable(node)) {
-    intercept(node, (event: any) => {
-      tell(heard, (recorder) => recorder.onWillChange(node, event));
-      return event;
+  // Asked before any write: a key can be lost, and while a step is taken
+  // back, a write which is not of the way back is cancelled.
+  intercept(node, (event: any) => {
+    let isAllowed = true;
+    tell(heard, (recorder) => {
+      isAllowed = recorder.onWillChange(node, event) && isAllowed;
     });
-  }
+    return isAllowed ? event : null;
+  });
   if (isObservableMap(node)) {
     // The one write nobody is told of: a map which is replaced by the
     // entries it already has takes their order, without an event.
@@ -767,6 +832,8 @@ function isProxied(watched: Watched): boolean {
 
 const DISORDER =
   "a listener wrote in a node of the model while it was told of a write in it: the two writes were heard in the wrong order";
+const INTRUDED =
+  "somebody wrote in the model while a step was taken back, a listener told of the way back for example: that write was cancelled";
 const FIELD = "a field which is not observable";
 const KEY = "an object used as the key of a Map";
 

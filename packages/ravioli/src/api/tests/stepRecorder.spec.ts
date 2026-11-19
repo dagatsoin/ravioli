@@ -1,5 +1,6 @@
 import {
   IObservableArray,
+  IObservableValue,
   ObservableSet,
   autorun,
   configure,
@@ -2364,6 +2365,119 @@ describe("somebody who listened to a node before the recorder, and writes in it 
     });
 
     expect(toJS(Fraktar)).toEqual({ hp: 3, log: [] });
+  });
+});
+
+describe("somebody who writes in the model while a step is taken back", function () {
+  const refused =
+    "somebody wrote in the model while a step was taken back, a listener " +
+    "told of the way back for example: that write was cancelled";
+
+  /**
+   * Record a blow, then take it back. `listen` is told of each change of the
+   * health, and answers it as it likes.
+   */
+  function blowThenUndo(listen: (hero: Hero) => void) {
+    const hero: Hero = {
+      hp: 10,
+      log: [],
+      blows: 0,
+      quest: observable.box("none"),
+      effects: new Set(),
+    };
+    const Fraktar = observable(hero);
+    observe(Fraktar, "hp", () => listen(Fraktar));
+    const recorder = createStepRecorder(Fraktar);
+    recorder.start();
+    runInAction(() => {
+      Fraktar.hp = 7;
+    });
+    let answer = "taken back";
+    try {
+      recorder.undo();
+    } catch (error) {
+      answer = (error as Error).message;
+    }
+    return { Fraktar, answer };
+  }
+  type Hero = {
+    hp: number;
+    log: string[];
+    blows: number;
+    quest: IObservableValue<string>;
+    effects: Set<string>;
+  };
+
+  const writers: Array<[string, (hero: Hero) => void]> = [
+    ["a list", (hero) => hero.log.push(`hp ${hero.hp}`)],
+    ["a field", (hero) => hero.blows++],
+    ["a boxed value", (hero) => hero.quest.set(`hp ${hero.hp}`)],
+    ["a set", (hero) => hero.effects.add(`hp ${hero.hp}`)],
+  ];
+  writers.forEach(function ([what, write]) {
+    it(`should keep the step whole when a listener answers the way back by writing in ${what}`, function () {
+      const { Fraktar, answer } = blowThenUndo((hero) => {
+        // Only what it is told on the way back: the step itself is heard.
+        if (hero.hp === 10) {
+          write(hero);
+        }
+      });
+
+      expect(answer).toBe(refused);
+      // The step, and nothing the listener wrote.
+      expect(toJS(Fraktar)).toEqual({
+        hp: 7,
+        log: [],
+        blows: 0,
+        quest: "none",
+        effects: new Set(),
+      });
+    });
+  });
+
+  it("should keep the step whole when the listener writes on the way back, and again when it is put back", function () {
+    const { Fraktar, answer } = blowThenUndo((hero) => {
+      hero.log.push(`hp ${hero.hp}`);
+    });
+
+    expect(answer).toBe(refused);
+    // What it wrote as the step was taken is the step's.
+    expect(toJS(Fraktar.log)).toEqual(["hp 7"]);
+    expect(Fraktar.hp).toBe(7);
+  });
+
+  it("should keep the step whole when the listener writes in the very node which comes back", function () {
+    const { Fraktar, answer } = blowThenUndo((hero) => {
+      if (hero.hp === 10) {
+        hero.blows = 1;
+      }
+    });
+
+    expect(answer).toBe(refused);
+    expect(Fraktar.blows).toBe(0);
+  });
+
+  it("should take the step back when the listener writes outside of the model", function () {
+    const journal = observable<string>([]);
+    const { Fraktar, answer } = blowThenUndo((hero) => {
+      journal.push(`hp ${hero.hp}`);
+    });
+
+    expect(answer).toBe("taken back");
+    expect(Fraktar.hp).toBe(10);
+    expect(journal.slice()).toEqual(["hp 7", "hp 10"]);
+  });
+
+  it("should let the model be written once the step is taken back", function () {
+    const { Fraktar } = blowThenUndo(() => {});
+
+    runInAction(() => {
+      Fraktar.log.push("rested");
+      Fraktar.quest.set("the tower");
+    });
+
+    expect(toJS(Fraktar.log)).toEqual(["rested"]);
+    expect(Fraktar.quest.get()).toBe("the tower");
   });
 });
 

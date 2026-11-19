@@ -1578,6 +1578,70 @@ describe("an action sent while the step is taken back", function () {
   });
 });
 
+describe("a step whose return somebody answers by writing in the model", function () {
+  type Logged = { hp: number; log: string[] };
+
+  (["before", "after"] as const).forEach(function (when) {
+    it(`should stand whole, and say so, when the listener came ${when} the container`, async function () {
+      const writes: Write[] = [];
+      const listen = (hero: Logged) =>
+        observe(hero, "hp", () => {
+          hero.log.push(`hp ${hero.hp}`);
+        });
+      const state = observable<Logged>({ hp: 10, log: [] });
+      const dispose = when === "before" ? listen(state) : () => {};
+      const Fraktar = createAdventurer(state, writes);
+      const disposeAfter =
+        when === "after" ? listen(Fraktar.representationRef.current) : () => {};
+
+      Fraktar.actions.live((hero) => {
+        hero.hp = 7;
+      });
+      writes[0].fail(new Error("The database is down."));
+      await settle();
+      dispose();
+      disposeAfter();
+
+      // Taken back, the health would have been noted again: a log of a
+      // blow which never was.
+      const attempt = asAccepted(Fraktar.lastAttempt);
+      expect(attempt.undone).toBeUndefined();
+      expect(attempt.reason).toEqual(
+        expect.objectContaining({
+          code: RejectionCode.stepNotUndone,
+          message:
+            "An awaited reaction failed and the step 1 could not be taken back: somebody wrote in the model while a step was taken back, a listener told of the way back for example: that write was cancelled.",
+        })
+      );
+      expect(toJS(Fraktar.representationRef.current)).toEqual({
+        hp: 7,
+        log: ["hp 7"],
+      });
+      expect(Fraktar.stepId).toBe(1);
+    });
+  });
+
+  it("should be taken back when the listener writes outside of the model", async function () {
+    const writes: Write[] = [];
+    const Fraktar = createAdventurer({ hp: 10 }, writes);
+    const journal: string[] = [];
+    const dispose = observe(Fraktar.representationRef.current, "hp", () => {
+      journal.push(`hp ${Fraktar.representationRef.current.hp}`);
+    });
+
+    Fraktar.actions.live((hero) => {
+      hero.hp = 7;
+    });
+    writes[0].fail(new Error("The database is down."));
+    await settle();
+    dispose();
+
+    expect(asAccepted(Fraktar.lastAttempt).undone).toBe(true);
+    expect(Fraktar.representationRef.current.hp).toBe(10);
+    expect(journal).toEqual(["hp 7", "hp 10"]);
+  });
+});
+
 describe("a step taken back while who listens to the control states throws", function () {
   it("should be taken back whole, and what waited behind it refused", async function () {
     const writes: Write[] = [];

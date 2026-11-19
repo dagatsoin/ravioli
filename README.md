@@ -457,6 +457,7 @@ It is all or nothing. When the step can not be taken back whole, it stands whole
   - an object used as the key of a `Map`, observable or not: a map keeps its keys as they are given, and does not hold them
 - something refuses the way back: an interceptor (`intercept`) which cancels a write, or throws, on the model or on `controlStates`
 - somebody who listened to a node (`observe`) before the container was created writes in that node when it is told of a write. The container then hears the second write before the first: it says so, and from then on no step is taken back
+- somebody writes in the model while the step is taken back: a listener (`observe`) which answers a write in the model by another one, in a log, a counter or a flag of the model, before or after the container was created. Taken back, the model would hold what the listener wrote of a step which never was. That write is cancelled, and so are those it makes while the step is put back. What a listener writes outside of the model is not the container's business
 
 The reason names the first thing in cause and where it is, as a JSON pointer: `the model holds a Date at /createdAt, which MobX does not observe…`. A member of a `Set` has no place of its own in a pointer, it is written `*`.
 
