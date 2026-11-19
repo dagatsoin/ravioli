@@ -33,9 +33,9 @@ export function createNAPProposalBuffer<
 /**
  * A proposal which was presented while the container was busy.
  */
-export type WaitingProposal<MUTATION> = {
-  proposal: TaggedProposal<MUTATION>;
-  origin: Origin<MUTATION>;
+export type WaitingProposal<MUTATIONS> = {
+  proposal: TaggedProposal<MUTATIONS>;
+  origin: Origin<MUTATIONS>;
   /**
    * How many steps in a row the reactions started to get to it. None when it
    * does not come from a reaction.

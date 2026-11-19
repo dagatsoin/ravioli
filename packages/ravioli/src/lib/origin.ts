@@ -3,11 +3,11 @@ import { Attempt } from "./api/rejection";
 /**
  * Whoever presented a proposal and asked what becomes of it.
  */
-export type Author<MUTATION = any> = {
+export type Author<MUTATIONS = any> = {
   /**
    * The attempt is final: nothing will change it anymore.
    */
-  tell(attempt: Attempt<MUTATION>): void;
+  tell(attempt: Attempt<MUTATIONS>): void;
   /**
    * The proposal could not be presented: the action, an acceptor or a control
    * state predicate threw. This is a bug, not a refusal.
@@ -33,11 +33,11 @@ export type ReactionPass = {
 /**
  * What the container needs to know of a proposal beside its mutations.
  */
-export type Origin<MUTATION = any> = {
+export type Origin<MUTATIONS = any> = {
   /**
    * Whoever asked what becomes of the proposal.
    */
-  author?: Author<MUTATION>;
+  author?: Author<MUTATIONS>;
   /**
    * The pass of the reaction which made the proposal, when a reaction did
    * through the actions it was given.

@@ -101,7 +101,7 @@ which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 abo
 - **Reconcile without rewriting whole lists.** The internal reconcile replaces arrays wholesale
   (2–2.5× the state size in patches on Jared's spike); a keyed reconcile would let observers emit
   minimal patches.
-- **A rollback which is taken back.** When the awaited reaction which follows a `rollback` or a
+- **A restore which is taken back.** When the awaited reaction which follows a `restore` or a
   `reset` fails, the container stays on the given state: a jump is not a step and nothing of it is
   recorded. The recorder could record a jump as it records a step.
 - **No half state when an acceptor throws.** A mutator which throws in the middle of a proposal
@@ -111,7 +111,7 @@ which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 abo
 - **No half step when a control state predicate throws.** The model is written and the step id has
   ticked, the control states are those of the step before and the reactions do not run.
 - **A time limit on an awaited reaction.** One which never ends keeps the container closed for
-  ever: what waits behind it waits, `rollback` and `reset` are refused, and nothing cuts it. Two
+  ever: what waits behind it waits, `restore` and `reset` are refused, and nothing cuts it. Two
   containers which each await an `attempt` on the other from an awaited reaction are the same
   case.
 - **Measuring the queue.** Nothing tells how many proposals wait, nor for how long. It is what
@@ -181,7 +181,7 @@ which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 abo
   later is made observable.
 - **A custom representation which hands over a list made from the model writes in the model.**
   Already so in 1.7 (`lib/derivate.ts`, the refresh of an array): with
-  `addTransformation(({ data }) => ({ visible: data.items.filter((item) => !item.hidden) }))`,
+  `setRepresentation(({ data }) => ({ visible: data.items.filter((item) => !item.hidden) }))`,
   the first representation holds the items of the model themselves, and the refresh after
   `hide(1)` writes the new list over them: the model `[1, 2, 3]` becomes `[2, 3, 3]`. In 1.8 these
   writes happen outside of any step: no patch tells them and no return takes them back. A
@@ -193,7 +193,7 @@ which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 abo
       mutator: (data, id) => { data.items.find((item) => item.id === id).hidden = true; },
     })
     .addActions({ hide: "hide" })
-    .addTransformation(({ data }) => ({ visible: data.items.filter((item) => !item.hidden) }))
+    .setRepresentation(({ data }) => ({ visible: data.items.filter((item) => !item.hidden) }))
     .addStepReaction({ do: ({ data }) => { model = data; } })
     .create({ items: [{ id: 1 }, { id: 2 }, { id: 3 }] });
   list.actions.hide(1);
@@ -211,7 +211,7 @@ which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 abo
   - A container made by `createContainerFromJSON` has no action typed, neither on `actions` nor on
     `attempt`: the registry knows the actions by name only. Already so in 1.7.
 - **The refresh of a custom representation is not locked.** A representation made by
-  `addTransformation` is refreshed once the step is over, outside of any presentation. Whoever
+  `setRepresentation` is refreshed once the step is over, outside of any presentation. Whoever
   listens to it with `mobx.observe` and sends an action is told in the middle of the refresh: the
   step of that action is taken then, and the representation, half refreshed, stays one step
   behind the model until the next step (`hp` written, `log` not). An `autorun` or a `reaction` on
@@ -234,9 +234,9 @@ which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 abo
     of a step which writes such an entry, or under it, or which gives the map another order, are
     refused: reading them throws. `jsonCopy` keeps the last of two twins, and names an object key
     by its JSON, without a word.
-  - A `rollback` hands its reactions the delta of the step it goes back to, and with it patches
-    which are not what the rollback did to the model (the README says what they are). A journal
-    has to start again from a JSON copy after a jump: a rollback could tell its own patches.
+  - A `restore` hands its reactions the delta of the step it goes back to, and with it patches
+    which are not what the restore did to the model (the README says what they are). A journal
+    has to start again from a JSON copy after a jump: a restore could tell its own patches.
   - A model which holds a cycle has a JSON copy (`"[Circular]"` where it comes back) but its
     patches only tell the paths which do not go through the cycle. A member of a `Set` which holds
     the set is named from the member in a patch, from the root in the copy: the two differ, and the
@@ -247,14 +247,21 @@ which says `settled`. Nothing refuses it, the README only warns. Guarantee 3 abo
 
 ## Done
 
+- **One name for each thing** (1.9). `representation`, `restore`, `attempt.stepId`, `Container`,
+  `addControlState`, `setRepresentation`, `setStaticRepresentation`, `awaited`,
+  `ContainerFactory`, `ReasonCode`, `ControlStatePredicate`, `ActionDeclarations`,
+  `ActionDeclaration`, `ActionOptions`; the generic parameters `MODEL`, `MUTATIONS`,
+  `CONTROL_STATES`. Each old name is kept, marked `@deprecated` (the README lists them), and the
+  declarations keep their doc comments so that an editor shows it.
+
 - **A built-in intent queue** (1.8). A proposal presented while a step runs waits for its turn and
   gets a step of its own, in arrival order, behind what the reactions of the step propose. It
   replaces the buffer which merged everything in one proposal.
 - **A step is locked while its proposal is presented** (1.8). An action sent by a condition, a
   mutator, a control state predicate or whoever listens to the model meanwhile is discarded with
   `STEP_LOCKED`: in 1.7 it was presented inside the presentation, and its step taken in the middle
-  of the first. The same while a `rollback` or a `reset` puts its state in the model, and while a
-  step is taken back; the reactions which replay the jump are not locked.
+  of the first. The same while a `restore` (then `rollback`) or a `reset` puts its state in the
+  model, and while a step is taken back; the reactions which replay the jump are not locked.
 - **A step-end signal** (1.8). `attempt.<action>(…)`, on the container `create()` returns,
   resolves with the attempt of one proposal once nothing can change it anymore: the reactions of
   its step ran, and the steps they started.

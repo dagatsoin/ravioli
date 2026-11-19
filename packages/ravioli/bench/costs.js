@@ -29,7 +29,7 @@ function createHero(state) {
     .addActions({ live: "live" });
   if (MODE !== "none") {
     factory = factory.addStepReaction({
-      awaitAsync: true,
+      awaited: true,
       runOnInit: false,
       do: ({ delta }) => {
         if (MODE === "journal") {

@@ -1,6 +1,6 @@
-import { IContainerFactory } from "..";
+import { ContainerFactory } from "..";
 import { createContainer } from "..";
-import { PackagedActions } from "../../lib/api/action";
+import { ActionDeclarations } from "../../lib/api/action";
 import { ContainerConfig } from "./containerConfig";
 import {
   getAcceptor,
@@ -46,7 +46,7 @@ import {
  */
 export function createContainerFromJSON<T>(
   config: ContainerConfig
-): IContainerFactory<T> {
+): ContainerFactory<T> {
   let container: any = createContainer<T>();
 
   // 1. Add acceptors
@@ -61,13 +61,13 @@ export function createContainerFromJSON<T>(
   if (config.controlStatePredicates) {
     for (const [stateName, registryKey] of Object.entries(config.controlStatePredicates)) {
       const predicate = getControlStatePredicate(registryKey);
-      container = container.addControlStatePredicate(stateName, predicate);
+      container = container.addControlState(stateName, predicate);
     }
   }
 
   // 3. Add actions
   if (config.actions) {
-    const actions: PackagedActions<any, any> = {};
+    const actions: ActionDeclarations<any, any> = {};
     for (const [actionName, registryKey] of Object.entries(config.actions)) {
       actions[actionName] = getAction(registryKey);
     }
@@ -82,5 +82,5 @@ export function createContainerFromJSON<T>(
     }
   }
 
-  return container as IContainerFactory<T>;
+  return container as ContainerFactory<T>;
 }

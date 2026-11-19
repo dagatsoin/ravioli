@@ -1,43 +1,46 @@
 import { IObservable, IObservableArray, IObservableValue, observable, runInAction, untracked } from "mobx";
-import { IInstance } from "../api";
+import { Container } from "../api";
 import { Acceptor, Mutation } from "./api/acceptor";
 import { IProposalBuffer, Proposal, SAMLoop, Step, TaggedProposal } from "./api/presentable";
 import { Author, Origin, ReactionPass } from "./origin";
 import { StepReaction } from "./api/stepReaction";
-import { ContainerFactory, ContainerOption } from "./container";
+import { Factory, ContainerOption } from "./container";
 import { getControlStates } from "./controlState";
 import { derivate, reconcile } from "./derivate";
 import { IProposalQueue, WaitingProposal, createNAPProposalBuffer, createProposalQueue } from "./proposalBuffer";
 import { Patch } from "./api/patch";
 import { IStepRecorder, StepPatches, createStepRecorder } from "./stepRecorder";
 import { AttemptCall, Compose } from "./api/composer";
-import { Attempt, Reason, Rejection, RejectionCode, toReason } from "./api/rejection";
+import { Attempt, Reason, Rejection, ReasonCode, toReason } from "./api/rejection";
 
 export class Instance<
-    TYPE,
+    MODEL,
     MUTATIONS extends Mutation<any, any> = { type: never; payload: never },
     CONTROL_STATES extends string = never,
     ACTIONS = never,
-    REPRESENTATION = TYPE
-> implements IInstance<
-  TYPE,
+    REPRESENTATION = MODEL
+> implements Omit<Container<
+  MODEL,
   MUTATIONS,
   CONTROL_STATES,
   ACTIONS,
   REPRESENTATION
->, SAMLoop {
+>, "rollback">, SAMLoop {
     public actions: ACTIONS = {} as ACTIONS;
     public representationRef: {
         current: REPRESENTATION & IObservable;
       } = {
         current: undefined as any as REPRESENTATION & IObservable,
     };
+    public get representation(): REPRESENTATION & IObservable {
+        return this.representationRef.current;
+    }
 
     constructor(
-        data: TYPE,
-        reactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>>,
-        private factory: ContainerFactory<
-            TYPE,
+        data: MODEL,
+        reactions: Array<StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>>,
+        private factory: Factory<
+            MODEL,
             MUTATIONS,
             CONTROL_STATES,
             ACTIONS,
@@ -50,7 +53,7 @@ export class Instance<
 
         // The data is now observable
         // ISSUE: do we need make it observable?
-        this.data  = (observable(data as Record<string, unknown>) as unknown) as TYPE;
+        this.data  = (observable(data as Record<string, unknown>) as unknown) as MODEL;
 
         this.stepReactions = [...reactions]
 
@@ -93,9 +96,9 @@ export class Instance<
         // Run the reactions
         this.react({ data: this.data, delta: this.toCreationDelta() }, true)
     }
-    private data: TYPE;
+    private data: MODEL;
     private stepRecorder?: IStepRecorder;
-    public stepReactions: Array<StepReaction<TYPE, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>> = [];
+    public stepReactions: Array<StepReaction<MODEL, MUTATIONS, CONTROL_STATES, ACTIONS, REPRESENTATION>> = [];
     private disposeReaction(effect: StepReaction<any, any, any, any, any>["do"]) {
       const index = this.stepReactions.findIndex((r) => r.do === effect)
       if (index > -1 ) {
@@ -109,7 +112,7 @@ export class Instance<
       return this._stepId.get();
     }
     /**
-     * A step id comes back to a value it had with a rollback, a reset or a step
+     * A step id comes back to a value it had with a restore, a reset or a step
      * which is taken back. The moment counts the steps and the jumps, so it
      * never does: it tells whether anything happened since it was read.
      */
@@ -137,9 +140,11 @@ export class Instance<
      * A proposal was refused before reaching the model. No step, no reaction.
      */
     public discardProposal(reason: Reason, origin?: Origin<MUTATIONS>): void {
+      const stepId = this._stepId.get();
       const attempt: Attempt<MUTATIONS> = {
         status: "discarded",
-        attemptedAt: this._stepId.get(),
+        stepId,
+        attemptedAt: stepId,
         reason,
       };
       try {
@@ -189,7 +194,7 @@ export class Instance<
       if (pass.toTell !== undefined && pass.toTell.attempt.settled) {
         pass.toTell.attempt = { ...pass.toTell.attempt, settled: false, reason };
       }
-      // The pass of the creation, of a rollback or of a reset reacts to no
+      // The pass of the creation, of a restore or of a reset reacts to no
       // step: it has no attempt to report on, and must not report on another's.
       const attempt = pass.step?.attempt;
       if (attempt === undefined || this._lastAttempt.get() !== attempt) {
@@ -299,7 +304,7 @@ export class Instance<
    * mutator, a control state predicate, or whoever listens to the model
    * meanwhile, does not send an action. What they propose is discarded.
    *
-   * The same while a rollback or a reset puts its state in the model, and
+   * The same while a restore or a reset puts its state in the model, and
    * while a step is taken back.
    */
   public refuseIfLocked(origin?: Origin<MUTATIONS>): boolean {
@@ -308,7 +313,7 @@ export class Instance<
       return false;
     }
     console.info(`[RAVIOLI] Tried to present a proposal while it is locked. ${message}`);
-    this.discardProposal({ code: RejectionCode.stepLocked, message }, origin);
+    this.discardProposal({ code: ReasonCode.stepLocked, message }, origin);
     return true;
   }
 
@@ -381,7 +386,7 @@ export class Instance<
         proposal
       );
       this.discardProposal({
-        code: RejectionCode.staleProposal,
+        code: ReasonCode.staleProposal,
         // A cancelable action can be at the very step id it was called at,
         // in another story.
         message: proposal.stepId === attemptedAt
@@ -442,14 +447,14 @@ export class Instance<
     pass: Pass<MUTATIONS, CONTROL_STATES>,
     from?: Pass<MUTATIONS, CONTROL_STATES>
   ): Arrival<MUTATIONS, CONTROL_STATES> | undefined {
-    const attemptedAt = this._stepId.get();
+    const stepId = this._stepId.get();
     const previousControlStates = this.controlStates.slice();
     const { accepted: acceptedMutations, rejected } = this.present(proposal);
 
     // Whatever the model decided, the attempt is reported.
     const attempt: Attempt<MUTATIONS> = acceptedMutations.length
-        ? { status: "accepted", attemptedAt, accepted: acceptedMutations.slice(), rejected, settled: true }
-        : { status: "rejected", attemptedAt, rejected };
+        ? { status: "accepted", stepId, attemptedAt: stepId, accepted: acceptedMutations.slice(), rejected, settled: true }
+        : { status: "rejected", stepId, attemptedAt: stepId, rejected };
     this._lastAttempt.set(attempt);
 
     // No mutations happened, abort the step
@@ -507,9 +512,9 @@ export class Instance<
    * It does not present a proposal: no acceptor runs, no condition is checked.
    * The given data is taken as it is.
    */
-  public rollback(step: Step<TYPE, MUTATIONS, CONTROL_STATES>): void {
+  public restore(step: Step<MODEL, MUTATIONS, CONTROL_STATES>): void {
     // Major guard
-    // A rollback while the reactions are running would move the model under them
+    // A restore while the reactions are running would move the model under them
     // and let the abandoned timeline leak in the new one.
     // So would one while the proposals which waited are given their turn.
     if (this.isBusy) {
@@ -549,9 +554,9 @@ export class Instance<
    * it has no past, so its control states are computed the way the constructor
    * does. The author gives the state back, the instance does not keep a copy.
    */
-  public reset(state: TYPE): void {
+  public reset(data: MODEL): void {
     // Major guard
-    // Same as a rollback: not while the container is busy.
+    // Same as a restore: not while the container is busy.
     if (this.isBusy) {
       console.warn(
         "[RAVIOLI] Tried to reset while the container is busy with a step."
@@ -562,7 +567,7 @@ export class Instance<
     const stepId = this.options?.initialStepId ?? 0;
 
     this.jump(() => {
-      reconcile(this.data as unknown as object, state);
+      reconcile(this.data as unknown as object, data);
       this._stepId.set(stepId);
       this._moment++;
       // No past: the control states are the ones of a brand new container.
@@ -582,7 +587,7 @@ export class Instance<
   }
 
   /**
-   * A rollback or a reset: the model is put on another state, then the
+   * A restore or a reset: the model is put on another state, then the
    * reactions replay the arrival. The container is locked while the state is
    * put in the model, as it is while a proposal is presented: what whoever
    * listens to the model sends meanwhile is discarded. The reactions which
@@ -639,13 +644,13 @@ export class Instance<
   }
 
   private async react(
-    args: { data: TYPE; delta: Arrival<MUTATIONS, CONTROL_STATES> },
+    args: { data: MODEL; delta: Arrival<MUTATIONS, CONTROL_STATES> },
     isInit: boolean,
     pass: Pass<MUTATIONS, CONTROL_STATES> = toPass(0)
   ) {
     // Nobody awaits this pass and nobody can catch it: a throw which escaped
     // here used to leave the container closed, and the instance then refused
-    // every later step, rollback and reset for good.
+    // every later step, restore and reset for good.
     //
     // Kept inline on purpose. Delegating to an awaited method would push the
     // recovery to the next microtask, and a caller acting synchronously right
@@ -665,7 +670,10 @@ export class Instance<
       const reactions = this.stepReactions.slice();
       for (let i = 0; i < reactions.length; i++) {
         const reaction = reactions[i];
-        const { runOnInit = true, when: predicate, do: effect, once, debugName, awaitAsync } = reaction;
+        const { runOnInit = true, when: predicate, do: effect, once, debugName } = reaction;
+        // awaitAsync is the name awaited had before 1.9. When both are given,
+        // awaited is the one which counts.
+        const awaited = reaction.awaited ?? reaction.awaitAsync;
         // A one shot reaction another pass disposed of meanwhile has had its run.
         if ((isInit && !runOnInit) || this.stepReactions.indexOf(reaction) === -1) {
           continue
@@ -677,12 +685,12 @@ export class Instance<
             console.info("[SAM] reaction:", debugName);
           }
           handles = handles || this.toHandles(pass);
-          recorder = awaitAsync ? this.stepRecorder : undefined;
+          recorder = awaited ? this.stepRecorder : undefined;
           this.reacting = pass;
-          const result = effect({ ...args, actions: handles.actions, representation: this.representationRef.current, compose: handles.compose });
+          const result = effect({ ...args, actions: handles.actions, representation: this.representation, compose: handles.compose });
           this.reacting = undefined;
-          // Await the effect if awaitAsync is set to ensure sequential execution
-          if (awaitAsync && isThenable(result)) {
+          // Await the effect if it is awaited, to ensure sequential execution
+          if (awaited && isThenable(result)) {
             await result;
           }
           recorder = undefined;
@@ -784,7 +792,7 @@ export class Instance<
     recorder: IStepRecorder,
     reason: Reason
   ): void {
-    const stepId = attempt.attemptedAt;
+    const stepId = attempt.stepId;
     const undone: AcceptedAttempt<MUTATIONS> = { ...attempt, settled: false, reason, undone: true };
     // What waited behind the step was meant for a state which is gone. What
     // arrives once the model is back is not.
@@ -839,7 +847,7 @@ export class Instance<
 
     if (refused === undefined) {
       this.reportUnsettled(pass, {
-        code: RejectionCode.stepNotUndone,
+        code: ReasonCode.stepNotUndone,
         message: `An awaited reaction failed and the step ${stepId + 1} could not be taken back: ${toUnsettledReason(failure).message}.`,
         meta: { reason, error: failure },
       });
@@ -856,7 +864,7 @@ export class Instance<
     for (let waiting = refused.shift(); waiting !== undefined; waiting = refused.shift()) {
       const { origin } = waiting;
       this.quietly(() => this.discardProposal({
-        code: RejectionCode.precedingStepUndone,
+        code: ReasonCode.precedingStepUndone,
         message: `The step ${stepId + 1} was undone: what waited behind it was not presented.`,
         meta: { stepId: stepId + 1, reason },
       }, origin));
@@ -898,7 +906,7 @@ export class Instance<
     // Refresh the represenation
     if (this.factory.transformer) {
       try {
-        derivate(this.representationRef.current, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
+        derivate(this.representation, this.factory.transformer({data: this.data, controlStates: this.currentControlStates}));
       } catch (error) {
         this.reportUnsettled(pass, toUnsettledReason(error));
       }
@@ -975,7 +983,7 @@ export class Instance<
         rejected.push({
           mutation,
           reason: {
-            code: RejectionCode.unknownAcceptor,
+            code: ReasonCode.unknownAcceptor,
             message: `No acceptor is bound to "${type}".`,
           },
         });
@@ -1007,7 +1015,7 @@ export class Instance<
  */
 type Pass<MUTATIONS, CONTROL_STATES> = ReactionPass & {
   /**
-   * The step it reacts to. None for the pass of the creation, of a rollback
+   * The step it reacts to. None for the pass of the creation, of a restore
    * or of a reset.
    */
   step?: RunningStep<MUTATIONS, CONTROL_STATES>;
@@ -1029,7 +1037,7 @@ type Pass<MUTATIONS, CONTROL_STATES> = ReactionPass & {
 const PRESENTING: Pass<any, any> = toPass(0);
 
 /**
- * What it holds while a rollback or a reset puts its state in the model: the
+ * What it holds while a restore or a reset puts its state in the model: the
  * same lock, for another reason.
  */
 const LANDING: Pass<any, any> = toPass(0);
@@ -1091,7 +1099,7 @@ const NO_PATCHES: StepPatches = { patches: [], inversePatches: [] };
  * finds what it wrote.
  */
 function withPatches<DELTA extends object>(delta: DELTA, source: object) {
-  // A step built by hand, to roll back to, has none.
+  // A step built by hand, to restore, has none.
   const patches: Partial<StepPatches> = source;
   const define = (name: "patches" | "inversePatches") =>
     Object.defineProperty(delta, name, {
@@ -1127,7 +1135,7 @@ const MAX_NAP_CASCADE = 50;
 
 function toRunawayReason(): Reason {
   return {
-    code: RejectionCode.reactionsDidNotSettle,
+    code: ReasonCode.reactionsDidNotSettle,
     message: `The step reactions did not settle after ${MAX_NAP_CASCADE} steps.`,
     meta: { steps: MAX_NAP_CASCADE },
   };
@@ -1148,7 +1156,7 @@ function isSameList<T>(one: T[], other: T[]): boolean {
 
 function toUnsettledReason(error: unknown): Reason {
   return {
-    code: RejectionCode.reactionThrew,
+    code: ReasonCode.reactionThrew,
     message: error instanceof Error ? error.message : String(error),
     meta: { error },
   };
