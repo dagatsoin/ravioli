@@ -4,9 +4,12 @@ import {
   ActionDeclaration,
   ActionDeclarations,
   ActionOptions,
+  Container,
   ContainerFactory,
   ControlStatePredicate,
+  IAttempt,
   IContainerFactory,
+  IInstance,
   ReasonCode,
   RejectionCode,
   createContainer,
@@ -176,5 +179,72 @@ describe("awaited, was awaitAsync", function () {
     writes.forEach((done) => done());
     await settle();
     expect(container.stepId).toBe(2);
+  });
+});
+
+describe("the container", function () {
+  type Hero = { hp: number };
+  function hero() {
+    return createContainer<Hero>()
+      .addAcceptor("setHP", { mutator: (data, hp: number) => { data.hp = hp; } })
+      .addActions({ setHP: "setHP" });
+  }
+
+  test("Container is what create makes, and still an IInstance with IAttempt", function () {
+    const factory = hero();
+    type Mutations = typeof factory.Mutations;
+    type Actions = ReturnType<typeof factory.create>["actions"];
+    const container: Container<Hero, Mutations, never, Actions> = factory.create({ hp: 1 });
+    const old: IInstance<Hero, Mutations, never, Actions> & IAttempt<Actions, Mutations> = factory.create({ hp: 1 });
+    expect(container.representation).toEqual({ hp: 1 });
+    expect(old.representationRef.current).toEqual({ hp: 1 });
+  });
+
+  test.each([
+    ["the model", () => hero().create({ hp: 1 })],
+    ["a representation", () => hero().setRepresentation(({ data }) => ({ health: data.hp })).create({ hp: 1 })],
+    ["a static representation", () => hero().setStaticRepresentation(({ data }) => ({ health: () => data.hp })).create({ hp: 1 })],
+  ])("representation is representationRef.current, for %s", function (_, create) {
+    const container = create();
+    expect(container.representation).toBeDefined();
+    expect(container.representation).toBe(container.representationRef.current);
+    container.actions.setHP(2);
+    expect(container.representation).toBe(container.representationRef.current);
+  });
+
+  test("a step reaction is given the representation", function () {
+    const given: unknown[] = [];
+    const container = hero()
+      .setRepresentation(({ data }) => ({ health: data.hp }))
+      .addStepReaction({ do: ({ representation }) => { given.push(representation); } })
+      .create({ hp: 1 });
+    container.actions.setHP(2);
+    expect(given).toEqual([container.representation, container.representation]);
+    expect(given[1]).toBe(container.representation);
+  });
+
+  test("rollback is restore", function () {
+    const container = hero().create({ hp: 1 });
+    expect(container.rollback).toBe(container.restore);
+  });
+
+  test.each(["restore", "rollback"] as const)("%s jumps to a step", function (jump) {
+    const steps: Array<{ data: Hero; delta: any }> = [];
+    const container = hero()
+      .addStepReaction({ do: ({ data, delta }) => { steps.push({ data: { hp: data.hp }, delta: { ...delta, controlStates: delta.controlStates.slice() } }); } })
+      .create({ hp: 1 });
+    container.actions.setHP(2);
+    container.actions.setHP(3);
+    container[jump](steps[1]);
+    expect(container.representation).toEqual({ hp: 2 });
+    expect(container.stepId).toBe(1);
+  });
+
+  test("reset is given the data the container was created with", function () {
+    const container = hero().create({ hp: 1 });
+    container.actions.setHP(2);
+    container.reset({ hp: 1 });
+    expect(container.representation).toEqual({ hp: 1 });
+    expect(container.stepId).toBe(0);
   });
 });

@@ -16,7 +16,7 @@ export interface SAMLoop {
    */
   refuseIfLocked(origin?: Origin): boolean;
   /**
-   * How many steps and jumps (rollback, reset) the container took. Unlike the
+   * How many steps and jumps (restore, reset) the container took. Unlike the
    * step id it never comes back to a value it had.
    */
   moment: number;
@@ -54,7 +54,7 @@ export type Delta<MUTATIONS, CONTROL_STATES> = {
  * before it waits on anything. Once the step is over, reading patches nobody
  * read in time throws.
  *
- * They are empty at creation and after a reset. A rollback hands over those
+ * They are empty at creation and after a reset. A restore hands over those
  * of the step it is given, none when it was built by hand.
  */
 export type StepDelta<MUTATIONS, CONTROL_STATES> = Delta<
@@ -75,7 +75,7 @@ export type StepDelta<MUTATIONS, CONTROL_STATES> = Delta<
 };
 
 /**
- * A step to jump to with rollback().
+ * A step to jump to with restore().
  *
  * It carries the model data of the targeted step and the delta which produced
  * it. The delta is reinjected so the step reactions replay as they ran: a
