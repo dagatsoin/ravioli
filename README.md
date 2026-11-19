@@ -499,6 +499,7 @@ if (attempt.status === 'rejected') {
 ```
 
 - `attempt` holds the same actions as `actions`, with the same arguments: `counter.attempt.increment()` where `counter.actions.increment()` returns nothing. Whatever an action is called, `name`, `call` or `prototype` included. Or give it a composer, as `compose` takes: `counter.attempt(({ increment }) => [increment(), increment()])`
+- Save an action called `then`: on `attempt` it would make the function look like a promise, and an `async` function which hands `attempt` back would call the action and never resolve. It is not there, attempt it through a composer: `counter.attempt(({ then }) => [then()])`. It is on `actions` as it was in 1.7
 - The promise resolves once nothing can change the attempt anymore: at once for a refusal, after the reactions of the step for an accepted one
 - You are told of your own step only. The failure of a reaction of another step is not yours
 - A refusal is an outcome, the promise does not reject for it. It rejects when the action, an acceptor or a control state predicate throws

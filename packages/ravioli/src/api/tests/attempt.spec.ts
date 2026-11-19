@@ -1308,6 +1308,52 @@ describe("an action which is called as something every function has", function (
       "prototype",
     ]);
   });
+
+  describe("when one is called then", function () {
+    function createPromised() {
+      return createContainer<{ log: string[] }>()
+        .addAcceptor("write", {
+          mutator: (data, line: string) => {
+            data.log.push(line);
+          },
+        })
+        .addActions({
+          write: "write",
+          then: () => [{ type: "write", payload: "then" }],
+        })
+        .create({ log: [] });
+    }
+
+    it("should not be on attempt, which would be taken for a promise", async function () {
+      const Fraktar = createPromised();
+
+      // @ts-expect-error not on attempt
+      expect(Fraktar.attempt.then).toBeUndefined();
+      expect(Object.keys(Fraktar.attempt)).toEqual(["write"]);
+      // Handed back by an async function, attempt is not awaited as a promise:
+      // the action is not called, and the function resolves.
+      expect(await (async () => Fraktar.attempt)()).toBe(Fraktar.attempt);
+      expect(Fraktar.representationRef.current.log).toEqual([]);
+    });
+
+    it("should be attempted through a composer", async function () {
+      const Fraktar = createPromised();
+
+      const outcome = await Fraktar.attempt(({ then }) => [then()]);
+
+      expect(asAccepted(outcome).accepted).toEqual([
+        { type: "write", payload: "then" },
+      ]);
+    });
+
+    it("should stay on actions, as in 1.7", function () {
+      const Fraktar = createPromised();
+
+      Fraktar.actions.then();
+
+      expect(Fraktar.representationRef.current.log).toEqual(["then"]);
+    });
+  });
 });
 
 describe("an autorun which asks what becomes of an action", function () {

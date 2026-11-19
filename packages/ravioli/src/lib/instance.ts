@@ -225,17 +225,23 @@ export class Instance<
       // Bound: a bound function has no prototype, even once compiled to ES5,
       // and an action can be called `prototype` as well.
       const attempt = call.bind(undefined);
-      Object.keys(this.factory.wrapedActions).forEach((name) => {
-        // Defined, not assigned: an action can be called `name` or `length`,
-        // which a function has already and does not let be written.
-        Object.defineProperty(attempt, name, {
-          enumerable: true,
-          configurable: true,
-          writable: true,
-          value: (...args: any[]) =>
-            this.ask((origin) => this.factory.wrapedActions[name](this, origin)(...args)),
+      Object.keys(this.factory.wrapedActions)
+        // A function which has a then is taken for a promise: an async
+        // function which hands attempt back would call that action, and
+        // never resolve.
+        .filter((name) => name !== "then")
+        .forEach((name) => {
+          // Defined, not assigned: an action can be called `name` or
+          // `length`, which a function has already and does not let be
+          // written.
+          Object.defineProperty(attempt, name, {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (...args: any[]) =>
+              this.ask((origin) => this.factory.wrapedActions[name](this, origin)(...args)),
+          });
         });
-      });
       return attempt as AttemptCall<ACTIONS, MUTATIONS>;
     }
 

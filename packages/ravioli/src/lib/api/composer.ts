@@ -12,6 +12,9 @@ export type Compose<ACTIONS, MUTATIONS> = (composer: ActionComposer<ACTIONS, MUT
  * action itself answers nothing. And, called with a composer, a proposal
  * composed as `compose` does. Either way the author gets the outcome of that
  * attempt.
+ *
+ * Save an action called `then`: with it, attempt would be taken for a
+ * promise. It is attempted through a composer.
  */
 export type AttemptCall<ACTIONS, MUTATIONS> = AttemptActions<ACTIONS, MUTATIONS> &
   ((composer: ActionComposer<ACTIONS, MUTATIONS>) => Promise<Attempt<MUTATIONS>>);
@@ -19,7 +22,7 @@ export type AttemptCall<ACTIONS, MUTATIONS> = AttemptActions<ACTIONS, MUTATIONS>
 type AttemptActions<ACTIONS, MUTATIONS> = [ACTIONS] extends [never]
   ? unknown
   : {
-      [NAME in keyof ACTIONS]: ACTIONS[NAME] extends (...args: infer ARGS) => any
+      [NAME in Exclude<keyof ACTIONS, "then">]: ACTIONS[NAME] extends (...args: infer ARGS) => any
         ? (...args: ARGS) => Promise<Attempt<MUTATIONS>>
         : never;
     };
